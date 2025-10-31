@@ -35,7 +35,12 @@ class OrganizationForm
                                     $slug = Str::slug($state, '-');
                                     $set('code', Str::upper($slug));
                                 }
-                            }),
+                            })
+                            ->validationMessages([
+                                'required' => __('common.error.required'),
+                                'min'      => __('common.error.min_length', ['min' => 3]),
+                                'max'      => __('common.error.max_length', ['max' => 255]),
+                            ]),
 
                         TextInput::make('code')
                             ->label(__('filament.organization.form.code'))
@@ -52,18 +57,29 @@ class OrganizationForm
                                     $slug = Str::slug($state, '-');
                                     $set('code', Str::upper($slug));
                                 }
-                            }),
+                            })
+                            ->validationMessages([
+                                'required' => __('common.error.required'),
+                                'max'      => __('common.error.max_length', ['max' => 20]),
+                                'unique'   => __('common.error.unique'),
+                            ]),
 
                         TextInput::make('phone')
                             ->label(__('filament.organization.form.phone'))
-                            ->tel()
+                            ->tel(true)
                             ->maxLength(20)
-                            ->placeholder(__('filament.organization.form.phone_placeholder')),
+                            ->placeholder(__('filament.organization.form.phone_placeholder'))
+                            ->validationMessages([
+                                'max'      => __('common.error.max_length', ['max' => 20]),
+                            ]),
 
                         TextInput::make('address')
                             ->label(__('filament.organization.form.address'))
                             ->maxLength(255)
-                            ->placeholder(__('filament.organization.form.address_placeholder')),
+                            ->placeholder(__('filament.organization.form.address_placeholder'))
+                            ->validationMessages([
+                                'max'      => __('common.error.max_length', ['max' => 255]),
+                            ]),
                     ]),
                 ]),
 
@@ -74,14 +90,23 @@ class OrganizationForm
                             ->label(__('filament.organization.form.product_field'))
                             ->options(ProductField::toOptions())
                             ->required()
-                            ->searchable(),
+                            ->searchable()
+                            ->validationMessages([
+                                'required' => __('common.error.required'),
+                            ]),
 
                         TextInput::make('maximum_employees')
                             ->label(__('filament.organization.form.maximum_employees'))
                             ->numeric()
                             ->default(99)
                             ->minValue(1)
-                            ->maxValue(9999),
+                            ->maxValue(9999)
+                            ->validationMessages([
+                                'required' => __('common.error.required'),
+                                'min'      => __('common.error.min_value', ['min' => 1]),
+                                'max'      => __('common.error.max_value', ['max' => 9999]),
+                                'numeric'  => __('common.error.numeric'),
+                            ]),
                     ]),
 
                     Textarea::make('description')
