@@ -105,6 +105,7 @@ class OrganizationForm
                                 'required' => __('common.error.required'),
                                 'min'      => __('common.error.min_value', ['min' => 1]),
                                 'max'      => __('common.error.max_value', ['max' => 9999]),
+                                'numeric'  => __('common.error.numeric'),
                             ]),
                     ]),
 
