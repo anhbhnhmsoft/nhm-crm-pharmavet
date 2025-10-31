@@ -27,7 +27,20 @@ class UserResource extends Resource
     {
         return __('filament.navigation.unit_administration');
     }
+    public static function getModelLabel(): string
+    {
+        return __('filament.user.label');
+    }
 
+    public static function getPluralModelLabel(): string
+    {
+        return __('filament.user.label');
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return __('filament.user.label');
+    }
     public static function form(Schema $schema): Schema
     {
         return UserForm::configure($schema);

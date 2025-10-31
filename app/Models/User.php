@@ -16,19 +16,22 @@ class User extends Authenticatable
 
     protected $table = 'users';
     protected $fillable = [
-        "organization_code",
-        "team_id",
-        "name",
+        "organization_id",
         "username",
-        "email",
         "password",
+        "email",
+        "name",
+        "team_id",
         "disable",
+        "phone",
         "role",
         "position",
-        "phone",
-        "address",
-        "avatar",
-        "lang",
+        "salary",
+        "disable",
+        "online_hours",
+        "last_logout_at",
+        "last_login_at",
+        "team_id"
     ];
 
     protected $hidden = [
@@ -46,7 +49,7 @@ class User extends Authenticatable
 
     public function organization()
     {
-        return $this->belongsTo(Organization::class, 'organization_code', 'code');
+        return $this->belongsTo(Organization::class);
     }
 
     public function team()

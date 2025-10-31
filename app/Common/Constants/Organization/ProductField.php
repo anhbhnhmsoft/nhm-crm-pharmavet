@@ -4,71 +4,71 @@ namespace App\Common\Constants\Organization;
 
 enum ProductField: int
 {
-    /**
+/**
      * Quần áo
      */
     case FASHION = 1;
-    /**
+/**
      * Spa clinic
      */
     case SPA_CLINIC = 2;
-    /**
+/**
      * Thực phẩm detox
      */
     case DETOX_FOOD = 3;
-    /**
+/**
      * Bất động sản
      */
     case REAL_ESTATE = 4;
-    /**
+/**
      * Đào tạo offline
      */
     case OFFLINE_TRAINING = 5;
-    /**
+/**
      * Đồ dùng nhà bếp
      */
     case KITCHEN_ACCESSORY = 6;
-    /**
+/**
      * Thiết bị y tế
      */
     case MEDICAL_EQUIPMENT = 7;
-    /**
+/**
      * Materal xây dựng
      */
     case CONSTRUCTION_MATERIAL = 8;
-    /**
+/**
      * Bán hàng cá nhân
      */
     case PERSONAL_SALES = 9;
-    /**
+/**
      * Bán hàng tạp hóa
      */
     case RETAIL = 10;
-    /**
+/**
      * Phòng gym, thể hình
      */
     case GYM_FITNESS = 11;
-    /**
+/**
      * Nha khoa
      */
     case DENTISTRY = 12;
-    /**
+/**
      * Phong thủy
      */
     case FENG_SHUI = 13;
-    /**
+/**
      * Dịch vụ du lịch
      */
     case TRAVEL_SERVICE = 14;
-    /**
+/**
      * Mỹ phẩm
      */
     case COSMETICS = 15;
-    /**
+/**
      * Khóa học online
      */
     case ONLINE_COURSE = 16;
-    /**
+/**
      * Dược phẩm
      */
     case PHARMACEUTICAL = 17;
@@ -94,5 +94,19 @@ enum ProductField: int
             self::ONLINE_COURSE => __('enum.product_field.online_course'),
             self::PHARMACEUTICAL => __('enum.product_field.pharmaceutical'),
         };
+    }
+
+    public static function toOptions(): array
+    {
+        $options = [];
+        foreach (self::cases() as $case) {
+            $options[$case->value] = $case->label();
+        }
+        return $options;
+    }
+
+    public static function getLabel(int $value): string
+    {
+        return self::tryFrom($value)?->label();
     }
 }

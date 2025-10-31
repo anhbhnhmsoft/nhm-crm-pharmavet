@@ -21,9 +21,10 @@ class Organization extends Model
         "address",
         "phone",
         "product_field",
-        "province_code",
-        "district_code",
-        "ward_code",
+        // "province_code",
+        // "district_code",
+        // "ward_code",
+        'maximum_employees',
         "disable",
     ];
 
@@ -31,22 +32,22 @@ class Organization extends Model
         'disable' => 'boolean',
     ];
 
-    public function province(): BelongsTo
-    {
-        return $this->belongsTo(Province::class, 'province_code', 'code');
-    }
-    public function district(): BelongsTo
-    {
-        return $this->belongsTo(District::class, 'district_code', 'code');
-    }
-    public function ward(): BelongsTo
-    {
-        return $this->belongsTo(Ward::class, 'ward_code', 'code');
-    }
+    // public function province(): BelongsTo
+    // {
+    //     return $this->belongsTo(Province::class, 'province_code', 'code');
+    // }
+    // public function district(): BelongsTo
+    // {
+    //     return $this->belongsTo(District::class, 'district_code', 'code');
+    // }
+    // public function ward(): BelongsTo
+    // {
+    //     return $this->belongsTo(Ward::class, 'ward_code', 'code');
+    // }
 
     public function users(): HasMany
     {
-        return $this->hasMany(User::class, 'organization_code', 'code');
+        return $this->hasMany(User::class);
     }
 
 }

@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Common\Constants\Language;
+use App\Services\AuthService;
 use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
 use Filament\Auth\Http\Responses\Contracts\LoginResponse;
 use Filament\Auth\Pages\Login as BaseLogin;
@@ -13,13 +14,13 @@ use Filament\Schemas\Schema;
 use Filament\Support\Assets\Css;
 use Filament\Support\Facades\FilamentAsset;
 use Illuminate\Support\Facades\App;
-use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Vite;
-use Illuminate\Support\HtmlString;
 use Illuminate\Validation\ValidationException;
 
 class Login extends BaseLogin
 {
+    protected AuthService $authService;
+
     public function mount(): void
     {
         parent::mount();
@@ -29,6 +30,7 @@ class Login extends BaseLogin
 
     public function boot()
     {
+        $this->authService = app(AuthService::class);
         FilamentAsset::register([
             Css::make('app-css', Vite::asset('resources/css/app.css')),
         ]);
@@ -56,10 +58,6 @@ class Login extends BaseLogin
                 ->autocomplete('current-password')
                 ->required()
                 ->extraInputAttributes(['tabindex' => 3]),
-            Checkbox::make('remember')
-                ->label(__('filament.login.remember_me'))
-                ->extraInputAttributes(['tabindex' => 4]),
-
         ]);
     }
 
@@ -93,16 +91,20 @@ class Login extends BaseLogin
         }
         $data = $this->form->getState();
 
+        $loginValue = $data['username'];
+
         $credentials = [
-            'username'     => $data['username'],
-            'password'     => $data['password'],
+            'login_value'       => $loginValue,
+            'password'          => $data['password'],
             'organization_code' => $data['organization_code'],
         ];
 
-        if (!auth()->attempt($credentials, (bool)($data['remember'] ?? false))) {
-            throw ValidationException::withMessages([
-                'data.username' => __('filament.login.error.invalid_credentials'),
-            ]);
+        $result = $this->authService->handleLoginUser($credentials);
+
+        if ($result->isError()) {
+            if ($result->getException() instanceof ValidationException) {
+                throw $result->getException();
+            }
         }
         return app(LoginResponse::class);
     }
