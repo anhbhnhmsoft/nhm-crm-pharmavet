@@ -29,9 +29,7 @@ class OrganizationResource extends Resource
 
     public static  function canAccess(): bool
     {
-        $user = Auth::user();
-
-        return $user->role == UserRole::SUPER_ADMIN->value;
+        return Auth::user()->hasRole(UserRole::SUPER_ADMIN);
     }
 
     public static function getModelLabel(): string

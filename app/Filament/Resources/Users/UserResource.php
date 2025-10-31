@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Users;
 
+use App\Common\Constants\User\UserRole;
 use App\Filament\Resources\Users\Pages\CreateUser;
 use App\Filament\Resources\Users\Pages\EditUser;
 use App\Filament\Resources\Users\Pages\ListUsers;
@@ -15,6 +16,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\Auth;
 use UnitEnum;
 
 class UserResource extends Resource
@@ -73,5 +75,19 @@ class UserResource extends Resource
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ]);
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        $currentUser = Auth::user();
+
+        if ($currentUser && $currentUser->hasRole(UserRole::SUPER_ADMIN)) {
+            return $query->whereNotIn('role', [UserRole::SUPER_ADMIN->value]);
+        }
+        return $query->where('organization_id', $currentUser->organization_id)->whereNotIn('role', [UserRole::SUPER_ADMIN->value])->withoutGlobalScopes([
+            SoftDeletingScope::class,
+        ]);
     }
 }

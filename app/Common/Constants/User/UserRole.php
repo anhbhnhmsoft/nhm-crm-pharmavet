@@ -34,4 +34,9 @@ enum UserRole: int
             })
             ->toArray();
     }
+
+    public static function getLabel(int $value): string
+    {
+        return self::tryFrom($value)?->label();
+    }
 }

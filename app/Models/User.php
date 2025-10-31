@@ -54,7 +54,7 @@ class User extends Authenticatable
 
     public function team()
     {
-        return $this->belongsTo(Team::class, 'id', 'team_id');
+        return $this->belongsTo(Team::class);
     }
 
     public function logs()
@@ -77,5 +77,13 @@ class User extends Authenticatable
         return $this->hasRole(UserRole::SUPER_ADMIN);
     }
 
+    public function createdBy()
+    {
+        return $this->belongsTo(User::class, 'created_by', 'id');
+    }
 
+    public function updatedBy()
+    {
+        return $this->belongsTo(User::class, 'updated_by', 'id');
+    }
 }

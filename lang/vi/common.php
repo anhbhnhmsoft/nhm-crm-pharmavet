@@ -36,6 +36,8 @@ return [
         'min_value' => 'Giá trị tối thiểu là :min.',
         'max_value' => 'Giá trị tối đa là :max.',
         'email' => 'Địa chỉ email không hợp lệ.',
+        '403' => 'Bạn không có quyền thực hiện tác vụ này!',
+        '400' => 'Hiện tại ứng dụng không thể thực hiện yêu cầu của bạn!'
     ],
     'table' => [
         'name' => 'Tên',
@@ -56,6 +58,7 @@ return [
         'restore' => 'Khôi phục',
         'force_delete' => 'Xóa vĩnh viễn',
         'confirm_delete' => 'Xác nhận xóa',
+        'export_excel' => 'Xuất dữ liệu',
     ],
     'modal' => [
         'delete_title' => 'Xóa ',
