@@ -29,4 +29,35 @@ return [
         'validation_failed' => 'Dữ liệu không hợp lệ.',
         'max_content' => 'Nội dung không được vượt quá :max ký tự.',
     ],
+    'table' => [
+        'name' => 'Tên',
+        'code' => 'Mã',
+        'desc' => 'Miêu tả',
+        'trashed' => 'Bản ghi bị xóa',
+        'deleted_at' => 'Thời điểm xóa'
+    ],
+    'status' => [
+        'label' => 'Trạng thái',
+        'enabled' => 'Đang hoạt động',
+        'disabled' => 'Vô hiệu hóa',
+    ],
+    'action' => [
+        'view' => 'Xem',
+        'edit' => 'Sửa',
+        'delete' => 'Xóa',
+        'restore' => 'Khôi phục',
+        'force_delete' => 'Xóa vĩnh viễn',
+        'confirm_delete' => 'Xác nhận xóa',
+    ],
+    'modal' => [
+        'delete_title' => 'Xóa ',
+        'delete_confirm' => 'Bạn có chắc chắn muốn xóa đã chọn?',
+    ],
+    'tooltip' => [
+        'view' => 'Xem chi tiết ',
+        'edit' => 'Chỉnh sửa ',
+        'delete' => 'Xóa này',
+        'restore' => 'Khôi phục đã xóa',
+        'force_delete' => 'Xóa vĩnh viễn khỏi hệ thống',
+    ],
 ];

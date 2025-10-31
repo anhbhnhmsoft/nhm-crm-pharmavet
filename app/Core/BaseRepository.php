@@ -53,5 +53,23 @@ abstract class BaseRepository
         return $this->model()->whereIn('id', $ids)->delete();
     }
 
+    public function updateByCondition(array $condition, array $attributes): int
+    {
+        return $this->model()
+            ->where($condition)
+            ->update($attributes);
+    }
 
+    public function updateById(int $id, array $attributes): Model|false
+    {
+        $model = $this->model()->find($id);
+
+        if (!$model) {
+            return false;
+        }
+
+        $model->update($attributes);
+
+        return $model;
+    }
 }

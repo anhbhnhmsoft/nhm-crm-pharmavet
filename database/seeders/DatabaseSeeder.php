@@ -8,6 +8,7 @@ use App\Common\Constants\User\UserRole;
 use App\Models\District;
 use App\Models\Organization;
 use App\Models\Province;
+use App\Models\User;
 use App\Models\Ward;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -103,21 +104,19 @@ class DatabaseSeeder extends Seeder
             $organization = Organization::query()->create([
                 "name" => "PharmaVet",
                 "code" => "PHARMAVET",
-                "description" => "PharmaVet",
-                "address" => "123 Main St",
                 "phone" => "1234567890",
+                "address" => "123 Main St",
+                "description" => "PharmaVet",
                 "product_field" => ProductField::FASHION,
-                "province_code" => "1",
-                "district_code" => "1",
-                "ward_code" => "1",
                 "disable" => false,
             ]);
 
-            $organization->users()->create([
+            User::create([
                 "name" => "Super Admin",
-                "username" => "admin@admin.vn",
+                "username" => "superadmin",
+                "email"    => "admin@admin.vn",
                 "password" => bcrypt("Test12345678@"),
-                "organization_code" => $organization->code,
+                "organization_id" => $organization->id,
                 "role" => UserRole::SUPER_ADMIN->value,
                 'disable' => false,
                 'position' => UserPosition::ADMIN->value,

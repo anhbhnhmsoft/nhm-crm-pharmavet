@@ -14,4 +14,14 @@ class OrganizationCluster extends Cluster
     {
         return __('filament.navigation.unit_administration');
     }
+
+    public static function getNavigationLabel(): string
+    {
+        return __('filament.organization.cluster_label');
+    }
+
+    public static function getClusterBreadcrumb(): ?string
+    {
+        return __('filament.navigation.unit_administration');
+    }
 }
