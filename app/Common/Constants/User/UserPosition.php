@@ -20,12 +20,17 @@ enum UserPosition: int
     public static function getOptions(): array
     {
         return collect(self::cases())
-            ->mapWithKeys(function($case) {
-                if ($case === self::ADMIN) {
+            ->mapWithKeys(function ($case) {
+                if ($case === self::ADMIN && auth()->user()->hasRole(UserRole::ADMIN)) {
                     return []; // Skip ADMIN case
                 }
                 return [$case->value => $case->label()];
-            } )
+            })
             ->toArray();
+    }
+
+    public static function getLabel(int $value): string
+    {
+        return self::tryFrom($value)?->label();
     }
 }

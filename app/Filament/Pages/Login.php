@@ -7,7 +7,6 @@ use App\Services\AuthService;
 use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
 use Filament\Auth\Http\Responses\Contracts\LoginResponse;
 use Filament\Auth\Pages\Login as BaseLogin;
-use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Schema;
@@ -16,6 +15,7 @@ use Filament\Support\Facades\FilamentAsset;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class Login extends BaseLogin
 {
@@ -102,7 +102,7 @@ class Login extends BaseLogin
         $result = $this->authService->handleLoginUser($credentials);
 
         if ($result->isError()) {
-            if ($result->getException() instanceof ValidationException) {
+            if ($result->getException() instanceof Throwable) {
                 throw $result->getException();
             }
         }

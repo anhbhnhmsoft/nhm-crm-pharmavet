@@ -5,12 +5,14 @@ namespace App\Models;
 use App\Common\Constants\User\UserPosition;
 use App\Common\Constants\User\UserRole;
 use App\Core\GenerateId\GenerateIdSnowflake;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-class User extends Authenticatable
+class User extends Authenticatable implements FilamentUser
 {
     use HasFactory, Notifiable, GenerateIdSnowflake, SoftDeletes;
 
@@ -47,6 +49,11 @@ class User extends Authenticatable
         ];
     }
 
+    public function canAccessPanel(Panel $panel): bool
+    {
+        return true;
+    }
+
     public function organization()
     {
         return $this->belongsTo(Organization::class);
@@ -54,7 +61,7 @@ class User extends Authenticatable
 
     public function team()
     {
-        return $this->belongsTo(Team::class, 'id', 'team_id');
+        return $this->belongsTo(Team::class);
     }
 
     public function logs()
@@ -77,5 +84,13 @@ class User extends Authenticatable
         return $this->hasRole(UserRole::SUPER_ADMIN);
     }
 
+    public function createdBy()
+    {
+        return $this->belongsTo(User::class, 'created_by', 'id');
+    }
 
+    public function updatedBy()
+    {
+        return $this->belongsTo(User::class, 'updated_by', 'id');
+    }
 }

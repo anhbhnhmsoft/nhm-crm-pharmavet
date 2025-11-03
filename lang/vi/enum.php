@@ -6,6 +6,11 @@ return [
         'leader' => 'Trưởng nhóm',
         'staff' => 'Nhân viên',
     ],
+
+    'common_status' => [
+        'active' => 'Hoạt động',
+        'inactive' => 'Không hoạt động',
+    ],
     'user_role' => [
         'super_admin' => 'Siêu quản trị',
         'admin' => 'Quản trị',

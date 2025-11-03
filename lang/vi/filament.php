@@ -19,7 +19,8 @@ return [
         'cluster_label' => 'Tổ chức',
         'table' => [
             'product_field' => 'Sản phẩm chính',
-            'quantity_members' => 'Số lượng thành viên'
+            'quantity_members' => 'Số lượng thành viên',
+            'list_member' => 'Danh sách thành viên',
         ],
         'form' => [
             'general_info' => 'Thông tin chung',
@@ -49,5 +50,42 @@ return [
     ],
     'user' => [
         'label' => 'Thành viên',
-    ]
+        'plural' => 'Danh sách thành viên',
+        'name' => 'Họ và tên',
+        'username' => 'Tên đăng nhập',
+        'email' => 'Email',
+        'phone' => 'Số điện thoại',
+        'role' => 'Vai trò',
+        'position' => 'Chức vụ',
+        'organization' => 'Tổ chức',
+        'team' => 'Đội nhóm',
+        'password' => 'Mật khẩu',
+        'status' => 'Trạng thái',
+        'disable' => 'Dừng hoạt động',
+        'salary' => 'Mức lương',
+        'online_hours' => 'Giờ online',
+        'last_login' => 'Đăng nhập gần nhất',
+        'last_logout' => 'Đăng xuất gần nhất',
+        'basic_info' => 'Thông tin cơ bản',
+        'account_info' => 'Thông tin tài khoản',
+        'other_info' => 'Thông tin khác',
+        'create' => 'Tạo thành viên',
+        'edit' => 'Chỉnh sửa thành viên',
+        'updated_at' => 'Thời điểm cập nhật',
+        'updated_by' => 'Người cập nhật',
+        'created_at' => 'Thời điểm tạo',
+        'created_by' => 'Người tạo',
+        'delete' => 'Xóa thành viên',
+        'restore' => 'Khôi phục thành viên',
+        'force_delete' => 'Xóa vĩnh viễn',
+        'created_success' => 'Thêm thành viên thành công.',
+        'updated_success' => 'Cập nhật thành viên thành công.',
+        'deleted_success' => 'Xóa thành viên thành công.',
+        'action' => [
+            'impersonate_label' => 'Đăng nhập với tài khoản này',
+            'impersonate_heading' => 'Xác nhận đăng nhập',
+            'impersonate_description' => 'Bạn có chắc chắn muốn đăng nhập với vai trò người dùng này chứ ?',
+        ],
+        'exceed_members_limit' => 'Vượt giới hạn số lượng thành viên cho phép, vui lòng liên hệ quản trị viên để cập nhật!'
+    ],
 ];

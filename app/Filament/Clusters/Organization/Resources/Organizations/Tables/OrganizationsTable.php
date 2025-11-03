@@ -4,6 +4,7 @@ namespace App\Filament\Clusters\Organization\Resources\Organizations\Tables;
 
 use Filament\Actions\ActionGroup;
 use App\Common\Constants\Organization\ProductField;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -41,15 +42,19 @@ class OrganizationsTable
                     ->sortable(),
 
                 TextColumn::make('maximum_employees')
+                    ->label(__('filament.organization.form.maximum_employees'))
+                    ->sortable(),
+
+                TextColumn::make('users_count')
                     ->label(__('filament.organization.table.quantity_members'))
-                    ->formatStateUsing(fn($record) => $record->users->count())
+                    ->counts('users')
                     ->sortable(),
 
                 IconColumn::make('disable')
                     ->label(__('filament.organization.form.status'))
                     ->boolean()
-                    ->trueIcon('heroicon-o-x-circle')
-                    ->falseIcon('heroicon-o-check-circle')
+                    ->trueIcon('heroicon-o-check-circle')
+                    ->falseIcon('heroicon-o-x-circle')
                     ->trueColor('danger')
                     ->falseColor('success'),
 
@@ -74,33 +79,47 @@ class OrganizationsTable
             ])
             ->recordActions([
                 ActionGroup::make([
-                        ViewAction::make()
-                            ->label(__('common.action.view'))
-                            ->tooltip(__('common.tooltip.view'))
-                            ->icon('heroicon-o-eye'),
+                    Action::make('list-member')
+                        ->label(__('filament.organization.table.list_member'))
+                        ->tooltip(__('common.tooltip.view'))
+                        ->icon('heroicon-o-ellipsis-horizontal')
+                        ->action(fn($record) => redirect(route(
+                            'filament.admin.resources.users.index',
+                            [
+                                'filters' => [
+                                    'organization_id' => [
+                                        'value' => $record->id
+                                    ]
+                                ]
+                            ]
+                        ))),
+                    ViewAction::make()
+                        ->label(__('common.action.view'))
+                        ->tooltip(__('common.tooltip.view'))
+                        ->icon('heroicon-o-eye'),
 
-                        EditAction::make()
-                            ->label(__('common.action.edit'))
-                            ->tooltip(__('common.tooltip.edit'))
-                            ->icon('heroicon-o-pencil-square'),
+                    EditAction::make()
+                        ->label(__('common.action.edit'))
+                        ->tooltip(__('common.tooltip.edit'))
+                        ->icon('heroicon-o-pencil-square'),
 
-                        DeleteAction::make()
-                            ->label(__('common.action.delete'))
-                            ->tooltip(__('common.tooltip.delete'))
-                            ->icon('heroicon-o-trash')
-                            ->requiresConfirmation()
-                            ->modalHeading(__('common.modal.delete_title'))
-                            ->modalDescription(__('common.modal.delete_confirm'))
-                            ->modalSubmitActionLabel(__('common.action.confirm_delete'))
-                            ->visible(fn($record) => ! $record->trashed()),
+                    DeleteAction::make()
+                        ->label(__('common.action.delete'))
+                        ->tooltip(__('common.tooltip.delete'))
+                        ->icon('heroicon-o-trash')
+                        ->requiresConfirmation()
+                        ->modalHeading(__('common.modal.delete_title'))
+                        ->modalDescription(__('common.modal.delete_confirm'))
+                        ->modalSubmitActionLabel(__('common.action.confirm_delete'))
+                        ->visible(fn($record) => ! $record->trashed()),
 
-                        RestoreAction::make()
-                            ->label(__('common.action.restore'))
-                            ->tooltip(__('common.tooltip.restore'))
-                            ->icon('heroicon-o-arrow-path')
-                            ->visible(fn($record) => $record->trashed()),
+                    RestoreAction::make()
+                        ->label(__('common.action.restore'))
+                        ->tooltip(__('common.tooltip.restore'))
+                        ->icon('heroicon-o-arrow-path')
+                        ->visible(fn($record) => $record->trashed()),
 
-                    ])
+                ])
             ])
 
             ->toolbarActions([

@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Repositories\OrganizationRepository;
 use App\Repositories\UserRepository;
 use App\Services\AuthService;
+use App\Services\OrganizationService;
 use Filament\Support\Assets\Js;
 use Filament\Support\Facades\FilamentAsset;
 use Illuminate\Support\ServiceProvider;
@@ -39,5 +40,6 @@ class AppServiceProvider extends ServiceProvider
     private function registerApplicationService(): void
     {
         $this->app->bind(AuthService::class);
+        $this->app->bind(OrganizationService::class);
     }
 }
