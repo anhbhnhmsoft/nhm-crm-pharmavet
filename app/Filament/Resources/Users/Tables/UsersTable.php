@@ -21,6 +21,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Illuminate\Support\Facades\Auth;
+use STS\FilamentImpersonate\Actions\Impersonate;
 
 class UsersTable
 {
@@ -119,15 +120,7 @@ class UsersTable
             ])
             ->recordActions([
                 ActionGroup::make([
-                    Action::make('impersonate')
-                        ->label(__('filament.user.action.impersonate_label'))
-                        ->icon('heroicon-o-arrow-right-start-on-rectangle')
-                        ->color('success')
-                        ->requiresConfirmation()
-                        ->modalHeading(__('filament.user.action.impersonate_heading'))
-                        ->modalDescription(__('filament.user.action.impersonate_description'))
-                        ->modalSubmitActionLabel('')
-                        ->url(fn($record): string => route('users.impersonate', ['user' => $record]))
+                        Impersonate::make()
                         ->visible(
                             fn($record) =>
                             Auth::user() && Auth::user()->hasRole(UserRole::SUPER_ADMIN) && Auth::user()->id !== $record->id
