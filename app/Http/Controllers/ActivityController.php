@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Common\Constants\User\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\AuthService;
@@ -88,9 +87,8 @@ class ActivityController extends Controller
             abort(403, __('common.error.403'));
         }
 
-        // 3. Lưu ID của Super Admin VÀ ĐĂNG XUẤT TÀI KHOẢN HIỆN TẠI (Super Admin)
+        // 3. Lưu ID của Super Admin
         $impersonatorId = Auth::id(); // Lấy ID của Super Admin trước khi logout
-        Auth::logout(); // Đăng xuất Super Admin
 
         // Lưu ID của Super Admin vào Session để có thể trở về sau
         Session::put('impersonator_id', $impersonatorId);

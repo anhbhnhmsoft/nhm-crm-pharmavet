@@ -42,8 +42,12 @@ class OrganizationsTable
                     ->sortable(),
 
                 TextColumn::make('maximum_employees')
+                    ->label(__('filament.organization.form.maximum_employees'))
+                    ->sortable(),
+
+                TextColumn::make('users_count')
                     ->label(__('filament.organization.table.quantity_members'))
-                    ->formatStateUsing(fn($record) => $record->users->count())
+                    ->counts('users')
                     ->sortable(),
 
                 IconColumn::make('disable')

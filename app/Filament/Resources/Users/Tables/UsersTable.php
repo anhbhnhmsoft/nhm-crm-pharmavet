@@ -93,20 +93,19 @@ class UsersTable
                     ->label(__('filament.user.organization'))
                     ->relationship('organization', 'name')
                     ->searchable()
-                    ->preload(),
+                    ->preload()
+                    ->hidden(Auth::user()->hasRole(UserRole::ADMIN)),
 
                 SelectFilter::make('role')
                     ->label(__('filament.user.role'))
                     ->options(
-                        collect(\App\Common\Constants\User\UserRole::cases())
-                            ->mapWithKeys(fn($case) => [$case->value => $case->name])
+                        \App\Common\Constants\User\UserRole::getOptions()
                     ),
 
                 SelectFilter::make('position')
                     ->label(__('filament.user.position'))
                     ->options(
-                        collect(\App\Common\Constants\User\UserPosition::cases())
-                            ->mapWithKeys(fn($case) => [$case->value => $case->name])
+                        \App\Common\Constants\User\UserPosition::getOptions()
                     ),
 
                 TernaryFilter::make('disable')

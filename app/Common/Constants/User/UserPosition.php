@@ -21,7 +21,7 @@ enum UserPosition: int
     {
         return collect(self::cases())
             ->mapWithKeys(function ($case) {
-                if ($case === self::ADMIN) {
+                if ($case === self::ADMIN && auth()->user()->hasRole(UserRole::ADMIN)) {
                     return []; // Skip ADMIN case
                 }
                 return [$case->value => $case->label()];

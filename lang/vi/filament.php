@@ -85,6 +85,7 @@ return [
             'impersonate_label' => 'Đăng nhập với tài khoản này',
             'impersonate_heading' => 'Xác nhận đăng nhập',
             'impersonate_description' => 'Bạn có chắc chắn muốn đăng nhập với vai trò người dùng này chứ ?',
-        ]
+        ],
+        'exceed_members_limit' => 'Vượt giới hạn số lượng thành viên cho phép, vui lòng liên hệ quản trị viên để cập nhật!'
     ],
 ];

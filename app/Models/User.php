@@ -5,12 +5,14 @@ namespace App\Models;
 use App\Common\Constants\User\UserPosition;
 use App\Common\Constants\User\UserRole;
 use App\Core\GenerateId\GenerateIdSnowflake;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-class User extends Authenticatable
+class User extends Authenticatable implements FilamentUser
 {
     use HasFactory, Notifiable, GenerateIdSnowflake, SoftDeletes;
 
@@ -45,6 +47,11 @@ class User extends Authenticatable
             'password' => 'hashed',
             'disable' => 'boolean',
         ];
+    }
+
+    public function canAccessPanel(Panel $panel): bool
+    {
+        return true;
     }
 
     public function organization()

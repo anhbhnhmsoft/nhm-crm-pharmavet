@@ -25,14 +25,17 @@ enum UserRole: int
 
     public static function getOptions(): array
     {
-        return collect(self::cases())
-            ->mapWithKeys(function ($case) {
-                if ($case === self::SUPER_ADMIN) {
-                    return []; // Skip SUPER_ADMIN case
-                }
-                return [$case->value => $case->label()];
-            })
-            ->toArray();
+        $options = [];
+        foreach (self::cases() as $case) {
+            // Lọc ra case SUPER_ADMIN
+            if ($case === self::SUPER_ADMIN) {
+                continue;
+            }
+            // Thêm vào mảng theo format [value => label]
+            $options[$case->value] = $case->label();
+        }
+
+        return $options;
     }
 
     public static function getLabel(int $value): string

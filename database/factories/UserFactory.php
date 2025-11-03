@@ -30,7 +30,7 @@ class UserFactory extends Factory
             'email' => fake()->unique()->safeEmail(),
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
-            'organization_id' => Organization::inRandomOrder()->first()->id,
+            'organization_id' => 2,
             'role' => fake()->numberBetween(2, 6),
             'position' => fake()->numberBetween(2, 3),
             'salary' => fake()->numberBetween(8000000, 200000000),
