@@ -97,7 +97,6 @@ class UserForm
                             ->label(__('filament.user.organization'))
                             ->options(Organization::where('disable', false)->pluck('name', 'id'))
                             ->searchable()
-                            ->required()
                             ->default(fn() => $isSuperAdmin ? null : $authUser->organization_id)
                             ->disabled(fn() => !$isSuperAdmin)
                             ->preload()

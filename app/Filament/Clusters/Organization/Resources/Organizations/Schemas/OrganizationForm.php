@@ -10,6 +10,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Pages\CreateRecord;
+use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -45,13 +46,13 @@ class OrganizationForm
                         TextInput::make('code')
                             ->label(__('filament.organization.form.code'))
                             ->required()
-                            ->maxLength(20)
+                            ->maxLength(255)
                             ->unique(ignoreRecord: true)
                             ->placeholder(__('filament.organization.form.code_placeholder'))
                             ->hintIcon('heroicon-m-question-mark-circle')
                             ->belowContent(__('filament.organization.form.code_auto_note'))
                             ->reactive()
-                            ->debounce(500)
+                            ->debounce(1000)
                             ->afterStateUpdated(function ($state, callable $set) {
                                 if ($state) {
                                     $slug = Str::slug($state, '-');
@@ -60,7 +61,8 @@ class OrganizationForm
                             })
                             ->validationMessages([
                                 'required' => __('common.error.required'),
-                                'max'      => __('common.error.max_length', ['max' => 20]),
+                                'min'      => __('common.error.min_length', ['min' => 3]),
+                                'max'      => __('common.error.max_length', ['max' => 255]),
                                 'unique'   => __('common.error.unique'),
                             ]),
 
@@ -121,6 +123,7 @@ class OrganizationForm
                             Toggle::make('disable')
                                 ->label(__('filament.organization.form.disable'))
                                 ->default(false)
+                                ->disabled(fn($livewire) => $livewire instanceof ViewRecord)
                                 ->disabled()
                                 ->dehydrated(true),
                         ])
@@ -131,6 +134,7 @@ class OrganizationForm
                                         ? __('filament.organization.form.enable')
                                         : __('filament.organization.form.disable_action')
                                 )
+                                ->hidden(fn($livewire) => $livewire instanceof ViewRecord)
                                 ->icon('heroicon-o-arrow-path')
                                 ->requiresConfirmation()
                                 ->modalHeading(__('filament.organization.form.confirm_change'))

@@ -43,6 +43,12 @@ class UserResource extends Resource
     {
         return __('filament.user.label');
     }
+
+    public static  function canAccess(): bool
+    {
+        return Auth::user()->hasRole(UserRole::SUPER_ADMIN);
+    }
+
     public static function form(Schema $schema): Schema
     {
         return UserForm::configure($schema);

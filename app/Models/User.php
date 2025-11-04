@@ -71,7 +71,7 @@ class User extends Authenticatable implements FilamentUser
 
     public function hasRole(UserRole $role): bool
     {
-        return $this->role === $role->value;
+        return $this->role == $role->value;
     }
 
     public function hasPosition(UserPosition $position): bool

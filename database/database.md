@@ -26,6 +26,7 @@
     - name: (varchar(255), not null ) -- tên đội nhóm
     - organization_id: (unsignedBigInteger, nullable) -- tổ chức sở hữu nhóm
     - code: (string(20), unique) -- mã đội nhóm
+    - type: (tiny integer) -- loại đội nhóm
     - description: (text, nullable ) -- mô tả
     - softDeletes
     - timestamps

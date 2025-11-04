@@ -86,6 +86,19 @@ return [
             'impersonate_heading' => 'Xác nhận đăng nhập',
             'impersonate_description' => 'Bạn có chắc chắn muốn đăng nhập với vai trò người dùng này chứ ?',
         ],
-        'exceed_members_limit' => 'Vượt giới hạn số lượng thành viên cho phép, vui lòng liên hệ quản trị viên để cập nhật!'
+        'exceed_members_limit' => 'Vượt giới hạn số lượng thành viên cho phép, vui lòng liên hệ quản trị viên để cập nhật!',
+        'team' => 'Nhóm'
     ],
+    'team' => [
+        'label' => 'Đội nhóm',
+        'name' => 'Tên nhóm',
+        'organization' => 'Tổ chức',
+        'code' => 'Mã',
+        'type' => 'Kiểu nhóm',
+        'description' => 'Miêu tả',
+        'general_info' => 'Thông tin chung',
+        'members' => 'Thành viên',
+        'team_members' => 'Thành viên nhóm',
+        'total_members' => 'Tổng số thành viên'
+    ]
 ];

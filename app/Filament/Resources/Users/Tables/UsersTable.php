@@ -86,6 +86,10 @@ class UsersTable
                 TextColumn::make('organization.name')
                     ->label(__('filament.user.organization'))
                     ->sortable(),
+
+                TextColumn::make('team.name')
+                    ->label(__('filament.user.team'))
+                    ->sortable(),
             ])
             ->filters([
                 TrashedFilter::make(),
@@ -120,7 +124,7 @@ class UsersTable
             ])
             ->recordActions([
                 ActionGroup::make([
-                        Impersonate::make()
+                    Impersonate::make()
                         ->visible(
                             fn($record) =>
                             Auth::user() && Auth::user()->hasRole(UserRole::SUPER_ADMIN) && Auth::user()->id !== $record->id

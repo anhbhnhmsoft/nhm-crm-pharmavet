@@ -42,11 +42,10 @@ class CreateUser extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        dd($data);
-
         if (Auth::user()->hasRole(UserRole::ADMIN)) {
             $data['organization_id'] = Auth::user()->organization_id;
         }
+        $data['organization_id'] = 2;
 
         if (!empty($data['organization_id'])) {
             $service = app(OrganizationService::class);
