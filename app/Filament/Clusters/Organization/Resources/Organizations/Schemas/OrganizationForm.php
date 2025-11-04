@@ -46,13 +46,13 @@ class OrganizationForm
                         TextInput::make('code')
                             ->label(__('filament.organization.form.code'))
                             ->required()
-                            ->maxLength(20)
+                            ->maxLength(255)
                             ->unique(ignoreRecord: true)
                             ->placeholder(__('filament.organization.form.code_placeholder'))
                             ->hintIcon('heroicon-m-question-mark-circle')
                             ->belowContent(__('filament.organization.form.code_auto_note'))
                             ->reactive()
-                            ->debounce(500)
+                            ->debounce(1000)
                             ->afterStateUpdated(function ($state, callable $set) {
                                 if ($state) {
                                     $slug = Str::slug($state, '-');
@@ -61,7 +61,8 @@ class OrganizationForm
                             })
                             ->validationMessages([
                                 'required' => __('common.error.required'),
-                                'max'      => __('common.error.max_length', ['max' => 20]),
+                                'min'      => __('common.error.min_length', ['min' => 3]),
+                                'max'      => __('common.error.max_length', ['max' => 255]),
                                 'unique'   => __('common.error.unique'),
                             ]),
 

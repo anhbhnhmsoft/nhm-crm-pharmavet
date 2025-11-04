@@ -9,7 +9,7 @@ use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\Repeater;
+use Illuminate\Support\Str;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Auth;
@@ -36,23 +36,40 @@ class TeamForm
                         TextInput::make('name')
                             ->label(__('filament.team.name'))
                             ->required()
+                            ->minLength(3)
                             ->maxLength(255)
+                            ->live(debounce: 1000)
+                            ->afterStateUpdated(function ($state, callable $set) {
+                                if ($state) {
+                                    $slug = Str::slug($state, '-');
+                                    $set('code', Str::upper($slug));
+                                }
+                            })
                             ->validationMessages([
                                 'required' => __('common.error.required'),
+                                'min'      => __('common.error.min_length', ['min' => 3]),
                                 'max' => __('common.error.max_length', ['max' => 255])
                             ]),
 
                         TextInput::make('code')
                             ->label(__('filament.team.code'))
                             ->required()
-                            ->maxLength(50)
+                            ->minLength(3)
+                            ->maxLength(255)
                             ->unique(ignoreRecord: true)
-                            ->alphaDash()
+                            ->reactive()
+                            ->debounce(1000)
+                            ->afterStateUpdated(function ($state, callable $set) {
+                                if ($state) {
+                                    $slug = Str::slug($state, '-');
+                                    $set('code', Str::upper($slug));
+                                }
+                            })
                             ->validationMessages([
                                 'required' => __('common.error.required'),
-                                'max' => __('common.error.max_length', ['max' => 50]),
-                                'unique' => __('common.error.unique'),
-                                'alpha_dash' => __('common.error.alpha_dash')
+                                'min'      => __('common.error.min_length', ['min' => 3]),
+                                'max'      => __('common.error.max_length', ['max' => 255]),
+                                'unique'   => __('common.error.unique'),
                             ]),
 
                         Select::make('organization_id')
@@ -113,11 +130,11 @@ class TeamForm
                                     return $result->getData()
                                         ->limit(50)
                                         ->pluck('name', 'id');
-                                }else {
+                                } else {
                                     return [];
                                 }
                             })
-                            ->getOptionLabelUsing(function($value, $userService): ?string {
+                            ->getOptionLabelUsing(function ($value, $userService): ?string {
                                 $result = $userService->find($value);
                                 return $result->isSuccess() ? $result->getData()->name : null;
                             })

@@ -79,4 +79,20 @@ class UserService
             return ServiceReturn::error();
         }
     }
+
+    public function updateTeamFoMember(array $users, $teamId, $ableRemove)
+    {
+        try {
+            $result = $this->userRepository->query()->whereIn('id', $users)->update(['team_id', $teamId]);
+            if ($ableRemove) {
+                $this->userRepository->query()->where('team_id', $teamId)
+                    ->whereNotIn('id', $users)
+                    ->update(['team_id' => null]);
+            }
+            return ServiceReturn::success($result);
+        } catch (Throwable $thr) {
+            Log::error($thr);
+            return ServiceReturn::error($thr->getMessage());
+        }
+    }
 }

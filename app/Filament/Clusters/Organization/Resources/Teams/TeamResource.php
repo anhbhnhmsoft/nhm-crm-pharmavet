@@ -63,6 +63,11 @@ class TeamResource extends Resource
         ];
     }
 
+    public static  function canAccess(): bool
+    {
+        return Auth::user()->hasRole(UserRole::ADMIN);
+    }
+
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery();
