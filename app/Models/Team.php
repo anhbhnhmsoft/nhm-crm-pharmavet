@@ -15,20 +15,18 @@ class Team extends Model
     protected $fillable = [
         "name",
         "organization_id",
+        "type",
         "code",
         "description",
-        "type",
-        "created_by",
-        "updated_by",
     ];
 
     public function organization()
     {
-        return $this->belongsTo(Organization::class, 'organization_id', 'id');
+        return $this->belongsTo(Organization::class);
     }
 
     public function users()
     {
-        return $this->hasMany(User::class, 'team_id', 'id');
+        return $this->hasMany(User::class);
     }
 }

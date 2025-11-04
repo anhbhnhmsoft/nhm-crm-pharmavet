@@ -44,7 +44,9 @@ return [
         'code' => 'Mã',
         'desc' => 'Miêu tả',
         'trashed' => 'Bản ghi bị xóa',
-        'deleted_at' => 'Thời điểm xóa'
+        'deleted_at' => 'Thời điểm xóa',
+        'created_at' => 'Thời điểm tạo',
+        'updated_at' => 'Thời điểm cập nhật',
     ],
     'status' => [
         'label' => 'Trạng thái',

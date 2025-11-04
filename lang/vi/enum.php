@@ -38,4 +38,10 @@ return [
         'online_course' => 'Khóa học Online',
         'pharmaceutical' => 'Dược phẩm',
     ],
+    'team_type' => [
+        'sale' => 'Nhóm sale',
+        'cskh' => 'Nhóm CSKH',
+        'marketing' => 'Nhóm MARKETING',
+        'billoflading' => 'Nhóm vận đơn'
+    ]
 ];

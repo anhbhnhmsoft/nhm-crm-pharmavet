@@ -10,6 +10,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Pages\CreateRecord;
+use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -121,6 +122,7 @@ class OrganizationForm
                             Toggle::make('disable')
                                 ->label(__('filament.organization.form.disable'))
                                 ->default(false)
+                                ->disabled(fn($livewire) => $livewire instanceof ViewRecord)
                                 ->disabled()
                                 ->dehydrated(true),
                         ])
@@ -131,6 +133,7 @@ class OrganizationForm
                                         ? __('filament.organization.form.enable')
                                         : __('filament.organization.form.disable_action')
                                 )
+                                ->hidden(fn($livewire) => $livewire instanceof ViewRecord)
                                 ->icon('heroicon-o-arrow-path')
                                 ->requiresConfirmation()
                                 ->modalHeading(__('filament.organization.form.confirm_change'))

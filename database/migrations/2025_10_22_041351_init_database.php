@@ -33,6 +33,7 @@ return new class extends Migration {
                 ->constrained('organizations')
                 ->comment('Tổ chức phòng ban thuộc về');
             $table->string('code', 20)->unique()->comment('Mã đội nhóm');
+            $table->tinyInteger('type')->nullable()->comment('Loại đội nhóm');
             $table->text('description')->nullable()->comment('Mô tả');
             $table->timestamps();
             $table->softDeletes();
