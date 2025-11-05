@@ -1,8 +1,7 @@
 <?php
 
-namespace App\Filament\Clusters\Organization\Resources\Teams\Tables;
+namespace App\Filament\Clusters\Organization\Resources\Shifts\Tables;
 
-use App\Common\Constants\Team\TeamType;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -11,29 +10,31 @@ use Filament\Actions\EditAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\RestoreBulkAction;
-use Filament\Tables\Table;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
+use Filament\Tables\Table;
 
-class TeamsTable
+class ShiftsTable
 {
     public static function configure(Table $table): Table
     {
         return $table
             ->columns([
                 TextColumn::make('name')
-                    ->label(__('filament.team.name'))
-                    ->searchable(),
+                    ->label(__('common.table.name'))
+                    ->sortable(),
                 TextColumn::make('organization.name')
-                    ->label(__('filament.team.organization')),
-                TextColumn::make('code')
-                    ->label(__('filament.team.code'))
-                    ->searchable(),
-                TextColumn::make('type')
-                    ->label(__('filament.team.type'))
-                    ->formatStateUsing(fn(int $state) => TeamType::getLabel($state)),
+                    ->label(__('filament.organization.label'))
+                    ->sortable(),
+                TextColumn::make('start_time')
+                    ->label(__('filament.shift.table.start_time'))
+                    ->time()
+                    ->sortable(),
+                TextColumn::make('end_time')
+                    ->label(__('filament.shift.table.end_time'))
+                    ->time()
+                    ->sortable(),
                 TextColumn::make('created_at')
                     ->label(__('common.table.created_at'))
                     ->dateTime()
@@ -51,9 +52,6 @@ class TeamsTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                SelectFilter::make('type')
-                    ->label(__('filament.team.type'))
-                    ->options(TeamType::getOptions()),
                 TrashedFilter::make()
                     ->label(__('common.table.trashed')),
             ])
