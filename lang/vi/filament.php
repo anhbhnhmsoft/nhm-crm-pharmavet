@@ -100,5 +100,28 @@ return [
         'members' => 'Thành viên',
         'team_members' => 'Thành viên nhóm',
         'total_members' => 'Tổng số thành viên'
+    ],
+    'shift' => [
+        'label' => 'Ca làm việc',
+        'table' => [
+            'start_time' => 'giờ bắt đầu',
+            'end_time' => 'giờ kết thúc',
+        ],
+        'sections' => [
+            'basic_info' => 'Thông tin cơ bản',
+            'basic_info_description' => 'Nhập thông tin cơ bản cho ca làm việc.',
+            'user_assignment' => 'Phân công nhân viên',
+            'user_assignment_description' => 'Chọn nhân viên tham gia ca làm việc.',
+        ],
+        'form' => [
+            'assign_users' => 'Phân công người dùng',
+        ],
+        'validation' => [
+            'start_equals_end' => 'Thời gian kết thúc không được trùng với thời gian bắt đầu',
+            'end_before_start' => 'Thời gian kết thúc phải sau thời gian bắt đầu',
+        ],
+        'placeholder' => [
+            'select_users' => 'Người dùng trong ca làm việc'
+        ]
     ]
 ];

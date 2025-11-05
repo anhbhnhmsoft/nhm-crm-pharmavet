@@ -65,3 +65,25 @@
     - desc : (text, not null) -- hành động thực hiện
     - ip_address : (varchar(255), nullable) -- địa chỉ IP của người dùng
     - timestamps
+
+# bảng shifts 
+    # note 
+    - bảng lưu ca làm việc của người việc.
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - name : (varchar(255), not null) -- tên ca làm việc
+    - organization_id : (int, foreign key -> organizations.id, not null) -- tổ chức của ca làm việc
+    - name : (varchar(255), not null) -- tên ca làm việc
+    - start_time : (timestamp, not null) -- giờ bắt đầu ca
+    - end_time : (timestamp, not null) -- giờ kết thúc ca
+    - softDeletes
+    - timestamps
+
+# bảng user_shift
+    # note
+    - bảng lưu người dùng trong ca làm việc
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - user_id : (int, foreign key -> users.id, not null) -- người dùng có trong ca làm việc
+    - shift_id : (int, foreign key -> shifts.id, not null) -- ca làm việc của người dùng
+    - timestamps
