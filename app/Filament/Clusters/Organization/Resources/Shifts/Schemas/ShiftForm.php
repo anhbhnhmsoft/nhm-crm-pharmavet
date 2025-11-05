@@ -48,14 +48,8 @@ class ShiftForm
                             )
                             ->default($userOrganizationId)
                             ->required()
-                            ->searchable()
                             ->preload()
-                            ->live()
-                            ->disabled($isAdmin)
-                            ->dehydrated()
-                            ->afterStateUpdated(function (Set $set) {
-                                $set('users', []);
-                            })
+                            ->disabled()
                             ->validationMessages([
                                 'required' => __('common.error.required'),
                             ]),

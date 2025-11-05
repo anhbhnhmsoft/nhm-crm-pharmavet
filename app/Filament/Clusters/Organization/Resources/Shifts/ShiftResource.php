@@ -57,7 +57,7 @@ class ShiftResource extends Resource
     public static function canAccess(): bool
     {
         $user = Auth::user();
-        return $user && ($user->hasRole(UserRole::ADMIN) || $user->hasRole(UserRole::SUPER_ADMIN));
+        return $user && ($user->hasRole(UserRole::ADMIN) );
     }
 
     public static function getEloquentQuery(): Builder
