@@ -44,20 +44,29 @@ class Login extends BaseLogin
                 ->required()
                 ->autocomplete()
                 ->autofocus()
-                ->extraInputAttributes(['tabindex' => 1]),
+                ->extraInputAttributes(['tabindex' => 1])
+                ->validationMessages([
+                    'required' => __('common.error.required'),
+                ]),
             TextInput::make('username')
                 ->label(__('filament.login.username'))
                 ->string()
                 ->required()
                 ->autocomplete('username')
-                ->extraInputAttributes(['tabindex' => 2]),
+                ->extraInputAttributes(['tabindex' => 2])
+                ->validationMessages([
+                    'required' => __('common.error.required'),
+                ]),
             TextInput::make('password')
                 ->label(__('filament.login.password'))
                 ->password()
                 ->revealable(filament()->arePasswordsRevealable())
                 ->autocomplete('current-password')
                 ->required()
-                ->extraInputAttributes(['tabindex' => 3]),
+                ->extraInputAttributes(['tabindex' => 3])
+                ->validationMessages([
+                    'required' => __('common.error.required'),
+                ]),
         ]);
     }
 

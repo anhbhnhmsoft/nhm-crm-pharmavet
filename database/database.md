@@ -119,4 +119,25 @@
     - type : (unsigned tiny int, not null) -- xác định vai trò của nhân viên đối với sản phẩm (1: SALE, 2: CSKH, 3: MARKETING, 4: BILL_OF_LADING)
     - product_id : (int, foreign key -> products.id, not null) -- sản phẩm được gán cho người dùng
     - (product_id, user_id, type) : (unique index) -- đảm bảo một nhân viên chỉ được gán một vai trò duy nhất cho một sản phẩm
+    
+# bảng shifts 
+    # note 
+    - bảng lưu ca làm việc của người việc.
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - name : (varchar(255), not null) -- tên ca làm việc
+    - organization_id : (int, foreign key -> organizations.id, not null) -- tổ chức của ca làm việc
+    - name : (varchar(255), not null) -- tên ca làm việc
+    - start_time : (timestamp, not null) -- giờ bắt đầu ca
+    - end_time : (timestamp, not null) -- giờ kết thúc ca
+    - softDeletes
+    - timestamps
+
+# bảng user_shift
+    # note
+    - bảng lưu người dùng trong ca làm việc
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - user_id : (int, foreign key -> users.id, not null) -- người dùng có trong ca làm việc
+    - shift_id : (int, foreign key -> shifts.id, not null) -- ca làm việc của người dùng
     - timestamps

@@ -116,7 +116,7 @@ class TeamForm
                                     if ($isSuperAdmin) {
                                         return $query->whereNotNull('organization_id');
                                     }
-                                    return $query->where('organization_id', $authUser->organization_id);
+                                    return $query->where('organization_id', $authUser->organization_id)->whereNotIn('role', [UserRole::SUPER_ADMIN->value]);
                                 }
                             )
                             ->multiple()
@@ -128,6 +128,7 @@ class TeamForm
                                 ]);
                                 if ($result->isSuccess() && $search) {
                                     return $result->getData()
+                                        ->whereNotIn('role', [UserRole::SUPER_ADMIN->value])
                                         ->limit(50)
                                         ->pluck('name', 'id');
                                 } else {
