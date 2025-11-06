@@ -8,6 +8,9 @@ use App\Core\GenerateId\GenerateIdSnowflake;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -23,7 +26,6 @@ class User extends Authenticatable implements FilamentUser
         "password",
         "email",
         "name",
-        "team_id",
         "disable",
         "phone",
         "role",
@@ -51,20 +53,20 @@ class User extends Authenticatable implements FilamentUser
 
     public function canAccessPanel(Panel $panel): bool
     {
-        return true;
+        return !$this->disable;
     }
 
-    public function organization()
+    public function organization() : BelongsTo
     {
         return $this->belongsTo(Organization::class);
     }
 
-    public function team()
+    public function team() : BelongsTo
     {
         return $this->belongsTo(Team::class);
     }
 
-    public function logs()
+    public function logs() : HasMany
     {
         return $this->hasMany(UserLog::class, 'user_id', 'id');
     }
@@ -84,12 +86,12 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasRole(UserRole::SUPER_ADMIN);
     }
 
-    public function createdBy()
+    public function createdBy() : BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by', 'id');
     }
 
-    public function updatedBy()
+    public function updatedBy() : BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by', 'id');
     }

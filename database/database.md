@@ -65,3 +65,58 @@
     - desc : (text, not null) -- hành động thực hiện
     - ip_address : (varchar(255), nullable) -- địa chỉ IP của người dùng
     - timestamps
+
+# bảng products
+
+    # note
+    - Bảng chính lưu trữ thông tin cơ bản và chi tiết của tất cả các sản phẩm v.v.
+
+    # cấu trúc
+    - id : (int, primary key, auto-increment)
+    - organization_id: (unsignedBigInteger, nullable) -- tổ chức sở hữu sản phẩm
+    - name : (varchar(255), Not Null) -- tên sản phẩm gốc (Tên SP gốc).
+    - sku : (varchar(100), unique, not null) -- mã SKU sản phẩm, dùng để định danh duy nhất
+    - unit : (varchar(50), nullable) -- đơn vị tính của sản phẩm (vd: cái, hộp, kg)
+    - weight : (unsigned in, not null ) -- khối lượng sản phẩm
+    - cost_price : (decimal(15, 2), nullable) -- Giá nhập/Giá vốn của sản phấm
+    - sale_price : (decimal(15, 2), nullable) -- Giá bán niêm yết của sản phẩm.
+    - image : (varchar(255), nullable) -- hình ảnh sản phẩm
+    - description : (text, nullable) -- miêu tả sản phẩm
+    - barcode : (varchar(100), nullable) -- mã vạch sản phẩm
+    - type : (unsigned tiny integer, not null) -- Loại sản phẩm
+    - length : (varchar(50), nullable) -- chiều dài
+    - height : (varchar(50), nullable) -- chiều cao
+    - width : (varchar(50), nullable) -- chiều rộng
+    - quantity : (unsiged integer, not null) -- số lượng sản phẩm
+    - vat_rate : (unsigned tiny int, default 0) -- thuế VAT (%) áp dụng cho sản phẩm (0, 5, 10)
+    - is_business_product : (boolean, default false) -- đánh dấu sản phẩm đã ngừng kinh doanh.
+    - has_attributes  : (boolean, default false) -- cờ xác định sản phẩm có biến thể/thuộc tính hay không.
+    - softDeletes
+    - timestamps
+
+# bảng product_attributes
+
+    # note
+    - bảng lưu trữ các thuộc tính (biến thể) cụ thể của từng sản phẩm. Cấu trúc này giả định các thuộc tính là độc lập cho từng sản phẩm (ví dụ: "Màu sắc: Đỏ" của Sản phẩm A)
+
+    # cấu trúc
+    - id : (int, primary key, auto-increment)
+    - product_id : (int, foreign key -> users.id, not null) -- người dùng thực hiện hành động
+    - name : (varchar(100), not null) -- tên của thuộc tính (ví dụ: Màu sắc, Kích cỡ)
+    - value : (varchar(100), not null) --  Giá trị của thuộc tính (ví dụ: Đỏ, XL)
+    - product_id, name index
+    - softDeletes
+    - timestamps
+
+# bảng product_user_assignments
+
+    # note
+    - bảng pivot lưu trữ việc gán sản phẩm cụ thể cho từng nhân viên/người dùng theo vai trò. Bảng này gộp logic của các bảng pivot Marketing, Sale, CSKH vào làm một
+
+    # cấu trúc
+    - id : (int, primary key, auto-increment)
+    - user_id  : (int, foreign key -> users.id, not null) -- nhân viên được gán (người dùng thực hiện công việc liên quan đến sản phẩm này)
+    - type : (unsigned tiny int, not null) -- xác định vai trò của nhân viên đối với sản phẩm (1: SALE, 2: CSKH, 3: MARKETING, 4: BILL_OF_LADING)
+    - product_id : (int, foreign key -> products.id, not null) -- sản phẩm được gán cho người dùng
+    - (product_id, user_id, type) : (unique index) -- đảm bảo một nhân viên chỉ được gán một vai trò duy nhất cho một sản phẩm
+    - timestamps

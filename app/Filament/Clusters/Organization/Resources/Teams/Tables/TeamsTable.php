@@ -57,7 +57,6 @@ class TeamsTable
 
                 TrashedFilter::make()
                     ->label(__('common.table.trashed')),
-                TrashedFilter::make(),
             ])
             ->recordActions([
                 ActionGroup::make([
