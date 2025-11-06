@@ -47,6 +47,7 @@ return [
         'deleted_at' => 'Thời điểm xóa',
         'created_at' => 'Thời điểm tạo',
         'updated_at' => 'Thời điểm cập nhật',
+        'unit' => 'Đơn vị'
     ],
     'status' => [
         'label' => 'Trạng thái',
@@ -61,6 +62,11 @@ return [
         'force_delete' => 'Xóa vĩnh viễn',
         'confirm_delete' => 'Xác nhận xóa',
         'export_excel' => 'Xuất dữ liệu',
+        'import' => 'Import dữ liệu',
+        'upload_excel' => 'Tải lên file .xlsx chưa thông tin sản phẩm',
+        'add' => 'Thêm mới',
+        'download_template' => 'Tải mẫu xuống'
+
     ],
     'modal' => [
         'delete_title' => 'Xóa ',
@@ -73,4 +79,5 @@ return [
         'restore' => 'Khôi phục đã xóa',
         'force_delete' => 'Xóa vĩnh viễn khỏi hệ thống',
     ],
+
 ];

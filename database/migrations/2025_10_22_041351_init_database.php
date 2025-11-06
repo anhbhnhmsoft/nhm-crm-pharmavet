@@ -120,6 +120,69 @@ return new class extends Migration {
             $table->longText('payload');
             $table->integer('last_activity')->index();
         });
+
+        // --- 4. Bảng Products ---
+        Schema::create('products', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('organization_id')
+                ->constrained('organizations')
+                ->cascadeOnDelete()
+                ->comment('Tổ chức sở hữu sản phẩm');
+
+            $table->string('name', 255)->comment('Tên sản phẩm gốc');
+            $table->string('sku', 100)->unique()->comment('Mã SKU sản phẩm');
+            $table->string('unit', 50)->nullable()->comment('Đơn vị tính');
+            $table->unsignedInteger('weight')->nullable()->comment('Khối lượng (gram)');
+            $table->decimal('cost_price', 15, 2)->nullable()->comment('Giá nhập');
+            $table->decimal('sale_price', 15, 2)->nullable()->comment('Giá bán');
+            $table->string('image', 255)->nullable()->comment('Hình ảnh sản phẩm');
+            $table->text('description')->nullable()->comment('Miêu tả sản phẩm');
+            $table->string('barcode', 100)->nullable()->comment('Mã vạch');
+            $table->string('type', 100)->nullable()->comment('Phân loại sản phẩm');
+            $table->string('length', 50)->nullable()->comment('Chiều dài');
+            $table->string('width', 50)->nullable()->comment('Chiều rộng');
+            $table->string('height', 50)->nullable()->comment('Chiều cao');
+            $table->unsignedInteger('quantity')->default(0)->comment('Số lượng sản phẩm');
+            $table->unsignedTinyInteger('vat_rate')->default(0)->comment('Thuế VAT (%)');
+            $table->boolean('is_business_product')->default(false)->comment('SP ngừng kinh doanh');
+            $table->boolean('has_attributes')->default(false)->comment('Có thuộc tính (biến thể)');
+            $table->timestamps();
+            $table->softDeletes();
+
+            $table->index(['organization_id', 'sku']);
+        });
+
+        // --- 5. Bảng Product Attributes ---
+        Schema::create('product_attributes', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('product_id')
+                ->constrained('products')
+                ->cascadeOnDelete();
+            $table->string('name', 100)->comment('Tên thuộc tính (VD: Màu sắc, Kích cỡ)');
+            $table->string('value', 100)->comment('Giá trị thuộc tính (VD: Đỏ, XL)');
+            $table->softDeletes();
+            $table->timestamps();
+            $table->index(['product_id', 'name']);
+        });
+
+
+        // --- 6. Bảng Product_User_Assignments ---
+        Schema::create('product_user_assignments', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('product_id')
+                ->constrained('products')
+                ->cascadeOnDelete();
+            $table->foreignId('user_id')
+                ->constrained('users')
+                ->cascadeOnDelete()
+                ->comment('Nhân viên được gán');
+            $table->unsignedTinyInteger('type')
+                ->comment('1: SALE, 2: CSKH, 3: MARKETING, 4: BILL_OF_LADING');
+            $table->timestamps();
+
+            $table->unique(['product_id', 'user_id', 'type']);
+            $table->index(['type']);
+        });
     }
 
     /**
@@ -127,9 +190,15 @@ return new class extends Migration {
      */
     public function down(): void
     {
+        Schema::dropIfExists('product_user_assignments');
+        Schema::dropIfExists('product_attributes');
+        Schema::dropIfExists('products');
         Schema::dropIfExists('sessions');
         Schema::dropIfExists('user_shift');
         Schema::dropIfExists('user_logs');
+        Schema::dropIfExists('users');
+        Schema::dropIfExists('teams');
+        Schema::dropIfExists('organizations');
         Schema::dropIfExists('organizations');
         Schema::dropIfExists('teams');
         Schema::dropIfExists('shifts');

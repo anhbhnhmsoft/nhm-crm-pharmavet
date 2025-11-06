@@ -52,7 +52,6 @@ class UserForm
                         TextInput::make('email')
                             ->label(__('filament.user.email'))
                             ->email()
-                            // Thêm lại Unique cho email
                             ->unique(ignoreRecord: true)
                             ->required()
                             ->validationMessages([
@@ -95,24 +94,41 @@ class UserForm
 
                         Select::make('organization_id')
                             ->label(__('filament.user.organization'))
-                            ->options(Organization::where('disable', false)->pluck('name', 'id'))
+                            ->relationship('organization', 'name', fn($query) => $query->where('disable', false))
                             ->searchable()
-                            ->default(fn() => $isSuperAdmin ? null : $authUser->organization_id)
-                            ->disabled(fn() => !$isSuperAdmin)
                             ->preload()
-                            ->afterStateUpdated(function ($state, callable $set) {
-                                // reset team_id khi đổi organization
-                                $set('team_id', null);
-                            }),
+                            ->required()
+                            ->default(fn() => $isSuperAdmin ? null : $authUser->organization_id)
+                            ->disabled(fn() => ! $isSuperAdmin)
+                            ->live(debounce: 500)
+                            ->afterStateUpdated(fn(callable $set) => $set('team_id', null))
+                            ->validationMessages([
+                                'required' => __('common.error.required'),
+                            ]),
 
                         Select::make('team_id')
                             ->label(__('filament.user.team'))
-                            ->options(fn(Get $get) => Team::query()
-                                ->where('organization_id', $get('organization_id'))
-                                ->pluck('name', 'id'))
+                            ->relationship(
+                                'team',
+                                'name',
+                                fn($query, Get $get) =>
+                                $query->when(
+                                    $get('organization_id'),
+                                    fn($q, $orgId) =>
+                                    $q->where('organization_id', $orgId)
+                                )
+                            )
                             ->searchable()
                             ->preload()
-                            ->nullable(),
+                            ->nullable()
+                            ->live()
+                            ->placeholder(
+                                fn(Get $get) => $get('organization_id')
+                                    ? __('common.action.choose_team')
+                                    : __('filament.user.action.choose_organize_first')
+                            )
+                            ->disabled(fn(Get $get) => ! $get('organization_id')),
+
                         Toggle::make('disable')
                             ->label(__('filament.user.disable'))
                             ->default(false)
