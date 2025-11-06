@@ -217,6 +217,8 @@ return [
             'reduced' => 'Áp dụng thuế VAT giảm 5%',
             'zero_rate' => 'Áp dụng thuế VAT 0% (cho hàng hóa, dịch vụ xuất khẩu)',
             'eight_percent' => 'Áp dụng thuế VAT giảm 8% (theo các chính sách giảm thuế tạm thời)',
+        ],
+    ],
     'shift' => [
         'label' => 'Ca làm việc',
         'table' => [
@@ -239,5 +241,66 @@ return [
         'placeholder' => [
             'select_users' => 'Người dùng trong ca làm việc'
         ]
-    ]
+    ],
+    'combo' => [
+        'navigation_label' => 'Combo sản phẩm',
+        'plural_label' => 'Combo',
+        'label' => 'Combo',
+
+        'basic_info' => 'Thông tin cơ bản',
+        'basic_info_description' => 'Nhập thông tin cơ bản của combo',
+        'name' => 'Tên combo',
+        'name_placeholder' => 'VD: Combo Văn phòng tiết kiệm',
+        'code' => 'Mã combo',
+        'code_placeholder' => 'VD: CMB-001',
+        'code_helper' => 'Mã định danh duy nhất cho combo',
+        'generate_code' => 'Tạo mã tự động',
+        'status' => 'Trạng thái',
+        'status_helper' => 'Bật để kích hoạt combo này',
+        'active' => 'Đang hoạt động',
+        'inactive' => 'Không hoạt động',
+
+        'time_period' => 'Thời gian áp dụng',
+        'time_period_description' => 'Thiết lập thời gian hiệu lực của combo',
+        'start_date' => 'Ngày bắt đầu',
+        'end_date' => 'Ngày kết thúc',
+        'products' => 'Sản phẩm trong combo',
+        'products_description' => 'Chọn các sản phẩm và số lượng cho combo',
+        'product_list' => 'Danh sách sản phẩm',
+        'product' => 'Sản phẩm',
+        'quantity' => 'Số lượng',
+        'price_in_combo' => 'Giá trong combo',
+        'price_helper' => 'Giá bán sản phẩm trong combo (có thể giảm giá)',
+        'add_product' => 'Thêm sản phẩm',
+
+        'summary' => 'Tổng quan',
+        'summary_description' => 'Thông tin tổng hợp về combo',
+        'total_product' => 'Số sản phẩm',
+        'total_cost' => 'Tổng giá vốn',
+        'total_combo_price' => 'Tổng giá bán',
+        'discount' => 'Giảm giá',
+        'items' => 'sản phẩm',
+        'product_types' => 'Loại sản phẩm',
+
+        'validity' => 'Hiệu lực',
+        'validity_status' => 'Trạng thái hiệu lực',
+        'valid' => 'Đang hiệu lực',
+        'expired' => 'Đã hết hạn',
+        'upcoming' => 'Sắp diễn ra',
+        'all' => 'Tất cả',
+
+        'date_range' => 'Khoảng thời gian',
+        'from' => 'Từ ngày',
+        'to' => 'Đến ngày',
+        'deleted_records' => 'Bản ghi đã xóa',
+
+        'created_by' => 'Người tạo',
+        'created_at' => 'Ngày tạo',
+        'updated_by' => 'Người cập nhật',
+        'updated_at' => 'Ngày cập nhật',
+
+        'created_successfully' => 'Tạo combo thành công',
+        'updated_successfully' => 'Cập nhật combo thành công',
+        'deleted_successfully' => 'Xóa combo thành công',
+    ],
 ];

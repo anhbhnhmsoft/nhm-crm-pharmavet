@@ -1,6 +1,7 @@
 -- Database Schema Documentation
 
 # organizations
+
     # note
     - bảng lưu thông tin các tổ chức bao gồm tên, địa chỉ, thông tin liên hệ, v.v.
 
@@ -18,7 +19,8 @@
     - timestamps
 
 # bảng teams
-    # note 
+
+    # note
     - bảng lưu đội nhóm trong mỗi tổ chức
 
     # cấu trúc
@@ -30,7 +32,9 @@
     - description: (text, nullable ) -- mô tả
     - softDeletes
     - timestamps
+
 # bảng users
+
     # note
     - bảng lưu thông tin người dùng bao gồm thông tin cá nhân, quyền truy cập, v.v.
 
@@ -49,13 +53,14 @@
     - online_hours: (decimal(15, 2), nullable ) -- tổng số giờ online
     - last_login_at: (timestamp, nullable) -- giờ đăng nhập gần nhất
     - last_logout_at: (timestamp, nullable) -- giờ đăng xuất gần nhất
-    - team_id : (unsignedBigInteger, nullable) -- đội nhóm thuộc người dùng thuộc về 
+    - team_id : (unsignedBigInteger, nullable) -- đội nhóm thuộc người dùng thuộc về
     - updated_by : (unsignedBigInteger, nullable) -- người cập nhật cuối cùng
     - created_by : (unsignedBigInteger, nullable) -- người tạo mới
     - softDeletes
     - timestamps
 
 # bảng user_logs
+
     # note
     - bảng lưu lịch sử hoạt động của người dùng bao gồm đăng nhập, đăng xuất, v.v.
 
@@ -119,9 +124,10 @@
     - type : (unsigned tiny int, not null) -- xác định vai trò của nhân viên đối với sản phẩm (1: SALE, 2: CSKH, 3: MARKETING, 4: BILL_OF_LADING)
     - product_id : (int, foreign key -> products.id, not null) -- sản phẩm được gán cho người dùng
     - (product_id, user_id, type) : (unique index) -- đảm bảo một nhân viên chỉ được gán một vai trò duy nhất cho một sản phẩm
-    
-# bảng shifts 
-    # note 
+
+# bảng shifts
+
+    # note
     - bảng lưu ca làm việc của người việc.
     # cấu trúc
     - id: (int, primary key, auto-increment)
@@ -134,6 +140,7 @@
     - timestamps
 
 # bảng user_shift
+
     # note
     - bảng lưu người dùng trong ca làm việc
     # cấu trúc
@@ -141,3 +148,34 @@
     - user_id : (int, foreign key -> users.id, not null) -- người dùng có trong ca làm việc
     - shift_id : (int, foreign key -> shifts.id, not null) -- ca làm việc của người dùng
     - timestamps
+
+# bảng combos
+
+    # note
+    - bảng lưu combo sản phẩm.
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - name : (varchar(255), not null) -- tên combo sản phẩm
+    - total_product : (unsigned int, not null) -- tổng sổ sản phẩm combo
+    - total_cost : (decimal, not null) -- tổng giá sản phẩm gốc
+    - total_combo_price : (decimal, not null) -- tổng giá sản phẩm combo
+    - status : (tiny integer, not null) -- trạng thái sản phẩm
+    - start_date : (timestamp, nullable) -- ngày bắt đầu áp dụng combo
+    - end_date : (timestamp, nullable) -- ngày kết thúc áp dụng combo
+    - updated_by : (unsignedBigInteger, nullable) -- người cập nhật cuối cùng
+    - created_by : (unsignedBigInteger, nullable) -- người tạo mới
+    - softDeletes
+    - timestamps
+
+# bảng combo_product
+
+    # note
+    - bảng pivot giữa combo và sản phẩm
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - combo_id : (int, foreign key -> combos.id, not null) -- combo sản phẩm 
+    - product_id : (int, foreign key -> shifts.id, not null) -- sản phẩm liên quan
+    - quantity : (unsigned, integer, default 1) -- số lượng sản phẩm 
+    - price : (decimal, default 0) -- giá sản phẩm trong combo
+    - timestamps
+    - unique[[combo_id, product_id], combo_product_unique]
