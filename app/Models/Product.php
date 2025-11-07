@@ -6,6 +6,7 @@ use App\Common\Constants\Team\TeamType;
 use App\Core\GenerateId\GenerateIdSnowflake;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Product extends Model
@@ -35,6 +36,8 @@ class Product extends Model
     ];
 
     protected $casts = [
+        'total_cost' => 'decimal:2',
+        'total_combo_price' => 'decimal:2',
         'is_business_product' => 'boolean',
         'has_attributes' => 'boolean',
     ];
@@ -80,5 +83,12 @@ class Product extends Model
         return $this->belongsToMany(User::class, 'product_user_assignments')
             ->withTimestamps()
             ->wherePivot('type', TeamType::BILL_OF_LADING->value);
+    }
+
+    public function combos(): BelongsToMany
+    {
+        return $this->belongsToMany(Combo::class, 'combo_product')
+            ->withPivot(['quantity', 'price'])
+            ->withTimestamps();
     }
 }

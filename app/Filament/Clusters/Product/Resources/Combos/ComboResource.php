@@ -1,15 +1,15 @@
 <?php
 
-namespace App\Filament\Clusters\Product\Resources\Products;
+namespace App\Filament\Clusters\Product\Resources\Combos;
 
 use App\Common\Constants\User\UserRole;
 use App\Filament\Clusters\Product\ProductCluster;
-use App\Filament\Clusters\Product\Resources\Products\Pages\CreateProduct;
-use App\Filament\Clusters\Product\Resources\Products\Pages\EditProduct;
-use App\Filament\Clusters\Product\Resources\Products\Pages\ListProducts;
-use App\Filament\Clusters\Product\Resources\Products\Schemas\ProductForm;
-use App\Filament\Clusters\Product\Resources\Products\Tables\ProductsTable;
-use App\Models\Product;
+use App\Filament\Clusters\Product\Resources\Combos\Pages\CreateCombo;
+use App\Filament\Clusters\Product\Resources\Combos\Pages\EditCombo;
+use App\Filament\Clusters\Product\Resources\Combos\Pages\ListCombos;
+use App\Filament\Clusters\Product\Resources\Combos\Schemas\ComboForm;
+use App\Filament\Clusters\Product\Resources\Combos\Tables\CombosTable;
+use App\Models\Combo;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -19,15 +19,15 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Auth;
 
-class ProductResource extends Resource
+class ComboResource extends Resource
 {
-    protected static ?string $model = Product::class;
+    protected static ?string $model = Combo::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
     protected static ?string $cluster = ProductCluster::class;
 
-    protected static ?string $recordTitleAttribute = 'Product';
+    protected static ?string $recordTitleAttribute = 'Combo';
 
     public static function getNavigationParentItem(): ?string
     {
@@ -36,27 +36,27 @@ class ProductResource extends Resource
 
     public static function getModelLabel(): string
     {
-        return __('filament.product.label');
+        return __('filament.combo.label');
     }
 
     public static function getPluralModelLabel(): string
     {
-        return __('filament.product.label');
+        return __('filament.combo.label');
     }
 
     public static function getNavigationLabel(): string
     {
-        return __('filament.product.label');
+        return __('filament.combo.label');
     }
 
     public static function form(Schema $schema): Schema
     {
-        return ProductForm::configure($schema);
+        return ComboForm::configure($schema);
     }
 
     public static function table(Table $table): Table
     {
-        return ProductsTable::configure($table);
+        return CombosTable::configure($table);
     }
 
     public static function getRelations(): array
@@ -69,9 +69,9 @@ class ProductResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => ListProducts::route('/'),
-            'create' => CreateProduct::route('/create'),
-            'edit' => EditProduct::route('/{record}/edit'),
+            'index' => ListCombos::route('/'),
+            'create' => CreateCombo::route('/create'),
+            'edit' => EditCombo::route('/{record}/edit'),
         ];
     }
 
@@ -82,7 +82,9 @@ class ProductResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery();
+        $query = parent::getEloquentQuery()
+        ->with(['products', 'createdBy', 'updatedBy'])
+            ->withCount('products');
         $currentUser = Auth::user();
 
         if ($currentUser && $currentUser->hasRole(UserRole::SUPER_ADMIN)) {

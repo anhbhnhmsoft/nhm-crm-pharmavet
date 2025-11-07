@@ -3,9 +3,17 @@
 namespace App\Providers;
 
 use App\Repositories\OrganizationRepository;
+use App\Repositories\ProductAttributeRepository;
+use App\Repositories\ProductRepository;
+use App\Repositories\ProductUserAssignmentRepository;
+use App\Repositories\TeamRepository;
 use App\Repositories\UserRepository;
 use App\Services\AuthService;
+use App\Services\ComboService;
 use App\Services\OrganizationService;
+use App\Services\ProductService;
+use App\Services\TeamService;
+use App\Services\UserService;
 use Filament\Support\Assets\Js;
 use Filament\Support\Facades\FilamentAsset;
 use Illuminate\Support\ServiceProvider;
@@ -34,6 +42,10 @@ class AppServiceProvider extends ServiceProvider
     private function registerRepository(): void
     {
         $this->app->bind(OrganizationRepository::class);
+        $this->app->bind(ProductAttributeRepository::class);
+        $this->app->bind(ProductRepository::class);
+        $this->app->bind(ProductUserAssignmentRepository::class);
+        $this->app->bind(TeamRepository::class);
         $this->app->bind(UserRepository::class);
     }
 
@@ -41,5 +53,9 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->bind(AuthService::class);
         $this->app->bind(OrganizationService::class);
+        $this->app->bind(ComboService::class);
+        $this->app->bind(ProductService::class);
+        $this->app->bind(TeamService::class);
+        $this->app->bind(UserService::class);
     }
 }

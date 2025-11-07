@@ -57,4 +57,10 @@ class Helper
         $checkDigit = (10 - ($sum % 10)) % 10;
         return $checkDigit;
     }
+
+    public static function generateComboCode(?string $name): string
+    {
+        $prefix = strtoupper(substr(str($name)->slug('')->toString(), 0, 3));
+        return 'CMB-' . $prefix . '-' . now()->format('His') . rand(10, 99);
+    }
 }

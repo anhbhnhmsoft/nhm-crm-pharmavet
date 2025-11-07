@@ -37,7 +37,27 @@ return [
         'max_value' => 'Giá trị tối đa là :max.',
         'email' => 'Địa chỉ email không hợp lệ.',
         '403' => 'Bạn không có quyền thực hiện tác vụ này!',
-        '400' => 'Hiện tại ứng dụng không thể thực hiện yêu cầu của bạn!'
+        '400' => 'Hiện tại ứng dụng không thể thực hiện yêu cầu của bạn!',
+        'distinct_product' => 'Sản phẩm đã được chọn.',
+        'min_items' => 'Tối thiểu :min mục.',
+        'max_items' => 'Tối đa :max mục.',
+        'alpha_dash' => 'Chỉ chấp nhận chữ, số, dấu gạch ngang và gạch dưới.',
+        'phone_format' => 'Định dạng số điện thoại không hợp lệ.',
+        'date_before' => 'Ngày phải trước :date.',
+        'date_after' => 'Ngày phải sau :date.',
+        'min' => [
+            'numeric' => 'Trường :attribute phải tối thiểu là :min.',
+            'file' => 'Trường :attribute phải tối thiểu là :min kilobytes.',
+            'string' => 'Trường :attribute phải tối thiểu :min ký tự.',
+            'array' => 'Trường :attribute phải có tối thiểu :min phần tử.',
+        ],
+        'max' => [
+            'numeric' => 'Trường :attribute không được lớn hơn :max.',
+            'file' => 'Trường :attribute không được lớn hơn :max kilobytes.',
+            'string' => 'Trường :attribute không được lớn hơn :max ký tự.',
+            'array' => 'Trường :attribute không được có nhiều hơn :max phần tử.',
+        ],
+        'exists' => 'Giá trị đã chọn trong trường :attribute không hợp lệ.',
     ],
     'table' => [
         'name' => 'Tên',
@@ -50,9 +70,12 @@ return [
         'unit' => 'Đơn vị'
     ],
     'status' => [
-        'label' => 'Trạng thái',
-        'enabled' => 'Đang hoạt động',
+        'label'    => 'Trạng thái',
+        'enabled'  => 'Đang hoạt động',
         'disabled' => 'Vô hiệu hóa',
+        'active'   => 'Đang hoạt động',
+        'expired'  => 'Hết hạn',
+        'upcoming' => 'Sắp tới'
     ],
     'action' => [
         'view' => 'Xem',
