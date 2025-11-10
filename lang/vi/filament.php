@@ -303,4 +303,96 @@ return [
         'updated_successfully' => 'Cập nhật combo thành công',
         'deleted_successfully' => 'Xóa combo thành công',
     ],
+    'shipping' => [
+        // Navigation & Title
+        'navigation_label' => 'Cấu hình vận chuyển',
+        'title' => 'Cấu hình vận chuyển GHN',
+
+        // Connection Info
+        'connection_info' => 'Thông tin kết nối',
+        'connection_info_description' => 'Nhập thông tin tài khoản GHN để kết nối',
+        'account_name' => 'Tên tài khoản',
+        'account_name_placeholder' => 'VD: Cửa hàng ABC',
+        'account_name_helper' => 'Tên tài khoản GHN của bạn',
+        'api_token' => 'API Token',
+        'api_token_placeholder' => 'Nhập token từ GHN',
+        'api_token_helper' => 'Token API lấy từ trang quản trị GHN',
+        'connection_status' => 'Trạng thái kết nối',
+        'connected' => 'Đã kết nối',
+        'not_connected' => 'Chưa kết nối',
+        'test_connection' => 'Kiểm tra kết nối',
+        'allow_cod_on_failed' => 'cho phép thu phí khi giao thất bại',
+        'required_note' => 'Ghi chú bắt buộc',
+        'allow_to_try' => 'Cho phép thử',
+        'allow_viewing_not_trial' => 'Cho phép xem không cho phép thử',
+        'no_viewing' => 'không cho phép xem',
+        // Shop Info
+        'shop_info' => 'Thông tin cửa hàng',
+        'shop_info_description' => 'Chọn cửa hàng mặc định cho vận chuyển',
+        'default_store' => 'Cửa hàng mặc định',
+        'select_store' => 'Chọn cửa hàng',
+        'test_connection_first' => 'Vui lòng kiểm tra kết nối trước',
+        'test_connection_to_load_stores' => 'Nhấn nút "Kiểm tra kết nối" để tải danh sách cửa hàng',
+        'store_helper' => 'Cửa hàng này sẽ được dùng làm điểm lấy hàng mặc định',
+
+        // Insurance Settings
+        'insurance_settings' => 'Cài đặt bảo hiểm',
+        'insurance_settings_description' => 'Thiết lập bảo hiểm hàng hóa',
+        'use_insurance' => 'Sử dụng bảo hiểm',
+        'use_insurance_helper' => 'Bật để mua bảo hiểm cho đơn hàng',
+        'insurance_limit' => 'Hạn mức bảo hiểm',
+        'insurance_limit_helper' => 'Giá trị tối đa được bảo hiểm cho mỗi đơn hàng',
+
+        // Delivery Settings
+        'delivery_settings' => 'Cài đặt giao hàng',
+        'delivery_settings_description' => 'Thiết lập quy trình giao hàng',
+        'allow_view_goods' => 'Cho phép xem hàng',
+        'allow_view_goods_helper' => 'Người nhận được xem hàng trước khi thanh toán',
+        'allow_code_on_failed' => 'Cho phép thử lại khi thất bại',
+        'allow_code_on_failed_helper' => 'Cho phép giao lại khi giao hàng thất bại lần đầu',
+        'default_pickup_shift' => 'Ca lấy hàng mặc định',
+        'morning_shift' => 'Ca sáng (8h-12h)',
+        'afternoon_shift' => 'Ca chiều (13h-18h)',
+        'evening_shift' => 'Ca tối (18h-21h)',
+        'pickup_shift_helper' => 'Ca lấy hàng mặc định cho đơn hàng mới',
+        'default_pickup_time' => 'Giờ lấy hàng mặc định',
+        'pickup_time_helper' => 'Giờ lấy hàng ưu tiên (tùy chọn)',
+
+        // Messages
+        'connecting' => 'Đang kết nối...',
+        'connection_success' => 'Kết nối thành công',
+        'connection_failed' => 'Kết nối thất bại',
+        'connection_error' => 'Lỗi kết nối',
+        'api_error' => 'Lỗi API',
+        'no_shops_found' => 'Không tìm thấy cửa hàng nào',
+        'found_shops' => 'Đã tìm thấy :count cửa hàng',
+        'validation_error' => 'Lỗi xác thực',
+        'saved_successfully' => 'Lưu cấu hình thành công',
+        'save_error' => 'Lỗi khi lưu cấu hình',
+        'save' => 'Lưu cấu hình',
+        'saving' => 'Đang lưu...',
+
+        // Connection Info
+        'account_name_placeholder' => 'VD: Cửa hàng ABC',
+        'account_name_helper' => 'Tên tài khoản GHN của bạn',
+
+        // Connected Stores
+        'connected_stores' => 'Danh sách cửa hàng đã kết nối',
+        'store_id' => 'Mã cửa hàng',
+        'phone' => 'Số điện thoại',
+        'address' => 'Địa chỉ',
+        'default' => 'Mặc định',
+
+        // Help Section
+        'help' => 'Hướng dẫn',
+        'how_to_get_token' => 'Cách lấy API Token từ GHN',
+        'help_step_1' => 'Đăng nhập vào tài khoản GHN tại https://5sao.ghn.dev',
+        'help_step_2' => 'Vào menu "Cài đặt" → "Tài khoản"',
+        'help_step_3' => 'Tìm mục "API Token" và nhấn "Tạo token mới" nếu chưa có',
+        'help_step_4' => 'Copy token và paste vào ô "API Token" ở trên',
+        'note' => 'Lưu ý quan trọng',
+        'note_1' => 'Token API rất quan trọng, không chia sẻ với người khác',
+        'note_2' => 'Mỗi tổ chức chỉ được cấu hình một tài khoản GHN',
+        'note_3' => 'Bạn cần có ít nhất một cửa hàng đã được kích hoạt trên GHN',
+    ],
 ];

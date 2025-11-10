@@ -173,9 +173,28 @@
     - bảng pivot giữa combo và sản phẩm
     # cấu trúc
     - id: (int, primary key, auto-increment)
-    - combo_id : (int, foreign key -> combos.id, not null) -- combo sản phẩm 
+    - combo_id : (int, foreign key -> combos.id, not null) -- combo sản phẩm
     - product_id : (int, foreign key -> shifts.id, not null) -- sản phẩm liên quan
-    - quantity : (unsigned, integer, default 1) -- số lượng sản phẩm 
+    - quantity : (unsigned, integer, default 1) -- số lượng sản phẩm
     - price : (decimal, default 0) -- giá sản phẩm trong combo
     - timestamps
     - unique[[combo_id, product_id], combo_product_unique]
+
+# bảng shipping_configs
+
+    # note
+    - bảng lưu trữ cấu hình giao hàng của tổ chức
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - organization_id : (int, foreign key  -> organizations.id, not null) -- tổ chức có cấu hình
+    - account_name : (varchar(255), not null) -- tài khoản ghn mà tổ chức liên kết giao hàng
+    - api_token : (text, not null, encrypted ) -- token để gọi api đến hệ thống ghn
+    - default_store_id : (varchar(255), not null) -- id cửa hàng của tài khoản đã liên kết
+    - use_insurance : (boolean, default false) -- cấu hình mặc định khi tạo đơn có sử dụng bảo hiểm đơn hàng không
+    - insurance_limit : (decimal, nullable) -- giá trị bảo hiểm hàng hóa khai báo khi lên đơn
+    - required_note : (tiny integer, not null) -- yêu cầu note khi người dùng bắt đầu nhận hàng
+    - allow_cod_on_failed : (boolean, default false) -- cho phép thu thêm khi giao thất bại
+    - default_pick_shift : ( tiny integer, nullable) -- ca lấy hàng mong muốn
+    - default_pickup_time : ( timestamp, nullable) -- thời gian lấy hàng mong muốn
+    - timestamps
+    - softDeletes

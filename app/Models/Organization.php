@@ -5,8 +5,8 @@ namespace App\Models;
 use App\Core\GenerateId\GenerateIdSnowflake;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Organization extends Model
@@ -50,4 +50,13 @@ class Organization extends Model
         return $this->hasMany(User::class);
     }
 
+    public function teams(): HasMany
+    {
+        return $this->hasMany(Team::class);
+    }
+
+    public function shippingConfig() : HasOne
+    {
+        return $this->hasOne(ShippingConfig::class);
+    }
 }

@@ -230,6 +230,52 @@ return new class extends Migration {
             $table->timestamps();
             $table->unique(['combo_id', 'product_id'], 'combo_product_unique');
         });
+
+        // --- 9. Bảng Shipping_Configs ---
+        Schema::create('shipping_configs', function (Blueprint $table) {
+            $table->id()->comment('Khóa chính của bảng cấu hình GHN');
+
+            $table->foreignId('organization_id')
+                ->constrained()
+                ->cascadeOnDelete()
+                ->comment('Mã tổ chức (organization) sở hữu cấu hình GHN này');
+
+            $table->string('account_name')
+                ->comment('Tên tài khoản GHN do người dùng nhập, dùng để xác định tài khoản GHN đang kết nối');
+
+            $table->text('api_token')
+                ->encrypted()
+                ->comment('API Token do GHN cấp, dùng để xác thực khi gọi API GHN; được mã hóa khi lưu');
+
+            $table->string('default_store_id')
+                ->nullable()
+                ->comment('ID cửa hàng hoặc kho mặc định được chọn từ danh sách cửa hàng GHN');
+
+            $table->boolean('use_insurance')
+                ->default(false)
+                ->comment('Bật/tắt sử dụng bảo hiểm cho đơn hàng GHN');
+
+            $table->decimal('insurance_limit', 15, 2)
+                ->nullable()
+                ->comment('Giới hạn giá trị bảo hiểm tối đa (VNĐ) mà GHN cho phép, ví dụ 5.000.000');
+
+            $table->tinyInteger('required_note')
+                ->comment('Cho phép khách hàng xem hàng trước khi nhận: true = cho xem, false = không cho xem');
+
+            $table->boolean('allow_cod_on_failed')
+                ->default(false)
+                ->comment('Cho phép thu thêm khi giao hàng thất bại: true = có, false = không');
+
+            $table->tinyInteger('default_pickup_shift')
+                ->nullable()
+                ->comment('Mã ca lấy hàng mặc định từ GHN, ví dụ: sáng / chiều / tối');
+
+            $table->timestamp('default_pickup_time')
+                ->nullable()
+                ->comment('Thời gian lấy hàng mặc định mong muốn');
+            $table->softDeletes();
+            $table->timestamps();
+        });
     }
 
     /**
@@ -237,21 +283,19 @@ return new class extends Migration {
      */
     public function down(): void
     {
+        Schema::dropIfExists('sessions');
+        Schema::dropIfExists('shipping_configs');
         Schema::dropIfExists('combo_product');
         Schema::dropIfExists('combos');
         Schema::dropIfExists('product_user_assignments');
         Schema::dropIfExists('product_attributes');
         Schema::dropIfExists('products');
-        Schema::dropIfExists('sessions');
         Schema::dropIfExists('user_shift');
         Schema::dropIfExists('user_logs');
-        Schema::dropIfExists('users');
-        Schema::dropIfExists('teams');
-        Schema::dropIfExists('organizations');
-        Schema::dropIfExists('organizations');
         Schema::dropIfExists('teams');
         Schema::dropIfExists('shifts');
         Schema::dropIfExists('users');
+        Schema::dropIfExists('organizations');
         // Schema::dropIfExists('wards');
         // Schema::dropIfExists('districts');
         // Schema::dropIfExists('provinces');
