@@ -42,21 +42,9 @@ class ShippingConfig extends Model
         'default_pickup_shift' => '1',
     ];
 
-    /**
-     * Relationship: Organization
-     */
     public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class);
     }
 
-    public function getPickupShiftLabel(): string
-    {
-        return match ($this->default_pickup_shift) {
-            '1' => __('filament.shipping.morning_shift'),
-            '2' => __('filament.shipping.afternoon_shift'),
-            '3' => __('filament.shipping.evening_shift'),
-            default => __('filament.shipping.morning_shift'),
-        };
-    }
 }
