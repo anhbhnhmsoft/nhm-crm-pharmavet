@@ -407,7 +407,8 @@ class ProductForm
                                 titleAttribute: 'name',
                                 modifyQueryUsing: function ($query, Get $get) {
                                     if ($teamId = $get('sales_team_id')) {
-                                        $query->where('team_id', $teamId);
+                                        $query->where('team_id', $teamId)
+                                            ->where('disable', false);
                                     } else {
                                         $query->whereHas(
                                             'team',
@@ -444,7 +445,7 @@ class ProductForm
                                 titleAttribute: 'name',
                                 modifyQueryUsing: function ($query, Get $get) {
                                     if ($teamId = $get('marketing_team_id')) {
-                                        $query->where('team_id', $teamId);
+                                        $query->where('team_id', $teamId)->where('disable', false);
                                     } else {
                                         $query->whereHas(
                                             'team',
@@ -481,7 +482,7 @@ class ProductForm
                                 titleAttribute: 'name',
                                 modifyQueryUsing: function ($query, Get $get) {
                                     if ($teamId = $get('cskh_team_id')) {
-                                        $query->where('team_id', $teamId);
+                                        $query->where('team_id', $teamId)->where('disable', false);
                                     } else {
                                         $query->whereHas(
                                             'team',
