@@ -114,9 +114,15 @@ class TeamForm
                                 titleAttribute: 'name',
                                 modifyQueryUsing: function (Builder $query) use ($authUser, $isSuperAdmin) {
                                     if ($isSuperAdmin) {
-                                        return $query->whereNotNull('organization_id');
+                                        return $query
+                                            ->whereNotNull('organization_id')
+                                            ->where('disable', false)
+                                        ;
                                     }
-                                    return $query->where('organization_id', $authUser->organization_id)->whereNotIn('role', [UserRole::SUPER_ADMIN->value]);
+                                    return $query
+                                        ->where('organization_id', $authUser->organization_id)
+                                        ->whereNotIn('role', [UserRole::SUPER_ADMIN->value])
+                                        ->where('disable', false);
                                 }
                             )
                             ->multiple()
