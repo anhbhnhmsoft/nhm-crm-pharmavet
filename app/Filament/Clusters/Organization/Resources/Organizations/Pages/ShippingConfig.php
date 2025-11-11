@@ -252,7 +252,6 @@ class ShippingConfig extends Page
                 ->body($e->getMessage())
                 ->danger()
                 ->send();
-            throw $e;
         } catch (\Exception $e) {
             $this->isConnected = false;
             $this->shops = [];

@@ -395,4 +395,116 @@ return [
         'note_2' => 'Mỗi tổ chức chỉ được cấu hình một tài khoản GHN',
         'note_3' => 'Bạn cần có ít nhất một cửa hàng đã được kích hoạt trên GHN',
     ],
+    'lead' => [
+        'label' => 'Cấu hình phân bổ ',
+        'guide' => [
+            'title' => 'Hướng dẫn sử dụng',
+            'customer_types' => [
+                'title' => 'Các loại khách hàng (Customer Types)',
+                'b2c' => 'Khách hàng cá nhân (B2C)',
+                'b2c_desc' => 'Dành cho các số điện thoại cá nhân, không thuộc doanh nghiệp.',
+                'b2b' => 'Khách hàng doanh nghiệp (B2B)',
+                'b2b_desc' => 'Dành cho các số điện thoại thuộc về doanh nghiệp, tổ chức.',
+            ],
+            'distribution_methods' => [
+                'title' => 'Các phương thức phân phối',
+                'round_robin' => 'Luân phiên (Round-Robin)',
+                'round_robin_desc' => 'Phân phối lần lượt cho từng nhân viên theo thứ tự (1, 2, 3, 1, 2, 3...).',
+                'load_balancing' => 'Cân bằng tải (Load-Balancing)',
+                'load_balancing_desc' => 'Phân phối cho nhân viên có tải thấp nhất (ít lead nhất) sau khi cân nhắc trọng số.',
+            ],
+            'staff_weight' => [
+                'title' => 'Trọng số nhân viên (Staff Weight)',
+                'content' => 'Trọng số (Weight) là độ ưu tiên của nhân viên. Nhân viên có trọng số cao hơn sẽ được phân bổ nhiều lead hơn. Mặc định là 1.',
+            ],
+            'example' => [
+                'title' => 'Ví dụ minh họa',
+                'content' => 'Quy tắc 1: Nếu là loại khách hàng B2C, áp dụng phương thức Luân phiên cho nhân viên SALE. Quy tắc 2: Nếu là loại khách hàng B2B, áp dụng phương thức Cân bằng tải cho nhân viên CSKH.',
+            ],
+        ],
+        'config' => [
+            'notifications' => [
+                'saved' => [
+                    'title' => 'Lưu cấu hình thành công',
+                    'body' => 'Cấu hình phân phối lead đã được cập nhật.',
+                ],
+                'error' => [
+                    'title' => 'Lỗi khi lưu cấu hình',
+                ],
+            ],
+            'general_info' => 'Thông tin chung',
+            'general_info_desc' => 'Thiết lập tên cấu hình và sản phẩm áp dụng.',
+            'name' => 'Tên cấu hình',
+            'name_placeholder' => 'VD: Cấu hình phân phối Lead Mùa Hè 2025',
+            'product' => 'Sản phẩm áp dụng',
+            'product_placeholder' => 'Chọn sản phẩm (Để trống áp dụng cho tất cả)',
+            'staff_list' => 'Danh sách nhân viên',
+            'staff_list_desc' => 'Thêm nhân viên được phân bổ và đặt trọng số.',
+            'rules' => 'Quy tắc phân phối Lead',
+            'rules_desc' => 'Đặt các quy tắc cho từng loại khách hàng và loại nhân viên.',
+        ],
+        'table' => [
+            'name' => 'Tên cấu hình',
+            'product' => 'Sản phẩm',
+            'created_by' => 'Người tạo',
+            'created_at' => 'Ngày tạo',
+            'updated_at' => 'Ngày cập nhật',
+            'deleted_at' => 'Ngày xóa',
+        ],
+        'filter' => [
+            'organization' => 'Lọc theo tổ chức',
+            'product' => 'Lọc theo sản phẩm',
+            'trashed' => 'Bản ghi đã xóa',
+        ],
+        'action' => [
+            'view' => 'Xem',
+            'edit' => 'Sửa',
+            'delete' => 'Xóa',
+            'force_delete' => 'Xóa vĩnh viễn',
+            'restore' => 'Khôi phục',
+        ],
+        'empty' => [
+            'heading' => 'Chưa có cấu hình phân phối',
+            'description' => 'Tạo cấu hình đầu tiên để bắt đầu phân phối lead',
+        ],
+        'rule' => [
+            'title' => 'Quy tắc',
+            'label' => 'Danh sách quy tắc',
+            'field' => [
+                'customer_type' => 'Loại số',
+                'staff_type' => 'Loại nhân viên',
+                'distribution_method' => 'Phương thức phân phối',
+                'distribution_method_helper' => 'Chọn cách thức phân phối lead cho nhân viên',
+            ],
+            'action' => [
+                'add' => 'Thêm quy tắc',
+                'delete' => 'Xóa quy tắc',
+            ],
+            'item' => [
+                'untitled' => 'Quy tắc chưa có tiêu đề',
+                'new' => 'Quy tắc mới',
+            ],
+        ],
+        'staff' => [
+            'title' => 'Nhân viên',
+            'label' => 'Danh sách nhân viên',
+            'type' => 'Loại nhóm',
+            'sale_title' => 'Nhân viên sale',
+            'sale_label' => 'Danh sách nhân viên sale',
+            'weight' => 'Định mức',
+            'cskh_title' => 'Nhân viên CSKH',
+            'cskh_label' => 'Danh sách nhân viên CSKH'
+        ],
+        'customer' => [
+            'new' => 'Số mới',
+            'new_duplicate' => 'Số mới trùng',
+            'old_customer' => 'Số cũ',
+            'label' => 'Loại data'
+        ],
+        'distribution' => [
+            'by_definition' => 'Theo định mức',
+            'most_recent_repicient' => 'Người nhận số gần nhất',
+            'label' => 'Phương thức'
+        ]
+    ],
 ];

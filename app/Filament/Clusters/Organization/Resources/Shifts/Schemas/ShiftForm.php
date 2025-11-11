@@ -105,6 +105,7 @@ class ShiftForm
                                 titleAttribute: 'name',
                                 modifyQueryUsing: fn(Builder $query, Get $get) => $query
                                     ->where('organization_id', $get('organization_id'))
+                                    ->where('disable', false)
                                     ->whereNotIn('role', [UserRole::SUPER_ADMIN->value])
                             )
                             ->multiple()

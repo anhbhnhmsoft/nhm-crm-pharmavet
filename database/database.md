@@ -106,7 +106,7 @@
 
     # cấu trúc
     - id : (int, primary key, auto-increment)
-    - product_id : (int, foreign key -> users.id, not null) -- người dùng thực hiện hành động
+    - product_id : (int, foreign key -> users.id, not null) -- sản phẩm sở hữu thuộc tính
     - name : (varchar(100), not null) -- tên của thuộc tính (ví dụ: Màu sắc, Kích cỡ)
     - value : (varchar(100), not null) --  Giá trị của thuộc tính (ví dụ: Đỏ, XL)
     - product_id, name index
@@ -198,3 +198,60 @@
     - default_pickup_time : ( timestamp, nullable) -- thời gian lấy hàng mong muốn
     - timestamps
     - softDeletes
+
+# bảng lead_distribution_configs
+
+    # note
+    - bảng lưu trữ cấu hình phân bổ dữ liệu cho nhân viên
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - organization_id : (int, foreign key  -> organizations.id, not null) -- tổ chức có cấu hình
+    - product_id : (int, foreign key -> users.id, not null) -- sản phẩm được áp dụng
+    - name : (varchar(255)) -- tên cấu hình
+    - created_by : (int, foreign key -> users.id, not null) -- người tạo
+    - updated_by : (int, foreign key -> users.id, not null) -- người cập nhật gần nhất
+    - timestamps
+    - softDeletes
+    - index [organization_id]
+
+# bảng customers
+
+    # note
+    - xem là bảng data đầu vào ~ số được chia là số của khách hàng
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - organization_id : (int, foreign key  -> organizations.id, not null) -- tổ chức sở hữu khách hàng
+    - username : (varchar(50)) -- tên khách hàng
+    - phone : (varchar(20)) -- số khách hàng ~ số được phân bổ (chia) cho nhân viên trong các nhòm
+    - customer_type : (tiny integer) -- phân loạt khách hàng đầu vào ~ số mới, số mới trùng, số cũ
+    - assigned_staff_id : (int, foreign key -> users.id, not null) -- nhân sở hữu số này ~ nhân viên nhận số đầu vào này
+    - timestamps
+    - softDeletes
+    - index[phone]
+    - index[assigned_staff_id, customer_type]
+
+# bảng lead_distribution_rules
+
+    # note
+    - bảng lưu chính cấu hình của phân bổ data
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - config_id : ( int, foreign key, lead_distribution_configs.id, not null) -- cấu hình cha sở hữu chi tiết cấu hình con
+    - customer_type : (tiny integer, not null) -- loại data ~ loại khách hàng được định nghĩa đầu vào
+    - staff_type : (tiny integer, not null) -- loại team dược chia
+    - distribution_method : (tiny integer, not null) -- loại phương thức dược sử dụng để phân bổ
+    - unique['distribution_method', 'customer_type', 'staff_type'], 'rule_config_unique'
+    - timestamps
+    - softDeletes
+
+# bảng lead_distribution_staff
+
+    # note
+    - bảng lưu nhân viên được gán trong cấu hình, danh sách nhân viên nhận được data theo cấu hình
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - config_id : ( int, foreign key, lead_distribution_configs.id, not null) -- cấu hình sở hữu
+    - staff_id : (int, foreign kye, users.id, not null) -- nhân viên
+    - weight : (unsigned integer, not null) -- trọng số phân phối
+    - timestamps
+    - unique[config_id, staff_id]

@@ -88,7 +88,10 @@ return [
         'import' => 'Import dữ liệu',
         'upload_excel' => 'Tải lên file .xlsx chưa thông tin sản phẩm',
         'add' => 'Thêm mới',
-        'download_template' => 'Tải mẫu xuống'
+        'download_template' => 'Tải mẫu xuống',
+        'save' => 'Lưu',
+        'cancel' => 'Hủy',
+        'add' => 'Thêm'
 
     ],
     'modal' => [
