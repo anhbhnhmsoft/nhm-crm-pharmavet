@@ -329,6 +329,7 @@ return new class extends Migration {
 
             $table->string('username', 50)->comment('Tên khách hàng');
             $table->string('phone', 20)->nullable()->comment('Số điện thoại');
+            $table->string('email')->nullable()->comment('Email khách hàng');
             $table->string('address', 255)->nullable()->comment('Địa chỉ');
 
             $table->unsignedTinyInteger('customer_type')->comment('Loại khách hàng');
@@ -339,11 +340,18 @@ return new class extends Migration {
                 ->nullOnDelete()
                 ->comment('Nhân viên được phân công chính');
 
+            // Thông tin nguồn dữ liệu
+            $table->string('source', 100)->nullable()->comment('Nguồn lead: Facebook Ads, Landing Page, Website, Manual, etc.');
+            $table->string('source_detail')->nullable()->comment('Chi tiết nguồn: Tên campaign, form, etc.');
+            $table->string('source_id')->nullable()->comment('ID từ nguồn bên ngoài');
+            $table->text('note')->nullable()->comment('Ghi chú');
+
             $table->timestamps();
             $table->softDeletes();
 
             $table->index('phone');
             $table->index(['assigned_staff_id', 'customer_type']);
+            $table->index('source');
         });
 
         /**
@@ -390,7 +398,89 @@ return new class extends Migration {
             $table->timestamps();
             $table->softDeletes();
 
-            $table->unique(['distribution_method', 'customer_type', 'staff_type','config_id'], 'rule_config_unique');
+            $table->unique(['config_id', 'staff_id']);
+        });
+
+        Schema::create('integrations', function (Blueprint $table) {
+            $table->id();
+
+            // Mỗi tổ chức có nhiều integration
+            $table->foreignId('organization_id')
+                ->constrained('organizations')
+                ->cascadeOnDelete();
+
+            $table->string('name'); // Tên cấu hình hiển thị
+            $table->unsignedTinyInteger('status')->default(0); // 0=pending,1=connected,2=expired,3=error
+            $table->text('status_message')->nullable();
+            $table->timestamp('last_sync_at')->nullable();
+
+            // Cấu hình chung (field mapping, webhook settings, meta config…)
+            $table->json('config')->nullable();
+            $table->json('field_mapping')->nullable();
+
+            // Audit
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
+
+            $table->timestamps();
+            $table->softDeletes();
+
+            $table->index(['organization_id']);
+
+            $table->foreign('created_by')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('updated_by')->references('id')->on('users')->nullOnDelete();
+        });
+
+        Schema::create('integration_entities', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('integration_id')
+                ->constrained('integrations')
+                ->cascadeOnDelete();
+
+            $table->unsignedSmallInteger('type');
+            // Ví dụ: 1=PAGE_META, mở rộng bằng enum IntegrationEntityType
+
+            $table->string('external_id', 100);
+            $table->string('name')->nullable();
+
+            $table->json('metadata')->nullable(); // email, timezone, permissions, picture…
+
+            $table->unsignedTinyInteger('status')->default(1); // active, inactive…
+
+            $table->timestamp('connected_at')->nullable();
+
+            $table->timestamps();
+            $table->softDeletes();
+
+            $table->index(['integration_id', 'type']);
+            $table->index('external_id');
+        });
+
+        Schema::create('integration_tokens', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('integration_id')
+                ->constrained('integrations')
+                ->cascadeOnDelete();
+
+            // Token có thể liên quan đến 1 entity nào đó (Page/BMA/AdAccount)
+            $table->foreignId('entity_id')
+                ->nullable()
+                ->constrained('integration_entities')
+                ->nullOnDelete();
+
+            $table->string('type', 50);
+            // user_token, long_lived_user_token, business_token, page_token, webhook_secret…
+
+            $table->text('token'); // encrypted
+            $table->json('scopes')->nullable();
+            $table->timestamp('expires_at')->nullable();
+            $table->unsignedTinyInteger('status')->default(1); // active, expired
+
+            $table->timestamps();
+
+            $table->index(['integration_id', 'type']);
         });
     }
 

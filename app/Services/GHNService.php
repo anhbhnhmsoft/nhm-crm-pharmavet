@@ -196,7 +196,7 @@ class GHNService
 
             if (!$response->successful()) {
                 throw new \Exception(
-                    __('filament.shipping.connection_failed') . ': ' . $response->json('message', 'Unknown error')
+                    __('filament.shipping.connection_failed') . ': ' . $response->json('message', __('messages.shipping.error.unknown'))
                 );
             }
 
@@ -204,7 +204,7 @@ class GHNService
 
             if (!isset($data['code']) || $data['code'] != 200) {
                 throw new \Exception(
-                    __('filament.shipping.api_error') . ': ' . ($data['message'] ?? 'Unknown error')
+                    __('filament.shipping.api_error') . ': ' . ($data['message'] ?? __('messages.shipping.error.unknown'))
                 );
             }
 

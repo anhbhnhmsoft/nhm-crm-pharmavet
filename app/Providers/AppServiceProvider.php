@@ -16,6 +16,7 @@ use App\Services\TeamService;
 use App\Services\UserService;
 use Filament\Support\Assets\Js;
 use Filament\Support\Facades\FilamentAsset;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -37,6 +38,10 @@ class AppServiceProvider extends ServiceProvider
         FilamentAsset::register([
             Js::make('activity-tracker', resource_path('js/activity-tracker.js')),
         ]);
+
+        if (config('app.env') === 'local' && (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) || isset($_SERVER['HTTP_X_FORWARDED_HOST']))) {
+            URL::forceScheme('https');
+        }
     }
 
     private function registerRepository(): void
