@@ -57,9 +57,7 @@ class MetaBusinessService
         }
     }
 
-    /**
-     * Get Facebook OAuth redirect URL
-     */
+
     public function getRedirectUrl(): string
     {
         return Socialite::driver('facebook')
@@ -97,7 +95,9 @@ class MetaBusinessService
     {
         try {
             $facebookUser = Socialite::driver('facebook')->stateless()->user();
-
+            Log::info('Facebook callback', [
+                'facebookUser' => $facebookUser,
+            ]);
             // Exchange for long-lived token
             $longLivedToken = $this->exchangeLongLivedToken($facebookUser->token);
 
@@ -149,6 +149,7 @@ class MetaBusinessService
 
     /**
      * Exchange short-lived token for long-lived token
+     * @see https://developers.facebook.com/docs/facebook-login/guides/access-tokens/get-long-lived/
      */
     protected function exchangeLongLivedToken(string $shortToken): ?array
     {
@@ -159,7 +160,9 @@ class MetaBusinessService
                 'client_secret' => config('services.facebook.client_secret'),
                 'fb_exchange_token' => $shortToken,
             ]);
-
+            Log::info('Facebook exchange token response', [
+                'response' => $response->body(),
+            ]);
             if ($response->successful()) {
                 return $response->json();
             }
@@ -179,6 +182,7 @@ class MetaBusinessService
 
     /**
      * Sync Facebook Pages
+     * @see https://developers.facebook.com/docs/pages/managing/
      */
     public function syncPages(Integration $integration): ServiceReturn
     {
@@ -188,9 +192,10 @@ class MetaBusinessService
             if (!$userToken) {
                 throw new \Exception(__('messages.meta_business.error.no_user_token'));
             }
-
+            $fullUrl = self::GRAPH_API_URL . self::GRAPH_API_VERSION . '/me/accounts';
+            Log::info('Facebook API URL:', ['url' => $fullUrl]);
             // Fetch pages from Facebook
-            $response = Http::get(self::GRAPH_API_URL . self::GRAPH_API_VERSION . '/me/accounts', [
+            $response = Http::get($fullUrl, [
                 'access_token' => $userToken->token,
                 'fields' => 'id,name,category,access_token,picture{url},tasks',
             ]);
@@ -198,9 +203,13 @@ class MetaBusinessService
             if (!$response->successful()) {
                 throw new \Exception(__('messages.meta_business.error.fetch_pages_failed', ['error' => $response->body()]));
             }
+            Log::info('Meta Business fetch pages', [
+                'response' => $response->body(),
+            ]);
 
             $pages = $response->json('data', []);
             $syncedCount = 0;
+
 
             foreach ($pages as $pageData) {
                 // Only sync pages with MANAGE and ADVERTISE permissions
@@ -208,7 +217,7 @@ class MetaBusinessService
                 if (!in_array('MANAGE', $tasks) || !in_array('ADVERTISE', $tasks)) {
                     continue;
                 }
-
+                Log::info($pageData);
                 if ($this->savePageEntity($integration, $pageData)) {
                     $syncedCount++;
                 }
@@ -240,6 +249,7 @@ class MetaBusinessService
     protected function savePageEntity(Integration $integration, array $pageData): bool
     {
         try {
+            Log::info($pageData);
             $tasks = $pageData['tasks'] ?? [];
 
             // Check for existing entity to preserve metadata
@@ -256,8 +266,13 @@ class MetaBusinessService
                 'default_product_id' => null,
             ];
 
-            if ($existingEntity && isset($existingEntity->metadata['default_product_id'])) {
-                $metadata['default_product_id'] = $existingEntity->metadata['default_product_id'];
+            if ($existingEntity) {
+                $existingMetadata = $existingEntity->metadata ?? [];
+
+                // Merge existing metadata with new metadata
+                // We prioritize existing configuration (like default_product_id) over defaults
+                $metadata['default_product_id'] = $existingMetadata['default_product_id'] ?? null;
+                $metadata['webhook_subscribed'] = $existingMetadata['webhook_subscribed'] ?? false;
             }
 
             // Save page entity
@@ -282,11 +297,14 @@ class MetaBusinessService
 
             // Save page access token
             $this->integrationTokenRepository->upsertUserToken(
-                $integration->id,
-                $entity->id,
-                $pageData['access_token'],
-                $pageData['access_token_expires_in'],
-                $pageData['access_token_scopes']
+                [
+                    'integration_id' => $integration->id,
+                    'entity_id' => $entity->id,
+                    'token' => $pageData['access_token'],
+                    'scopes' => $pageData['access_token_scopes'] ?? [],
+                    'expires_at' => now()->addSeconds($pageData['access_token_expires_in'] ?? 5184000),
+                    'status' => StatusConnect::CONNECTED->value,
+                ]
             );
 
             // Subscribe page to webhook
@@ -302,49 +320,8 @@ class MetaBusinessService
     }
 
     /**
-     * Subscribe page to webhook (leadgen)
-     */
-    protected function subscribePageToWebhook(IntegrationEntity $entity, string $pageAccessToken): bool
-    {
-        try {
-            $response = Http::post(
-                self::GRAPH_API_URL . self::GRAPH_API_VERSION . "/{$entity->external_id}/subscribed_apps",
-                [
-                    'subscribed_fields' => 'leadgen',
-                    'access_token' => $pageAccessToken,
-                ]
-            );
-
-            if ($response->successful()) {
-                $metadata = $entity->metadata ?? [];
-                $metadata['webhook_subscribed'] = true;
-                $entity->update(['metadata' => $metadata]);
-
-                Log::info('Page subscribed to webhook', [
-                    'entity_id' => $entity->id,
-                    'page_id' => $entity->external_id,
-                ]);
-
-                return true;
-            }
-
-            Log::error('Failed to subscribe page to webhook', [
-                'entity_id' => $entity->id,
-                'response' => $response->body(),
-            ]);
-
-            return false;
-        } catch (\Exception $e) {
-            Log::error('Exception subscribing page', [
-                'entity_id' => $entity->id,
-                'error' => $e->getMessage(),
-            ]);
-            return false;
-        }
-    }
-
-    /**
      * Fetch lead data from Facebook
+     * @see https://developers.facebook.com/docs/marketing-api/guides/lead-ads/retrieving/
      */
     public function fetchLead(string $leadId, string $pageAccessToken): ServiceReturn
     {
@@ -357,7 +334,7 @@ class MetaBusinessService
             if ($api) {
                 $api->setDefaultAccessToken($pageAccessToken);
                 $lead = new Lead($leadId);
-                $data = $lead->read(['id', 'created_time', 'field_data', 'form_id'])->exportAllData();
+                $data = $lead->read(['id', 'created_time', 'field_data', 'form_id', 'ad_id', 'campaign_id', 'adset_id'])->exportAllData();
 
                 $fields = [];
                 foreach ($data['field_data'] ?? [] as $field) {
@@ -380,7 +357,7 @@ class MetaBusinessService
                 self::GRAPH_API_URL . self::GRAPH_API_VERSION . "/{$leadId}",
                 [
                     'access_token' => $pageAccessToken,
-                    'fields' => 'id,created_time,field_data,form_id',
+                    'fields' => 'id,created_time,field_data,form_id,ad_id,campaign_id,adset_id',
                 ]
             );
 
@@ -406,6 +383,9 @@ class MetaBusinessService
             return ServiceReturn::success([
                 'id' => $data['id'] ?? null,
                 'form_id' => $data['form_id'] ?? null,
+                'ad_id' => $data['ad_id'] ?? null,
+                'campaign_id' => $data['campaign_id'] ?? null,
+                'adset_id' => $data['adset_id'] ?? null,
                 'created_time' => $data['created_time'] ?? null,
                 'fields' => $fields,
             ]);
@@ -495,7 +475,64 @@ class MetaBusinessService
 
     /**
      * Unsubscribe page from webhook
+     * @see https://developers.facebook.com/docs/graph-api/reference/page/subscribed_apps/
      */
+    public function verifyIntegrationByWebhookToken(string $token): ServiceReturn
+    {
+        try {
+            $integration = $this->integrationRepository->findByWebhookToken($token);
+            if (!$integration) {
+                return ServiceReturn::error(__('messages.meta_business.error.invalid_verify_token'));
+            }
+            return ServiceReturn::success($integration);
+        } catch (\Throwable $thr) {
+            return ServiceReturn::error(__('messages.meta_business.error.verify_token_error'), $thr);
+        }
+    }
+
+    /**
+     * Subscribe page to webhook (leadgen)
+     * @see https://developers.facebook.com/docs/graph-api/reference/page/subscribed_apps/
+     */
+    protected function subscribePageToWebhook(IntegrationEntity $entity, string $pageAccessToken): bool
+    {
+        try {
+            $response = Http::post(
+                self::GRAPH_API_URL . self::GRAPH_API_VERSION . "/{$entity->external_id}/subscribed_apps",
+                [
+                    'subscribed_fields' => 'leadgen',
+                    'access_token' => $pageAccessToken,
+                ]
+            );
+
+            if ($response->successful()) {
+                $metadata = $entity->metadata ?? [];
+                $metadata['webhook_subscribed'] = true;
+                $entity->update(['metadata' => $metadata]);
+
+                Log::info('Page subscribed to webhook', [
+                    'entity_id' => $entity->id,
+                    'page_id' => $entity->external_id,
+                ]);
+
+                return true;
+            }
+
+            Log::error('Failed to subscribe page to webhook', [
+                'entity_id' => $entity->id,
+                'response' => $response->body(),
+            ]);
+
+            return false;
+        } catch (\Exception $e) {
+            Log::error('Exception subscribing page', [
+                'entity_id' => $entity->id,
+                'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
+    }
+
     protected function unsubscribePageFromWebhook(IntegrationEntity $entity, string $pageAccessToken): bool
     {
         try {
@@ -513,19 +550,6 @@ class MetaBusinessService
                 'error' => $e->getMessage(),
             ]);
             return false;
-        }
-    }
-
-    public function verifyIntegrationByWebhookToken(string $token): ServiceReturn
-    {
-        try {
-            $integration = $this->integrationRepository->findByWebhookToken($token);
-            if (!$integration) {
-                return ServiceReturn::error(__('messages.meta_business.error.invalid_verify_token'));
-            }
-            return ServiceReturn::success($integration);
-        } catch (\Throwable $thr) {
-            return ServiceReturn::error(__('messages.meta_business.error.verify_token_error'), $thr);
         }
     }
 
@@ -566,8 +590,21 @@ class MetaBusinessService
             }
 
             $productId = $entity->metadata['default_product_id'] ?? null;
+            $marketingData = [];
 
-            $store = $this->storeFacebookLeadByIntegration($integrationId, $ret->getData(), $productId);
+            // Fetch Campaign/Ad info if ad_id exists
+            $leadData = $ret->getData();
+            if (!empty($leadData['ad_id'])) {
+                $userToken = $this->integrationTokenRepository->getUserLongLivedToken($integrationId);
+                if ($userToken) {
+                    $marketingInfo = $this->fetchAdInfo($leadData['ad_id'], $userToken->token);
+                    if ($marketingInfo) {
+                        $marketingData = $marketingInfo;
+                    }
+                }
+            }
+
+            $store = $this->storeFacebookLeadByIntegration($integrationId, $leadData, $productId, $marketingData);
             if ($store->isError()) {
                 return $store;
             }
@@ -577,7 +614,37 @@ class MetaBusinessService
         }
     }
 
-    public function storeFacebookLeadByIntegration(int $integrationId, array $leadData, ?int $productId = null): ServiceReturn
+    /**
+     * Fetch Ad and Campaign info from Facebook
+     * @see https://developers.facebook.com/docs/marketing-api/reference/adgroup
+     */
+    protected function fetchAdInfo(string $adId, string $userAccessToken): ?array
+    {
+        try {
+            $response = Http::get(self::GRAPH_API_URL . self::GRAPH_API_VERSION . "/{$adId}", [
+                'access_token' => $userAccessToken,
+                'fields' => 'name,campaign{name},adset{name}',
+            ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                return [
+                    'ad_id' => $data['id'] ?? null,
+                    'ad_name' => $data['name'] ?? null,
+                    'campaign_id' => $data['campaign']['id'] ?? null,
+                    'campaign_name' => $data['campaign']['name'] ?? null,
+                    'adset_id' => $data['adset']['id'] ?? null,
+                    'adset_name' => $data['adset']['name'] ?? null,
+                ];
+            }
+            return null;
+        } catch (\Exception $e) {
+            Log::warning('Failed to fetch Ad info', ['ad_id' => $adId, 'error' => $e->getMessage()]);
+            return null;
+        }
+    }
+
+    public function storeFacebookLeadByIntegration(int $integrationId, array $leadData, ?int $productId = null, array $marketingData = []): ServiceReturn
     {
         $integration = $this->integrationRepository->find($integrationId);
         if (!$integration) {
@@ -622,7 +689,7 @@ class MetaBusinessService
                 'username' => $exists->username ?: $username,
                 'email' => $exists->email ?: $email,
                 'source' => 'facebook',
-                'source_detail' => 'leadgen',
+                'source_detail' => $this->formatSourceDetail($leadData, $marketingData),
                 'source_id' => (string) ($leadData['id'] ?? ''),
             ]);
             return ServiceReturn::success();
@@ -638,7 +705,7 @@ class MetaBusinessService
             'assigned_staff_id' => null,
             'note' => null,
             'source' => 'facebook',
-            'source_detail' => 'leadgen',
+            'source_detail' => $this->formatSourceDetail($leadData, $marketingData),
             'source_id' => (string) ($leadData['id'] ?? ''),
         ]);
 
@@ -651,5 +718,27 @@ class MetaBusinessService
         }
 
         return ServiceReturn::success();
+    }
+
+    protected function formatSourceDetail(array $leadData, array $marketingData): string
+    {
+        $details = ['type' => 'leadgen'];
+
+        if (!empty($marketingData['campaign_name'])) {
+            $details['campaign'] = $marketingData['campaign_name'];
+        }
+        if (!empty($marketingData['ad_name'])) {
+            $details['ad'] = $marketingData['ad_name'];
+        }
+        if (!empty($marketingData['adset_name'])) {
+            $details['adset'] = $marketingData['adset_name'];
+        }
+
+        // If no marketing data, return simple string
+        if (count($details) === 1) {
+            return 'leadgen';
+        }
+
+        return json_encode($details, JSON_UNESCAPED_UNICODE);
     }
 }

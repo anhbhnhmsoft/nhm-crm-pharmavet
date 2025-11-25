@@ -13,6 +13,7 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Forms\Components\Hidden;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
@@ -103,19 +104,26 @@ class IntegrationForm
                             ->label(__('filament.integration.fields.connected_pages'))
                             ->relationship('entities', modifyQueryUsing: fn($query) => $query->where('type', IntegrationEntityType::PAGE_META->value)->where('status', StatusConnect::CONNECTED->value))
                             ->schema([
-                                Grid::make(4)
+                                Grid::make(12)
                                     ->schema([
+                                        View::make('filament.components.avatar-placeholder')
+                                            ->viewData(fn(array $state) => [
+                                                'url' => $state['metadata']['picture'] ?? null,
+                                                'alt' => $state['name'] ?? 'Page Avatar',
+                                            ])
+                                            ->columnSpan(1),
+
                                         TextInput::make('name')
                                             ->label(__('filament.integration.fields.page_name'))
                                             ->disabled()
                                             ->dehydrated(false)
-                                            ->columnSpan(1),
+                                            ->columnSpan(3),
 
                                         TextInput::make('external_id')
                                             ->label(__('filament.integration.fields.page_id'))
                                             ->disabled()
                                             ->dehydrated(false)
-                                            ->columnSpan(1),
+                                            ->columnSpan(3),
 
                                         Select::make('metadata.default_product_id')
                                             ->label(__('filament.integration.fields.default_product'))
@@ -123,7 +131,7 @@ class IntegrationForm
                                             ->searchable()
                                             ->nullable()
                                             ->native(false)
-                                            ->columnSpan(1)
+                                            ->columnSpan(3)
                                             ->helperText(__('filament.integration.fields.default_product_helper')),
 
                                         Toggle::make('status')
@@ -131,7 +139,13 @@ class IntegrationForm
                                             ->inline(false)
                                             ->onColor('success')
                                             ->offColor('danger')
-                                            ->columnSpan(1),
+                                            ->columnSpan(2)
+                                            ->extraAttributes(['class' => 'flex justify-center']),
+
+                                        Hidden::make('metadata.category'),
+                                        Hidden::make('metadata.picture'),
+                                        Hidden::make('metadata.tasks'),
+                                        Hidden::make('metadata.webhook_subscribed'),
                                     ]),
                             ])
                             ->addable(false)

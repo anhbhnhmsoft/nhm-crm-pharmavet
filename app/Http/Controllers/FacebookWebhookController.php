@@ -61,4 +61,17 @@ class FacebookWebhookController
 
         return response('OK', 200);
     }
+
+    public function handle(Request $request)
+    {
+        if ($request->isMethod('get')) {
+            return $this->verify($request);
+        }
+
+        if ($request->isMethod('post')) {
+            return $this->receive($request);
+        }
+
+        return response('Method not allowed', 405);
+    }
 }

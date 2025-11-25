@@ -114,7 +114,7 @@ class FacebookAuthController extends Controller
         $result = $this->integrationService->initIntegration([
             'organization_id' => Auth::user()->organization_id,
             'type' => IntegrationType::FACEBOOK_ADS->value, // Facebook Ads
-            'name' => __('integration.defaults.facebook_name'),
+            'name' => __('filament.integration.defaults.facebook_name'),
             'status' => StatusConnect::CONNECTED->value,
             'created_by' => Auth::id(),
             'updated_by' => Auth::id(),

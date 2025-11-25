@@ -49,7 +49,7 @@ class IntegrationTokenRepository extends BaseRepository
         return $this->query()
             ->where('integration_id', $integrationId)
             ->where('type', \App\Common\Constants\Marketing\IntegrationTokenType::USER_LONG_LIVED_TOKEN->value)
-            ->where('status', 1)
+            ->where('status', StatusConnect::CONNECTED->value)
             ->first();
     }
 
@@ -64,6 +64,7 @@ class IntegrationTokenRepository extends BaseRepository
             ->where('integration_id', $integrationId)
             ->where('entity_id', $entityId)
             ->where('type', \App\Common\Constants\Marketing\IntegrationTokenType::PAGE_ACCESS_TOKEN->value)
+            ->where('status', StatusConnect::CONNECTED->value)
             ->first();
     }
 }
