@@ -3,6 +3,7 @@
 return [
     'navigation' => [
         'unit_administration' => 'Quản trị đơn vị',
+        'unit_marketing' => 'Marketing',
     ],
     'login' => [
         'organization_code' => 'Mã tổ chức',
@@ -507,4 +508,190 @@ return [
             'label' => 'Phương thức'
         ]
     ],
+    'integration' => [
+        'navigation_label' => 'Kết nối Marketing',
+        'model_label' => 'Kết nối',
+        'plural_model_label' => 'Kết nối Marketing',
+
+        // Sections
+        'sections' => [
+            'basic_info' => [
+                'title' => 'Thông tin cơ bản',
+                'description' => 'Chọn loại kết nối và đặt tên',
+            ],
+            'facebook_login' => [
+                'title' => 'Kết nối Facebook',
+                'description' => 'Đăng nhập Facebook để tự động đồng bộ lead',
+            ],
+            'webhook' => [
+                'title' => 'Cấu hình Webhook',
+                'description' => 'Cấu hình webhook để nhận dữ liệu từ Landing Page hoặc Website',
+            ],
+            'field_mapping' => [
+                'title' => 'Ánh xạ trường dữ liệu',
+                'description' => 'Cấu hình cách map field từ nguồn sang hệ thống',
+            ],
+            'facebook_connected' => 'Đã kết nối Facebook thành công',
+            'facebook_connect_required' => 'Vui lòng đăng nhập Facebook để bắt đầu nhận lead',
+            'facebook_popup_hint' => 'Cửa sổ đăng nhập Facebook sẽ mở trong popup',
+            'connecting' => 'Đang kết nối...',
+            'disconnect_confirm' => 'Bạn có chắc chắn muốn ngắt kết nối Facebook? Tất cả Pages sẽ bị hủy đăng ký.',
+            'facebook_connected_summary' => 'Đã kết nối :count Pages. Đồng bộ lần cuối: :last_sync',
+            'never_synced' => 'Chưa bao giờ',
+            'pages' => 'Pages',
+            'last_sync' => 'Đồng bộ lần cuối',
+        ],
+        'defaults' => [
+            'facebook_name' => 'Facebook Lead Ads',
+            'landing_page_name' => 'Landing Page',
+            'website_name' => 'Website',
+        ],
+        // Fields
+        'fields' => [
+            'type' => 'Loại kết nối',
+            'name' => 'Tên cấu hình',
+            'name_placeholder' => 'VD: Facebook Ads Q4 2024',
+            'status' => 'Trạng thái',
+            'connection_status' => 'Trạng thái kết nối',
+            'connected_pages' => 'Danh sách Pages đã kết nối',
+            'page_name' => 'Tên Page',
+            'page_id' => 'Page ID',
+            'page' => 'Page',
+            'default_product' => 'Sản phẩm mặc định',
+            'default_product_helper' => 'Lead từ nguồn này sẽ được gán vào sản phẩm này',
+            'active' => 'Kích hoạt',
+            'webhook_url' => 'URL Webhook',
+            'webhook_url_helper' => 'URL nhận webhook từ landing page/website',
+            'webhook_secret' => 'Webhook Secret',
+            'webhook_secret_helper' => 'Secret key để xác thực webhook',
+            'webhook_secret_locked' => 'Secret key đã được tạo (chỉ xem)',
+            'field_mapping' => 'Ánh xạ trường',
+            'field_mapping_key' => 'Trường trong hệ thống',
+            'field_mapping_value' => 'Trường từ nguồn',
+            'field_mapping_helper' => 'VD: name => full_name, phone => phone_number',
+            'field_mapping_add' => 'Thêm mapping',
+        ],
+
+        // Defaults
+        'defaults' => [
+            'facebook_name' => 'Facebook Lead Ads',
+            'landing_page_name' => 'Landing Page',
+            'website_name' => 'Website',
+        ],
+
+        // Actions
+        'actions' => [
+            'create' => 'Tạo kết nối mới',
+            'connect_facebook' => 'Đăng nhập Facebook',
+            'sync_pages' => 'Đồng bộ Pages',
+            'disconnect' => 'Ngắt kết nối',
+        ],
+
+        // Status
+        'status' => [
+            'pending' => 'Chờ kết nối',
+            'connected' => 'Đã kết nối',
+            'expired' => 'Hết hạn',
+            'error' => 'Lỗi',
+            'not_connected' => 'Chưa kết nối',
+        ],
+
+        // Table
+        'table' => [
+            'name' => 'Tên',
+            'type' => 'Loại',
+            'status' => 'Trạng thái',
+            'pages' => 'Pages',
+            'last_sync' => 'Đồng bộ cuối',
+            'never' => 'Chưa bao giờ',
+            'created_at' => 'Ngày tạo',
+        ],
+
+        // Filters
+        'filters' => [
+            'type' => 'Loại kết nối',
+            'status' => 'Trạng thái',
+        ],
+
+        'notifications' => [
+            'connected' => [
+                'title' => 'Kết nối thành công',
+                'body' => 'Facebook đã được kết nối và đồng bộ Pages',
+            ],
+            'sync_success' => [
+                'title' => 'Đồng bộ thành công',
+                'body' => 'Đã đồng bộ :count Pages từ Facebook',
+            ],
+            'sync_error' => [
+                'title' => 'Lỗi đồng bộ',
+            ],
+            'disconnected' => [
+                'title' => 'Đã ngắt kết nối',
+            ],
+            'popup_blocked' => [
+                'title' => 'Popup bị chặn',
+                'body' => 'Vui lòng cho phép popup từ website này để đăng nhập Facebook',
+            ],
+            'cancelled' => [
+                'title' => 'Đã hủy',
+            ],
+            'error' => [
+                'title' => 'Lỗi',
+                'body' => 'Đã có lỗi xảy ra',
+            ],
+        ],
+
+        // OAuth Callback Pages
+        'oauth' => [
+            'success_title' => 'Kết nối thành công',
+            'success_heading' => 'Kết nối Facebook thành công!',
+            'success_message' => 'Pages của bạn đã được đồng bộ. Cửa sổ này sẽ tự động đóng...',
+            'error_title' => 'Kết nối thất bại',
+            'error_heading' => 'Không thể kết nối Facebook',
+            'error_message' => 'Đã xảy ra lỗi khi kết nối với Facebook',
+            'unknown_error' => 'Lỗi không xác định',
+            'close_window' => 'Đóng cửa sổ',
+        ],
+
+        'api' => [
+            'sync_success' => 'Đã đồng bộ :count Pages thành công',
+            'disconnected' => 'Đã ngắt kết nối thành công',
+        ],
+
+        'success' => [
+            'facebook_connected' => 'Kết nối Facebook thành công!',
+        ],
+        'errors' => [
+            'no_integration_found' => 'Không tìm thấy integration',
+            'integration_not_found' => 'Integration không tồn tại',
+            'connection_failed' => 'Kết nối thất bại',
+        ],
+    ],
+
+    'services' => [
+        'meta_business' => [
+            'connected_successfully' => 'Đã kết nối thành công với Facebook',
+            'disconnected' => 'Đã ngắt kết nối',
+        ],
+    ],
+
+    'meta_business' => [
+        'connected_successfully' => 'Đã kết nối thành công với Facebook',
+        'disconnected' => 'Đã ngắt kết nối',
+    ],
+
+    'enum' => [
+        'type' => [
+            'facebook_ads' => 'Facebook Lead Ads',
+            'facebook_ads_desc' => 'Tự động nhận lead từ Facebook Lead Ads khi khách hàng điền form',
+            'landing_page' => 'Landing Page',
+            'landing_page_desc' => 'Nhận lead từ landing page thông qua webhook',
+            'website' => 'Website',
+            'website_desc' => 'Nhận lead từ website của bạn thông qua webhook',
+            'unknown' => 'Không xác định',
+        ],
+    ],
+    'marketing' => [
+        'cluster_label' => ''
+    ]
 ];

@@ -59,4 +59,14 @@ class Organization extends Model
     {
         return $this->hasOne(ShippingConfig::class);
     }
+
+    public function integrations(): HasMany
+    {
+        return $this->hasMany(Integration::class);
+    }
+
+    public function customers(): HasMany
+    {
+        return $this->hasMany(Customer::class);
+    }
 }

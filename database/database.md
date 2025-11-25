@@ -206,7 +206,7 @@
     # cấu trúc
     - id: (int, primary key, auto-increment)
     - organization_id : (int, foreign key  -> organizations.id, not null) -- tổ chức có cấu hình
-    - product_id : (int, foreign key -> users.id, not null) -- sản phẩm được áp dụng
+    - product_id : (int, foreign key -> products.id, nullable) -- sản phẩm áp dụng (để trống = tất cả)
     - name : (varchar(255)) -- tên cấu hình
     - created_by : (int, foreign key -> users.id, not null) -- người tạo
     - updated_by : (int, foreign key -> users.id, not null) -- người cập nhật gần nhất
@@ -229,6 +229,15 @@
     - softDeletes
     - index[phone]
     - index[assigned_staff_id, customer_type]
+    - index[source]
+    - source : (varchar(100), nullable) -- tên nguồn
+    - source_detail : (varchar(255), nullable) -- tên nguồn chi tiết VD: campain, event v.v
+    - source_id : (varchar(255), nullable) -- id từ source bên ngoài
+    - note : (text, nullable) -- ghi chú của khách hàng
+    - email : (varchar(255), nullable) -- email của khách hàng
+    - source : (varchar(100), nullable) -- tên nguồn
+    - source_detail : (varchar(255), nullable) -- tên nguồn chi tiết VD: campaign, form v.v
+    - source_id : (varchar(255), nullable) -- id từ source bên ngoài
 
 # bảng lead_distribution_rules
 
@@ -255,3 +264,54 @@
     - weight : (unsigned integer, not null) -- trọng số phân phối
     - timestamps
     - unique[config_id, staff_id]
+
+# bảng integrations
+
+    # note
+    - Đây là bảng gốc mô tả một kết nối marketing của từng tổ chức (Facebook Ads, Landing Page, Website…), Toàn bộ cấu hình, webhook, field mapping… được gom vào JSON config
+    # cấu trúc
+    - id : (int, primary key, auto-increment)
+    - organization_id : (unsignedBigInteger, foreign key → organizations.id, cascadeOnDelete)
+    - name : (varchar(255), not null) — tên cấu hình hiển thị
+    - status : (unsignedTinyInteger, default 0) — trạng thái:  3 = error, 2 = expired, 1 = connected, 0 = pending
+    - status_message : (text, nullable) — mô tả chi tiết trạng thái
+    - last_sync_at : (timestamp, nullable) — thời điểm đồng bộ gần nhất
+    - config : (json, nullable) — chứa app_id, app_secret, webhook verify token, API keys, domain, pixel…
+    - field_mapping : (json, nullable) — mapping field từ nguồn → bảng customers
+    - created_by : (unsignedBigInteger, nullable, foreign key → users.id, nullOnDelete)
+    - updated_by : (unsignedBigInteger, nullable, foreign key → users.id, nullOnDelete)
+    - index [organization_id]
+    - softDeletes
+    - timestamps
+
+# bảng integration_entities
+
+    # note
+    - Lưu từng “thực thể” thuộc một integration, Ví dụ đối với Facebook Ads: Page, Business Account (BMA), Ad Account, Pixel
+    # cấu trúc
+    - id : (int, primary key, auto-increment)
+    - integration_id: (unsignedBigInteger, foreign key → integrations.id, cascadeOnDelete)
+    - type: (unsignedSmallInteger) — enum IntegrationEntityType (VD: PAGE_META = 1)
+    - external_id: (varchar(100)) — ID bên ngoài (page_id, ad_account_id…)
+    - name: (varchar(255), nullable)
+    - metadata: (json, nullable) — chứa quyền (permissions), email, timezone, picture…
+    - status: (unsignedTinyInteger, default 1) — active / inactive
+    - connected_at: (timestamp, nullable)
+    - softDeletes
+    - timestamps
+
+# bảng integration_tokens
+
+    # note
+    - Lưu tất cả token của Integration, Hỗ trợ nhiều loại token cùng lúc: user_token, long_lived_user_token, page_token, business_token, webhook_secret, Token có thể liên quan tới một entity cụ thể (page_token → page)
+    # cấu trúc
+    - id : (int, primary key, auto-increment)
+    - integration_id: (unsignedBigInteger, foreign key → integrations.id, cascadeOnDelete)
+    - entity_id: (unsignedBigInteger, nullable, foreign key → integration_entities.id, nullOnDelete)
+    - type: (varchar(50)) — loại token
+    - token: (text, encrypted)
+    - scopes: (json, nullable) — danh sách quyền đã cấp
+    - expires_at: (timestamp, nullable)
+    - status: (unsignedTinyInteger, default 1) — active / expired
+    - timestamps
+    - index [integration_id, type]

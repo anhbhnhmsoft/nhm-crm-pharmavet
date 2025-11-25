@@ -16,6 +16,7 @@ use App\Services\TeamService;
 use App\Services\UserService;
 use Filament\Support\Assets\Js;
 use Filament\Support\Facades\FilamentAsset;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -37,6 +38,10 @@ class AppServiceProvider extends ServiceProvider
         FilamentAsset::register([
             Js::make('activity-tracker', resource_path('js/activity-tracker.js')),
         ]);
+
+        if (config('app.env') === 'local' && (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) || isset($_SERVER['HTTP_X_FORWARDED_HOST']))) {
+            URL::forceScheme('https');
+        }
     }
 
     private function registerRepository(): void
@@ -47,6 +52,15 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ProductUserAssignmentRepository::class);
         $this->app->bind(TeamRepository::class);
         $this->app->bind(UserRepository::class);
+        $this->app->bind(IntegrationRepository::class);
+        $this->app->bind(IntegrationTokenRepository::class);
+        $this->app->bind(IntegrationEntityRepository::class);
+        $this->app->bind(CustomerRepository::class);
+        $this->app->bind(LeadDistributionConfigRepository::class);
+        $this->app->bind(LeadDistributionRuleRepository::class);
+        $this->app->bind(ComboRepository::class);
+        $this->app->bind(ShippingConfigRepository::class);
+
     }
 
     private function registerApplicationService(): void
@@ -57,5 +71,11 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ProductService::class);
         $this->app->bind(TeamService::class);
         $this->app->bind(UserService::class);
+        $this->app->bind(IntegrationService::class);
+        $this->app->bind(IntegrationEntityService::class);
+        $this->app->bind(IntegrationTokenService::class);
+        $this->app->bind(CustomerService::class);
+        $this->app->bind(LeadDistributionConfigService::class);
+        $this->app->bind(LeadDistributionRuleService::class);
     }
 }

@@ -101,7 +101,7 @@ class AuthService
             return ServiceReturn::success();
         } catch (Exception $exception) {
             Log::error("Logout Error: " . $exception->getMessage());
-            return ServiceReturn::error("Logout Error: " . $exception->getMessage(), $exception);
+            return ServiceReturn::error(__('messages.auth.error.logout_failed', ['error' => $exception->getMessage()]), $exception);
         }
     }
 }

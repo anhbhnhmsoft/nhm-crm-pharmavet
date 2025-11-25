@@ -105,7 +105,6 @@ class LeadDistributionConfig extends Page
         ];
 
         $this->form->fill($this->data);
-        dump($this->form->getRawState());
     }
 
 
