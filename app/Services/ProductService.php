@@ -3,13 +3,15 @@
 namespace App\Services;
 
 use App\Common\Constants\Team\TeamType;
+use Illuminate\Support\Facades\DB;
+use App\Models\Product;
 
 class ProductService
 {
     /**
      * Đồng bộ user assignments qua pivot table
      */
-    protected static function syncUserAssignments( $productId, array $data): void
+    protected static function syncUserAssignments($productId, array $data): void
     {
         DB::transaction(function () use ($productId, $data) {
             // Xóa tất cả assignments cũ

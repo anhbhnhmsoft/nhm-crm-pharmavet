@@ -62,13 +62,20 @@ class IntegrationForm
                                             $set('config.webhook_secret', fn($current) => $current ?: Str::random(32));
                                         }
                                     })
-                                    ->helperText(fn(Get $get) => IntegrationType::tryFrom($get('type'))?->description()),
+                                    ->helperText(fn(Get $get) => IntegrationType::tryFrom($get('type'))?->description())
+                                    ->validationMessages([
+                                        'required' => 'Vui lòng chọn loại tích hợp.',
+                                    ]),
 
                                 TextInput::make('name')
                                     ->label(__('filament.integration.fields.name'))
                                     ->required()
                                     ->maxLength(255)
-                                    ->placeholder(__('filament.integration.fields.name_placeholder')),
+                                    ->placeholder(__('filament.integration.fields.name_placeholder'))
+                                    ->validationMessages([
+                                        'required' => 'Tên tích hợp không được để trống.',
+                                        'max' => 'Tên tích hợp không được vượt quá :max ký tự.',
+                                    ]),
                             ]),
                     ]),
 
@@ -175,7 +182,11 @@ class IntegrationForm
                                     ->url()
                                     ->nullable()
                                     ->maxLength(255)
-                                    ->helperText(__('filament.integration.fields.webhook_url_helper')),
+                                    ->helperText(__('filament.integration.fields.webhook_url_helper'))
+                                    ->validationMessages([
+                                        'url' => 'URL webhook không hợp lệ. Vui lòng nhập đúng định dạng (https://...).',
+                                        'max' => 'URL webhook không được vượt quá :max ký tự.',
+                                    ]),
 
                                 TextInput::make('config.webhook_secret')
                                     ->label(__('filament.integration.fields.webhook_secret'))
@@ -184,7 +195,10 @@ class IntegrationForm
                                     ->disabled(fn(?Integration $record) => $record && $record->status === 1)
                                     ->helperText(fn(?Integration $record) => $record && $record->status === 1
                                         ? __('filament.integration.fields.webhook_secret_locked')
-                                        : __('filament.integration.fields.webhook_secret_helper')),
+                                        : __('filament.integration.fields.webhook_secret_helper'))
+                                    ->validationMessages([
+                                        'required' => 'Mã bảo mật webhook không được để trống.',
+                                    ]),
 
                                 Select::make('config.default_product_id')
                                     ->label(__('filament.integration.fields.default_product'))

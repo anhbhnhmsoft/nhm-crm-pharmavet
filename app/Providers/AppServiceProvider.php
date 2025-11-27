@@ -2,14 +2,29 @@
 
 namespace App\Providers;
 
+use App\Repositories\ComboRepository;
+use App\Repositories\CustomerRepository;
+use App\Repositories\IntegrationEntityRepository;
+use App\Repositories\IntegrationRepository;
+use App\Repositories\IntegrationTokenRepository;
+use App\Repositories\LeadDistributionConfigRepository;
+use App\Repositories\LeadDistributionRuleRepository;
+use App\Repositories\OrderItemRepository;
+use App\Repositories\OrderRepository;
+use App\Repositories\OrderStatusLogRepository;
 use App\Repositories\OrganizationRepository;
 use App\Repositories\ProductAttributeRepository;
 use App\Repositories\ProductRepository;
 use App\Repositories\ProductUserAssignmentRepository;
+use App\Repositories\ShippingConfigRepository;
 use App\Repositories\TeamRepository;
+use App\Repositories\UserAssignedStaffRepository;
 use App\Repositories\UserRepository;
 use App\Services\AuthService;
 use App\Services\ComboService;
+use App\Services\CustomerService;
+use App\Services\Integrations\IntegrationService;
+use App\Services\LeadDistributionConfigService;
 use App\Services\OrganizationService;
 use App\Services\ProductService;
 use App\Services\TeamService;
@@ -56,10 +71,14 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(IntegrationTokenRepository::class);
         $this->app->bind(IntegrationEntityRepository::class);
         $this->app->bind(CustomerRepository::class);
+        $this->app->bind(UserAssignedStaffRepository::class);
         $this->app->bind(LeadDistributionConfigRepository::class);
         $this->app->bind(LeadDistributionRuleRepository::class);
         $this->app->bind(ComboRepository::class);
         $this->app->bind(ShippingConfigRepository::class);
+        $this->app->bind(OrderRepository::class);
+        $this->app->bind(OrderItemRepository::class);
+        $this->app->bind(OrderStatusLogRepository::class);
 
     }
 
@@ -72,10 +91,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(TeamService::class);
         $this->app->bind(UserService::class);
         $this->app->bind(IntegrationService::class);
-        $this->app->bind(IntegrationEntityService::class);
-        $this->app->bind(IntegrationTokenService::class);
         $this->app->bind(CustomerService::class);
         $this->app->bind(LeadDistributionConfigService::class);
-        $this->app->bind(LeadDistributionRuleService::class);
     }
 }

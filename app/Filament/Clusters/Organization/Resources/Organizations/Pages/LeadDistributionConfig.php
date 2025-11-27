@@ -133,7 +133,7 @@ class LeadDistributionConfig extends Page
                                         titleAttribute: 'name',
                                         modifyQueryUsing: fn($query) => $query
                                             ->where('organization_id', $this->organizationId)
-                                            ->where('is_business_product', false)
+                                            ->where('is_business_product', true)
                                     )
                                     ->searchable()
                                     ->preload()

@@ -83,7 +83,7 @@ class ProductsTable
                     ->numeric()
                     ->sortable(),
                 IconColumn::make('is_business_product')
-                    ->label(__('filament.product.stop_bussiness'))
+                    ->label(__('filament.product.business'))
                     ->boolean(),
                 TextColumn::make('created_at')
                     ->dateTime()

@@ -4,6 +4,7 @@ return [
     'navigation' => [
         'unit_administration' => 'Quản trị đơn vị',
         'unit_marketing' => 'Marketing',
+        'unit_telesale'  => 'Sale tác nghiệp'
     ],
     'login' => [
         'organization_code' => 'Mã tổ chức',
@@ -172,8 +173,8 @@ return [
 
         'status' => 'Trạng thái',
         'config_status' => 'Cấu hình trạng thái hoạt động của sản phẩm',
-        'stop_bussiness' => 'Ngừng kinh doanh',
-        'stop_bussiness_whene' => 'Bật khi muốn tạm ngừng bán sản phẩm này',
+        'business' => 'Trạng thái kinh doanh',
+        'business_whene' => 'Tắt khi muốn tạm ngừng bán sản phẩm này',
         'has_attributes' => 'Có thuộc tính (biến thể)',
         'has_attributes_info' => 'Bật nếu sản phẩm có các biến thể như màu sắc, kích thước',
         'show_on_website' => 'Hiển thị trên website',

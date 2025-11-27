@@ -2,11 +2,11 @@
 
 namespace App\Common\Constants\Shipping;
 
-enum RequiredNote: int
+enum RequiredNote: string
 {
-    case ALLOW_TO_TRY = 1;
-    case ALLOW_VIEWING_NOT_TRIAL = 2;
-    case NO_VIEWING = 3;
+    case ALLOW_TO_TRY = 'CHOTHUHANG';
+    case ALLOW_VIEWING_NOT_TRIAL = 'CHOXEMHANGKHONGTHU';
+    case NO_VIEWING = 'KHONGCHOXEMHANG';
 
     public function label(): string
     {
@@ -26,7 +26,7 @@ enum RequiredNote: int
             ->toArray();
     }
 
-    public static function getLabel(int $value): string
+    public static function getLabel(string $value): string
     {
         return self::tryFrom($value)?->label();
     }

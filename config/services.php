@@ -38,6 +38,10 @@ return [
         'client_id' => env('META_CLIENT_ID'),
         'client_secret' => env('META_CLIENT_SECRET'),
         'redirect' => env('META_REDIRECT'),
-    ]
+    ],
+    'google' => [
+        'map_key_api' => env('GOOGLE_MAPS_API_KEY'),
+        'map_id' => env('GOOGLE_MAP_ID'),
+    ],
 
 ];

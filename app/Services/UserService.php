@@ -6,6 +6,7 @@ use App\Core\ServiceReturn;
 use App\Repositories\UserRepository;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use Throwable;
 
 class UserService
@@ -82,15 +83,18 @@ class UserService
 
     public function updateTeamFoMember(array $users, $teamId, $ableRemove)
     {
+        DB::beginTransaction();
         try {
-            $result = $this->userRepository->query()->whereIn('id', $users)->update(['team_id', $teamId]);
+            $result = $this->userRepository->query()->whereIn('id', $users)->update(['team_id' => $teamId]);
             if ($ableRemove) {
                 $this->userRepository->query()->where('team_id', $teamId)
                     ->whereNotIn('id', $users)
                     ->update(['team_id' => null]);
             }
+            DB::commit();
             return ServiceReturn::success($result);
         } catch (Throwable $thr) {
+            DB::rollBack();
             Log::error($thr);
             return ServiceReturn::error($thr->getMessage());
         }
