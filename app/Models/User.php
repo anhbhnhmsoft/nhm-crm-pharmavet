@@ -57,17 +57,17 @@ class User extends Authenticatable implements FilamentUser
         return !$this->disable;
     }
 
-    public function organization() : BelongsTo
+    public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class);
     }
 
-    public function team() : BelongsTo
+    public function team(): BelongsTo
     {
         return $this->belongsTo(Team::class);
     }
 
-    public function logs() : HasMany
+    public function logs(): HasMany
     {
         return $this->hasMany(UserLog::class, 'user_id', 'id');
     }
@@ -87,12 +87,12 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasRole(UserRole::SUPER_ADMIN);
     }
 
-    public function createdBy() : BelongsTo
+    public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by', 'id');
     }
 
-    public function updatedBy() : BelongsTo
+    public function updatedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by', 'id');
     }
@@ -100,5 +100,10 @@ class User extends Authenticatable implements FilamentUser
     public function shifts(): HasManyThrough
     {
         return $this->hasManyThrough(Shift::class, UserShift::class);
+    }
+
+    public function assignCustomer(): HasManyThrough
+    {
+        return $this->hasManyThrough(Customer::class, 'user_assigned_staff');
     }
 }

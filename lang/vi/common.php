@@ -59,6 +59,9 @@ return [
         ],
         'exists' => 'Giá trị đã chọn trong trường :attribute không hợp lệ.',
     ],
+    'form' => [
+        'location_search_placeholder' => 'Tìm kiếm địa điểm',
+    ],
     'table' => [
         'name' => 'Tên',
         'code' => 'Mã',
@@ -104,6 +107,34 @@ return [
         'delete' => 'Xóa này',
         'restore' => 'Khôi phục đã xóa',
         'force_delete' => 'Xóa vĩnh viễn khỏi hệ thống',
+    ],
+    'status_progress' => [
+        'in_progress' => 'Đang xử lý',
+        'pending' => 'Đang chờ',
+        'completed' => 'Đã hoàn thành',
+        'failed' => 'Thất bại',
+        'cancelled' => 'Đã hủy',
+        'confirmed' => 'Đã xác nhận',
+        'delivered' => 'Đã giao hàng',
+        'returned' => 'Đã trả lại',
+        'delivered_again' => 'Giao lại',
+        'unknown' => 'Không xác định',
+    ],
+    'interaction_direction' => [
+        'inbound' => 'Tương tác nhận được',
+        'outbound' => 'Tương tác ra',
+    ],
+    'interaction_type' => [
+        'first_call' => 'Data nóng',
+        'second_call' => 'Gọi lần 2',
+        'third_call' => 'Gọi lần 3',
+        'fourth_call' => 'Gọi lần 4',
+        'fifth_call' => 'Gọi lần 5',
+        'sixth_call' => 'Gọi lần 6',
+        'user_manual' => 'Hướng dẫn sử dụng',
+        'second_care' => 'Chăm sóc lần 2',
+        'third_care' => 'Chăm sóc lần 3',
+        'pass' => 'Bỏ qua'
     ],
 
 ];

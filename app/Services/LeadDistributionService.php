@@ -106,7 +106,7 @@ class LeadDistributionService
     {
         return $this->leadDistributionConfigRepository->query()->with(['rules', 'staff'])
             ->where('organization_id', $organizationId)
-            ->where('product_id', $productId)
+            ->orWhere('product_id', $productId)
             ->first();
     }
 

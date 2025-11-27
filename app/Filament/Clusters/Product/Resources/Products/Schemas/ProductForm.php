@@ -504,10 +504,10 @@ class ProductForm
                         Grid::make(2)
                             ->schema([
                                 Toggle::make('is_business_product')
-                                    ->label(__('filament.product.stop_bussiness'))
-                                    ->default(false)
-                                    ->helperText(__('filament.product.stop_bussiness_whene'))
-                                    ->inline(false)
+                                    ->label(__('filament.product.business'))
+                                    ->default(true)
+                                    ->helperText(__('filament.product.business_whene'))
+                                    ->inline(true)
                                     ->disabled((fn($livewire) => ($livewire instanceof CreateRecord))),
 
                                 Toggle::make('has_attributes')

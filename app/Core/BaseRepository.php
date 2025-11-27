@@ -72,4 +72,8 @@ abstract class BaseRepository
 
         return $model;
     }
+
+    public function update($data){
+        return $this->model()->update($data);
+    }
 }

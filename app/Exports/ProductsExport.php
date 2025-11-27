@@ -54,7 +54,7 @@ class ProductsExport implements FromCollection, WithHeadings, WithMapping, Shoul
             __('filament.product.height'),
             __('filament.product.quantity'),
             __('filament.product.vat_percent'),
-            __('filament.product.stop_bussiness'),
+            __('filament.product.business'),
             __('common.table.created_at'),
             __('common.table.updated_at'),
         ];
@@ -77,7 +77,7 @@ class ProductsExport implements FromCollection, WithHeadings, WithMapping, Shoul
             $product->height,
             $product->quantity,
             $product->vat_rate,
-            $product->is_business_product ? __('common.status.disabled') :  __('common.status.enabled'),
+            $product->is_business_product ? __('common.status.enabled') :  __('common.status.disabled'),
             optional($product->created_at)->format('d/m/Y H:i'),
             optional($product->updated_at)->format('d/m/Y H:i'),
         ];

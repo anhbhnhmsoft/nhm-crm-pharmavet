@@ -6,7 +6,9 @@ use App\Common\Constants\Customer\CustomerType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Auth;
 
 class Customer extends Model
 {
@@ -26,10 +28,22 @@ class Customer extends Model
         'source',
         'source_detail',
         'source_id',
+        'birthday',
+        'status',
+        'next_action_at',
+        'province_id',
+        'district_id',
+        'ward_id',
+        'shipping_address',
+        'avatar',
+        'note_temp',
+        'product_id',
     ];
 
     protected $casts = [
         'customer_type' => 'integer',
+        'birthday' => 'date',
+        'next_action_at' => 'datetime',
     ];
 
     public function organization(): BelongsTo
@@ -37,9 +51,24 @@ class Customer extends Model
         return $this->belongsTo(Organization::class, 'organization_id');
     }
 
-    public function assignedStaff(): BelongsTo
+    public function assignedStaffPrimary(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_staff_id');
+    }
+
+    public function interactions()
+    {
+        return $this->hasMany(CustomerInteraction::class);
+    }
+
+    public function statusLogs()
+    {
+        return $this->hasMany(CustomerStatusLog::class);
+    }
+
+    public function orders()
+    {
+        return $this->hasMany(Order::class);
     }
 
     public function scopeNewLeads($query)
@@ -72,6 +101,17 @@ class Customer extends Model
         return $query->whereNull('assigned_staff_id');
     }
 
+    public function scopeByStatus($query, string $status)
+    {
+        return $query->where('status', $status);
+    }
+
+    public function scopeNeedFollowUp($query)
+    {
+        return $query->whereNotNull('next_action_at')
+            ->where('next_action_at', '<=', now());
+    }
+
     public function isNew(): bool
     {
         return $this->customer_type === CustomerType::NEW->value;
@@ -95,5 +135,41 @@ class Customer extends Model
     public function getCustomerTypeLabel(): string
     {
         return CustomerType::tryFrom($this->customer_type)?->label() ?? __('Unknown');
+    }
+
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class, 'product_id');
+    }
+
+    public function addInteraction(string $type, array $data = []): CustomerInteraction
+    {
+        return $this->interactions()->create(array_merge([
+            'type' => $type,
+            'user_id' => Auth::id(),
+            'interacted_at' => now(),
+        ], $data));
+    }
+
+    public function logStatusChange(string $toStatus, ?string $reason = null): void
+    {
+        if ($this->status !== $toStatus) {
+            $this->statusLogs()->create([
+                'from_status' => $this->status,
+                'to_status' => $toStatus,
+                'user_id' => Auth::id(),
+                'reason' => $reason,
+            ]);
+        }
+    }
+
+    public function assignedStaff(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'user_assigned_staff', 'customer_id', 'staff_id');
+    }
+
+    public function blackList(): BelongsTo
+    {
+        return $this->belongsTo(BlackList::class, 'black_list');
     }
 }

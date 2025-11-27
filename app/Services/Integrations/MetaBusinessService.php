@@ -20,6 +20,7 @@ use App\Common\Constants\Customer\CustomerType;
 use App\Repositories\IntegrationRepository;
 use App\Repositories\LeadDistributionConfigRepository;
 use App\Services\LeadDistributionService;
+use Illuminate\Support\Facades\DB;
 
 class MetaBusinessService
 {
@@ -646,78 +647,87 @@ class MetaBusinessService
 
     public function storeFacebookLeadByIntegration(int $integrationId, array $leadData, ?int $productId = null, array $marketingData = []): ServiceReturn
     {
-        $integration = $this->integrationRepository->find($integrationId);
-        if (!$integration) {
-            return ServiceReturn::error(__('messages.meta_business.error.integration_not_found'));
-        }
-
-        $mapping = $integration->field_mapping ?? [];
-        $nameKey = $mapping['name'] ?? 'full_name';
-        $phoneKey = $mapping['phone'] ?? 'phone_number';
-        $emailKey = $mapping['email'] ?? 'email';
-
-        $raw = $leadData['field_data'] ?? $leadData['fields'] ?? [];
-        $fields = [];
-        foreach ($raw as $item) {
-            $k = $item['name'] ?? null;
-            $v = $item['values'][0] ?? ($item['value'] ?? null);
-            if ($k) {
-                $fields[$k] = $v;
+        DB::beginTransaction();
+        try {
+            $integration = $this->integrationRepository->find($integrationId);
+            if (!$integration) {
+                return ServiceReturn::error(__('messages.meta_business.error.integration_not_found'));
             }
-        }
 
-        $username = (string) ($fields[$nameKey] ?? '');
-        $phone = (string) ($fields[$phoneKey] ?? '');
-        $email = (string) ($fields[$emailKey] ?? '');
+            $mapping = $integration->field_mapping ?? [];
+            $nameKey = $mapping['name'] ?? 'full_name';
+            $phoneKey = $mapping['phone'] ?? 'phone_number';
+            $emailKey = $mapping['email'] ?? 'email';
 
-        $phone = preg_replace('/[^0-9]/', '', $phone ?? '');
-
-        $exists = $this->customerRepository->query()
-            ->where('organization_id', $integration->organization_id)
-            ->where(function ($q) use ($phone, $email) {
-                if ($phone) {
-                    $q->orWhere('phone', $phone);
+            $raw = $leadData['field_data'] ?? $leadData['fields'] ?? [];
+            $fields = [];
+            foreach ($raw as $item) {
+                $k = $item['name'] ?? null;
+                $v = $item['values'][0] ?? ($item['value'] ?? null);
+                if ($k) {
+                    $fields[$k] = $v;
                 }
-                if ($email) {
-                    $q->orWhere('email', $email);
-                }
-            })
-            ->first();
+            }
 
-        if ($exists) {
-            $exists->update([
-                'username' => $exists->username ?: $username,
-                'email' => $exists->email ?: $email,
+            $username = (string) ($fields[$nameKey] ?? '');
+            $phone = (string) ($fields[$phoneKey] ?? '');
+            $email = (string) ($fields[$emailKey] ?? '');
+
+            $phone = preg_replace('/[^0-9]/', '', $phone ?? '');
+
+            $exists = $this->customerRepository->query()
+                ->where('organization_id', $integration->organization_id)
+                ->where(function ($q) use ($phone, $email) {
+                    if ($phone) {
+                        $q->orWhere('phone', $phone);
+                    }
+                    if ($email) {
+                        $q->orWhere('email', $email);
+                    }
+                })
+                ->first();
+
+            if ($exists) {
+                $exists->update([
+                    'username' => $exists->username ?: $username,
+                    'email' => $exists->email ?: $email,
+                    'source' => 'facebook',
+                    'source_detail' => $this->formatSourceDetail($leadData, $marketingData),
+                    'source_id' => (string) ($leadData['id'] ?? ''),
+                ]);
+                DB::commit();
+                return ServiceReturn::success();
+            }
+
+            $customer = $this->customerRepository->create([
+                'organization_id' => $integration->organization_id,
+                'username' => $username ?: ($email ?: $phone ?: 'Lead'),
+                'phone' => $phone ?: null,
+                'email' => $email ?: null,
+                'address' => null,
+                'customer_type' => CustomerType::NEW->value,
+                'assigned_staff_id' => null,
+                'note' => null,
                 'source' => 'facebook',
                 'source_detail' => $this->formatSourceDetail($leadData, $marketingData),
                 'source_id' => (string) ($leadData['id'] ?? ''),
             ]);
-            return ServiceReturn::success();
-        }
 
-        $customer = $this->customerRepository->create([
-            'organization_id' => $integration->organization_id,
-            'username' => $username ?: ($email ?: $phone ?: 'Lead'),
-            'phone' => $phone ?: null,
-            'email' => $email ?: null,
-            'address' => null,
-            'customer_type' => CustomerType::NEW->value,
-            'assigned_staff_id' => null,
-            'note' => null,
-            'source' => 'facebook',
-            'source_detail' => $this->formatSourceDetail($leadData, $marketingData),
-            'source_id' => (string) ($leadData['id'] ?? ''),
-        ]);
-
-        // Distribute lead if product ID is available
-        if ($productId && $customer) {
-            $staff = $this->leadDistributionService->assignLead($customer, $productId, $integration->organization_id);
-            if ($staff) {
-                $customer->update(['assigned_staff_id' => $staff->id]);
+            // Distribute lead if product ID is available
+            if ($productId && $customer) {
+                $staff = $this->leadDistributionService->assignLead($customer, $productId, $integration->organization_id);
+                if ($staff) {
+                    $customer->update(['assigned_staff_id' => $staff->id]);
+                }
             }
-        }
 
-        return ServiceReturn::success();
+            DB::commit();
+            return ServiceReturn::success();
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            Log::error('Store Facebook lead error: ' . $th->getMessage());
+            return ServiceReturn::error('Store Facebook lead error: ' . $th->getMessage());
+        }
     }
 
     protected function formatSourceDetail(array $leadData, array $marketingData): string

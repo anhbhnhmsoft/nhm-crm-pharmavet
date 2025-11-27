@@ -10,6 +10,68 @@ return new class extends Migration {
      */
     public function up(): void
     {
+
+
+
+        Schema::create('provinces', function (Blueprint $table) {
+            $table->id(); // Khóa chính tự động tăng
+
+            // Mã V1 (2 ký tự, indexed để tìm kiếm nhanh)
+            $table->char('code_v1', 2)->index();
+            // Mã V2 (2 ký tự, unique nếu có)
+            $table->char('code_v2', 2)->nullable()->unique();
+
+            $table->string('name', 100);
+            $table->string('code_name', 100);
+            $table->string('division_type', 100);
+
+            $table->json('metadata')->nullable();
+
+            $table->timestamps();
+        });
+
+        Schema::create('districts', function (Blueprint $table) {
+            $table->id(); // Khóa chính tự động tăng
+
+            // Mã V1 (5 ký tự, indexed để tìm kiếm nhanh)
+            $table->char('code_v1', 5)->index();
+
+            $table->string('name', 100);
+            $table->string('code_name', 150);
+            $table->string('division_type', 100);
+
+            // Khóa ngoại tham chiếu đến districts.id
+            $table->foreignId('district_id')
+                ->constrained('districts')
+                ->onDelete('cascade');
+
+            // Cột lưu code_v1 của huyện, chỉ để tham chiếu dữ liệu API
+            $table->char('district_code_v1', 3)->nullable()->index();
+
+            // Cột lưu code_v1 và code_v2 của tỉnh (để tham chiếu, không phải khóa ngoại)
+            $table->char('province_code_v1', 2)->nullable()->index();
+            $table->char('province_code_v2', 2)->nullable()->index();
+
+            $table->json('metadata')->nullable();
+            $table->timestamps();
+        });
+
+
+        Schema::create('wards', function (Blueprint $table) {
+            $table->char('code', 5)->primary();
+
+            $table->string('name', 100);
+            $table->string('code_name', 100)->unique();
+            $table->string('division_type', 100); // Ví dụ: Phường, Xã, Thị trấn
+
+            $table->char('district_code', 5);
+            $table->foreign('district_code')->references('code')->on('districts')->onDelete('cascade');
+
+            $table->json('metadata')->nullable();
+
+            $table->timestamps();
+        });
+
         // --- 1. Bảng Organizations ---
         Schema::create('organizations', function (Blueprint $table) {
             $table->id();
@@ -330,6 +392,13 @@ return new class extends Migration {
             $table->string('username', 50)->comment('Tên khách hàng');
             $table->string('phone', 20)->nullable()->comment('Số điện thoại');
             $table->string('email')->nullable()->comment('Email khách hàng');
+            $table->date('birthday')->nullable();
+            $table->timestamp('next_action_at')->nullable();
+            $table->unsignedInteger('province_id')->nullable();
+            $table->unsignedInteger('district_id')->nullable();
+            $table->unsignedInteger('ward_id')->nullable();
+            $table->string('shipping_address', 255)->nullable();
+            $table->string('avatar', 255)->nullable();
             $table->string('address', 255)->nullable()->comment('Địa chỉ');
 
             $table->unsignedTinyInteger('customer_type')->comment('Loại khách hàng');
@@ -339,6 +408,7 @@ return new class extends Migration {
                 ->constrained('users')
                 ->nullOnDelete()
                 ->comment('Nhân viên được phân công chính');
+            $table->foreignId('interaction_id')->nullable()->constrained('interactions')->nullOnDelete()->comment('Nguồn tương tác đổ data về ');
 
             // Thông tin nguồn dữ liệu
             $table->string('source', 100)->nullable()->comment('Nguồn lead: Facebook Ads, Landing Page, Website, Manual, etc.');
@@ -401,6 +471,10 @@ return new class extends Migration {
             $table->unique(['config_id', 'staff_id']);
         });
 
+        /**
+         * 14. Nguồn phân bổ data (Integration)
+         * ------------------------------------------------ 
+         */
         Schema::create('integrations', function (Blueprint $table) {
             $table->id();
 
@@ -431,6 +505,10 @@ return new class extends Migration {
             $table->foreign('updated_by')->references('id')->on('users')->nullOnDelete();
         });
 
+        /**
+         * 15. Nguồn phân bổ data (Integration Entity)
+         * ------------------------------------------------ 
+         */
         Schema::create('integration_entities', function (Blueprint $table) {
             $table->id();
 
@@ -457,6 +535,10 @@ return new class extends Migration {
             $table->index('external_id');
         });
 
+        /**
+         * 16. Token truy cập thực thể phân bổ data
+         */
+
         Schema::create('integration_tokens', function (Blueprint $table) {
             $table->id();
 
@@ -482,6 +564,129 @@ return new class extends Migration {
 
             $table->index(['integration_id', 'type']);
         });
+
+        /**
+         * 17. Orders đơn hàng
+         */
+
+        Schema::create('orders', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('organization_id')->constrained('organizations')->cascadeOnDelete();
+            $table->foreignId('customer_id')->constrained('customers')->cascadeOnDelete();
+
+            $table->string('code', 50)->unique()->comment('Mã đơn hàng');
+            $table->unsignedTinyInteger('status')->nullable()->comment('pending, confirmed, shipping, completed, cancelled');
+
+            // Financials
+            $table->decimal('total_amount', 15, 2)->default(0);
+            $table->decimal('discount', 15, 2)->default(0);
+            $table->decimal('shipping_fee', 15, 2)->default(0);
+
+            // Shipping
+            $table->string('shipping_method', 50)->nullable(); // ghn, ghtk
+            $table->string('shipping_address', 255)->nullable();
+            $table->unsignedInteger('province_id')->nullable();
+            $table->unsignedInteger('district_id')->nullable();
+            $table->unsignedInteger('ward_id')->nullable();
+
+            $table->text('note')->nullable();
+            $table->unsignedTinyInteger('required_note')->nullable();
+
+            $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('updated_by')->nullable()->constrained('users')->nullOnDelete();
+
+            $table->timestamps();
+            $table->softDeletes();
+        });
+
+        /**
+         * 18. OrderItem ~ Lưu trữ thành phần đơn hàng
+         */
+
+        Schema::create('order_items', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('order_id')->constrained('orders')->cascadeOnDelete();
+            $table->foreignId('product_id')->constrained('products')->cascadeOnDelete();
+
+            $table->integer('quantity')->default(1);
+            $table->decimal('price', 15, 2)->default(0);
+            $table->decimal('total', 15, 2)->default(0);
+
+            $table->timestamps();
+        });
+
+        /**
+         * 19. Customer Iteractions ~ Tracking lịch sử tương tác với khách hàng
+         */
+
+        Schema::create('customer_interactions', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('customer_id')->constrained('customers')->cascadeOnDelete();
+            $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
+
+            $table->unsignedTinyInteger('type')->comment('call, sms, email, note, meeting');
+            $table->unsignedTinyInteger('direction')->nullable()->comment('inbound, outbound');
+            $table->unsignedTinyInteger('status')->nullable()->comment('completed, missed, failed, etc.');
+
+            $table->integer('duration')->nullable()->comment('Thời lượng cuộc gọi (giây)');
+            $table->text('content')->nullable()->comment('Nội dung tin nhắn/ghi chú');
+            $table->json('metadata')->nullable()->comment('Dữ liệu bổ sung: recording_url, attachments, etc.');
+
+            $table->timestamp('interacted_at')->useCurrent()->comment('Thời điểm tương tác');
+            $table->timestamps();
+
+            $table->index(['customer_id', 'type']);
+            $table->index('interacted_at');
+        });
+
+        /**
+         * 20. Order Status Log ~ Bảng lưu trạng thái đơn hàng
+         */
+        Schema::create('order_status_logs', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('order_id')->constrained('orders')->cascadeOnDelete();
+            $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
+
+            $table->unsignedTinyInteger('from_status')->nullable();
+            $table->unsignedTinyInteger('to_status');
+            $table->text('note')->nullable();
+
+            $table->timestamps();
+
+            $table->index(['order_id', 'created_at']);
+        });
+
+        /**
+         * 21. Customer Status Log ~ Bảng lưu trạng thái khách hàng
+         */
+        Schema::create('customer_status_logs', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('customer_id')->constrained('customers')->cascadeOnDelete();
+            $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
+
+            $table->unsignedTinyInteger('from_status')->nullable();
+            $table->unsignedTinyInteger('to_status');
+            $table->text('note')->nullable();
+
+            $table->timestamps();
+
+            $table->index(['customer_id', 'created_at']);
+        });
+
+        /**
+         * 22. Black List ~ Danh sách đen
+         */
+        Schema::create('black_list', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('customer_id')->constrained('customers')->cascadeOnDelete();
+            $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
+
+            $table->text('note')->nullable();
+            $table->tinyInteger('reason')->nullable();
+            $table->timestamps();
+
+            $table->index(['customer_id', 'created_at']);
+        });
     }
 
     /**
@@ -489,7 +694,14 @@ return new class extends Migration {
      */
     public function down(): void
     {
+
         Schema::dropIfExists('sessions');
+        Schema::dropIfExists('order_status_logs');
+        Schema::dropIfExists('customer_interactions');
+        Schema::dropIfExists('customer_status_logs');
+        Schema::dropIfExists('black_list');
+        Schema::dropIfExists('order_items');
+        Schema::dropIfExists('orders');
         Schema::dropIfExists('shipping_configs');
         Schema::dropIfExists('combo_product');
         Schema::dropIfExists('combos');
@@ -506,8 +718,8 @@ return new class extends Migration {
         Schema::dropIfExists('lead_distribution_rules');
         Schema::dropIfExists('customers');
         Schema::dropIfExists('lead_distribution_configs');
-        // Schema::dropIfExists('wards');
-        // Schema::dropIfExists('districts');
-        // Schema::dropIfExists('provinces');
+        Schema::dropIfExists('wards');
+        Schema::dropIfExists('districts');
+        Schema::dropIfExists('provinces');
     }
 };

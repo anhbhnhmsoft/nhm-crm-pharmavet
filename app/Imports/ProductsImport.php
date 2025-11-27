@@ -27,7 +27,7 @@ class ProductsImport implements ToModel, WithHeadingRow
             'height'               => $row['height'] ?? null,
             'quantity'             => $row['quantity'] ?? 0,
             'vat_rate'             => $row['vat_rate'] ?? 0,
-            'is_business_product'  => filter_var($row['is_business_product'] ?? false, FILTER_VALIDATE_BOOLEAN),
+            'is_business_product'  => filter_var($row['is_business_product'] ?? true, FILTER_VALIDATE_BOOLEAN),
         ]);
     }
 }
