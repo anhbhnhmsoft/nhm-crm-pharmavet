@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('customers', function (Blueprint $table) {
-            $table->string('source', 100)->nullable()->after('assigned_staff_id')->comment('Nguồn lead: Facebook Ads, Landing Page, Website, Manual, etc.');
+            $table->tinyInteger('source')->nullable()->after('assigned_staff_id')->comment('Nguồn lead: Facebook Ads, Landing Page, Website, Manual, etc.');
             $table->string('source_detail')->nullable()->after('source')->comment('Chi tiết nguồn: Tên campaign, form, etc.');
             $table->string('source_id')->nullable()->after('source_detail')->comment('ID từ nguồn bên ngoài');
             $table->text('note')->nullable()->after('source_id')->comment('Ghi chú');

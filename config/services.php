@@ -44,4 +44,10 @@ return [
         'map_id' => env('GOOGLE_MAP_ID'),
     ],
 
+    'stringee' => [
+        'sid' => env('STRINGEE_SID'),
+        'secret' => env('STRINGEE_SECRET'),
+        'from_number' => env('STRINGEE_FROM_NUMBER'),
+    ],
+
 ];

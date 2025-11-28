@@ -12,6 +12,10 @@ return new class extends Migration
             $table->id();
 
             $table->string('code')->unique()->index()->comment('Mã combo duy nhất');
+            $table->foreignId('organization_id')
+                ->constrained('organizations')
+                ->cascadeOnDelete()
+                ->comment('ID tổ chức');
             $table->string('name')->comment('Tên combo');
             $table->unsignedInteger('total_product')->default(0)->comment('Tổng số lượng sản phẩm trong combo');
             $table->decimal('total_cost', 15, 2)->default(0)->comment('Tổng giá gốc (giá nhập) của các sản phẩm');

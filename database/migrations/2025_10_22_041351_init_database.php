@@ -249,7 +249,10 @@ return new class extends Migration {
         // --- 7. Bảng Combos ---
         Schema::create('combos', function (Blueprint $table) {
             $table->id();
-
+            $table->foreignId('organization_id')
+                ->constrained('organizations')
+                ->cascadeOnDelete()
+                ->comment('ID tổ chức');
             $table->string('code')->unique()->index()->comment('Mã combo duy nhất');
             $table->string('name')->comment('Tên combo');
             $table->unsignedInteger('total_product')->default(0)->comment('Tổng số lượng sản phẩm trong combo');
@@ -402,6 +405,7 @@ return new class extends Migration {
             $table->string('address', 255)->nullable()->comment('Địa chỉ');
 
             $table->unsignedTinyInteger('customer_type')->comment('Loại khách hàng');
+            $table->tinyInteger('interaction_status')->comment('Trạng thái tương tác khách hàng');
 
             $table->foreignId('assigned_staff_id')
                 ->nullable()

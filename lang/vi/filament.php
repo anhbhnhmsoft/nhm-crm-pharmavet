@@ -680,18 +680,6 @@ return [
         'connected_successfully' => 'Đã kết nối thành công với Facebook',
         'disconnected' => 'Đã ngắt kết nối',
     ],
-
-    'enum' => [
-        'type' => [
-            'facebook_ads' => 'Facebook Lead Ads',
-            'facebook_ads_desc' => 'Tự động nhận lead từ Facebook Lead Ads khi khách hàng điền form',
-            'landing_page' => 'Landing Page',
-            'landing_page_desc' => 'Nhận lead từ landing page thông qua webhook',
-            'website' => 'Website',
-            'website_desc' => 'Nhận lead từ website của bạn thông qua webhook',
-            'unknown' => 'Không xác định',
-        ],
-    ],
     'marketing' => [
         'cluster_label' => ''
     ]

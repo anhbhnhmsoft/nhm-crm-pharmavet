@@ -17,6 +17,8 @@ use Laravel\Socialite\Facades\Socialite;
 use FacebookAds\Api;
 use FacebookAds\Object\Lead;
 use App\Common\Constants\Customer\CustomerType;
+use App\Common\Constants\Interaction\InteractionStatus;
+use App\Common\Constants\Marketing\IntegrationType;
 use App\Repositories\IntegrationRepository;
 use App\Repositories\LeadDistributionConfigRepository;
 use App\Services\LeadDistributionService;
@@ -711,6 +713,8 @@ class MetaBusinessService
                 'source' => 'facebook',
                 'source_detail' => $this->formatSourceDetail($leadData, $marketingData),
                 'source_id' => (string) ($leadData['id'] ?? ''),
+                'interaction_status' => InteractionStatus::FIRST_CALL->value,
+                'source' => IntegrationType::FACEBOOK_ADS->value,
             ]);
 
             // Distribute lead if product ID is available

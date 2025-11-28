@@ -2,21 +2,23 @@
 
 namespace App\Filament\Clusters\Telesale\Resources\TelesaleOperations\Tables;
 
+use App\Common\Constants\Marketing\IntegrationType;
 use App\Models\Customer;
 use App\Models\User;
-use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\Action;
-use Filament\Forms\Components\Select;
+use Filament\Actions\ActionGroup;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\RestoreAction;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 
 class TelesaleOperationsTable
@@ -43,7 +45,7 @@ class TelesaleOperationsTable
                     ->label(__('telesale.table.source'))
                     ->badge()
                     ->color('info')
-                    ->formatStateUsing(fn(string $state): string => __("telesale.source.{$state}"))
+                    ->formatStateUsing(fn(int $state) => IntegrationType::getLabel($state))
                     ->size('sm'),
 
                 TextColumn::make('assignedStaff.name')
@@ -51,20 +53,6 @@ class TelesaleOperationsTable
                     ->sortable()
                     ->searchable()
                     ->placeholder(__('telesale.messages.unassigned'))
-                    ->size('sm'),
-
-                TextColumn::make('status')
-                    ->label(__('telesale.table.status'))
-                    ->badge()
-                    ->color(fn(string $state): string => match ($state) {
-                        'new' => 'gray',
-                        'processing' => 'warning',
-                        'potential' => 'danger',
-                        'closed' => 'success',
-                        'cancelled' => 'danger',
-                        default => 'primary',
-                    })
-                    ->formatStateUsing(fn(string $state): string => __("telesale.status.{$state}"))
                     ->size('sm'),
 
                 TextColumn::make('next_action_at')
@@ -96,11 +84,7 @@ class TelesaleOperationsTable
 
                 SelectFilter::make('source')
                     ->label(__('telesale.filters.source'))
-                    ->options([
-                        'facebook' => __('telesale.source.facebook'),
-                        'google' => __('telesale.source.google'),
-                        'zalo' => __('telesale.source.zalo'),
-                    ]),
+                    ->options(IntegrationType::toOptions()),
 
                 SelectFilter::make('status')
                     ->label(__('telesale.filters.status'))
@@ -112,47 +96,71 @@ class TelesaleOperationsTable
                 TrashedFilter::make(),
             ])
             ->recordActions([
-                EditAction::make()
-                    ->label(__('telesale.actions.operation')),
-                // Action::make('call')
-                //     ->label(__('telesale.actions.call'))
-                //     ->icon('heroicon-o-phone')
-                //     ->url(fn(Customer $record) => "tel:{$record->phone}"),
-                Action::make('blacklist')
-                    ->label(__('telesale.actions.blacklist'))
-                    ->action(function (Customer $record) {
-                        $record->blackList()->create([
-                            'user_id' => Auth::id(),
-                            'customer_id' => $record->id,
-                        ]);
-                    })
-                    ->color('danger')
-                    ->visible(fn(Customer $record) => !$record->blackList()->exists()),
-                Action::make('unblacklist')
-                    ->label(__('telesale.actions.unblacklist'))
-                    ->action(function (Customer $record) {
-                        $record->blackList()->delete();
-                    })
-                    ->color('success')
-                    ->visible(fn(Customer $record) => $record->blackList()->exists()),
+                ActionGroup::make([
+
+                    Action::make('blacklist')
+                        ->label(__('telesale.actions.blacklist'))
+                        ->action(function (Customer $record) {
+                            $record->blackList()->create([
+                                'user_id' => Auth::id(),
+                                'customer_id' => $record->id,
+                            ]);
+                        })
+                        ->color('danger')
+                        ->visible(fn(Customer $record) => !$record->blackList()->exists()),
+                    Action::make('unblacklist')
+                        ->label(__('telesale.actions.unblacklist'))
+                        ->action(function (Customer $record) {
+                            $record->blackList()->delete();
+                        })
+                        ->color('success')
+                        ->visible(fn(Customer $record) => $record->blackList()->exists()),
+
+                    ViewAction::make()
+                        ->label(__('common.action.view'))
+                        ->tooltip(__('common.tooltip.view'))
+                        ->icon('heroicon-o-eye'),
+
+                    EditAction::make()
+                        ->label(__('common.action.edit'))
+                        ->tooltip(__('common.tooltip.edit'))
+                        ->icon('heroicon-o-pencil-square'),
+
+                    DeleteAction::make()
+                        ->label(__('common.action.delete'))
+                        ->tooltip(__('common.tooltip.delete'))
+                        ->icon('heroicon-o-trash')
+                        ->requiresConfirmation()
+                        ->modalHeading(__('common.modal.delete_title'))
+                        ->modalDescription(__('common.modal.delete_confirm'))
+                        ->modalSubmitActionLabel(__('common.action.confirm_delete'))
+                        ->visible(fn($record) => ! $record->trashed()),
+
+                    RestoreAction::make()
+                        ->label(__('common.action.restore'))
+                        ->tooltip(__('common.tooltip.restore'))
+                        ->icon('heroicon-o-arrow-path')
+                        ->visible(fn($record) => $record->trashed()),
+                ]),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                    ForceDeleteBulkAction::make(),
-                    RestoreBulkAction::make(),
-                    BulkAction::make('assign_sale')
-                        ->label(__('telesale.actions.assign_sale'))
-                        ->icon('heroicon-o-user-plus')
-                        ->form([
-                            Select::make('staff_id')
-                                ->label(__('telesale.actions.select_staff'))
-                                ->options(User::pluck('name', 'id'))
-                                ->required(),
-                        ])
-                        ->action(function (Collection $records, array $data) {
-                            $records->each->update(['assigned_staff_id' => $data['staff_id']]);
-                        }),
+                    DeleteBulkAction::make()
+                        ->label(__('common.action.delete'))
+                        ->requiresConfirmation()
+                        ->modalHeading(__('common.modal.delete_title'))
+                        ->modalDescription(__('common.modal.delete_confirm'))
+                        ->modalSubmitActionLabel(__('common.action.confirm_delete')),
+                    RestoreBulkAction::make()
+                        ->label(__('common.action.restore'))
+                        ->visible(fn($livewire) => $livewire->tableFilters['trashed']['value'] ?? null === 'only'),
+                    ForceDeleteBulkAction::make()
+                        ->label(__('common.action.force_delete'))
+                        ->color('danger')
+                        ->requiresConfirmation()
+                        ->modalHeading(__('common.modal.force_delete_title'))
+                        ->modalDescription(__('common.modal.force_delete_confirm'))
+                        ->modalSubmitActionLabel(__('common.action.confirm_delete')),
                 ]),
             ]);
     }
