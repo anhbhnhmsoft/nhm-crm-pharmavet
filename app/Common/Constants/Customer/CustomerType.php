@@ -25,4 +25,13 @@ enum CustomerType: int
         }
         return $options;
     }
+
+    public static function getLabel($type): string
+    {
+        return match ($type) {
+            self::NEW->value => __('filament.lead.customer.new'),
+            self::NEW_DUPLICATE->value => __('filament.lead.customer.new_duplicate'),
+            self::OLD_CUSTOMER->value => __('filament.lead.customer.old_customer'),
+        };
+    }
 }

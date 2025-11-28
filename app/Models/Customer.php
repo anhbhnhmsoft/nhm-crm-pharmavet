@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Auth;
 
@@ -29,7 +30,7 @@ class Customer extends Model
         'source_detail',
         'source_id',
         'birthday',
-        'status',
+        'interaction_status',
         'next_action_at',
         'province_id',
         'district_id',
@@ -151,16 +152,9 @@ class Customer extends Model
         ], $data));
     }
 
-    public function logStatusChange(string $toStatus, ?string $reason = null): void
+    public function customerStatusLog(): HasMany
     {
-        if ($this->status !== $toStatus) {
-            $this->statusLogs()->create([
-                'from_status' => $this->status,
-                'to_status' => $toStatus,
-                'user_id' => Auth::id(),
-                'reason' => $reason,
-            ]);
-        }
+        return $this->hasMany(CustomerStatusLog::class, 'customer_id');
     }
 
     public function assignedStaff(): BelongsToMany
@@ -172,4 +166,5 @@ class Customer extends Model
     {
         return $this->belongsTo(BlackList::class, 'black_list');
     }
+
 }

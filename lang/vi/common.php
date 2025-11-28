@@ -58,6 +58,7 @@ return [
             'array' => 'Trường :attribute không được có nhiều hơn :max phần tử.',
         ],
         'exists' => 'Giá trị đã chọn trong trường :attribute không hợp lệ.',
+        'update_error' => 'Cập nhật dữ liệu thất bại',
     ],
     'form' => [
         'location_search_placeholder' => 'Tìm kiếm địa điểm',
@@ -70,7 +71,15 @@ return [
         'deleted_at' => 'Thời điểm xóa',
         'created_at' => 'Thời điểm tạo',
         'updated_at' => 'Thời điểm cập nhật',
-        'unit' => 'Đơn vị'
+        'unit' => 'Đơn vị',
+        'ward' => 'Phường/Xã',
+        'district' => 'Quận/Huyện ',
+        'province' => 'Thành phố/Tỉnh',
+        'source' => 'Nguồn',
+        'note' => 'Ghi chú',
+        'result' => 'Kết quả',
+        'phone' => 'Số điện thoại',
+        'product' => 'Sản phẩm',
     ],
     'status' => [
         'label'    => 'Trạng thái',
@@ -123,18 +132,6 @@ return [
     'interaction_direction' => [
         'inbound' => 'Tương tác nhận được',
         'outbound' => 'Tương tác ra',
-    ],
-    'interaction_type' => [
-        'first_call' => 'Data nóng',
-        'second_call' => 'Gọi lần 2',
-        'third_call' => 'Gọi lần 3',
-        'fourth_call' => 'Gọi lần 4',
-        'fifth_call' => 'Gọi lần 5',
-        'sixth_call' => 'Gọi lần 6',
-        'user_manual' => 'Hướng dẫn sử dụng',
-        'second_care' => 'Chăm sóc lần 2',
-        'third_care' => 'Chăm sóc lần 3',
-        'pass' => 'Bỏ qua'
     ],
 
 ];

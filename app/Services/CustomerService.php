@@ -6,6 +6,8 @@ use App\Repositories\LeadDistributionConfigRepository;
 use App\Repositories\UserAssignedStaffRepository;
 use App\Common\Constants\Customer\CustomerType;
 use App\Common\Constants\Customer\DistributionMethod;
+use App\Common\Constants\Interaction\InteractionStatus;
+use App\Common\Constants\Marketing\IntegrationType;
 use App\Repositories\CustomerRepository;
 use App\Common\Constants\StatusProgress;
 use App\Common\Constants\Team\TeamType;
@@ -52,6 +54,8 @@ class CustomerService
                         'product_id' => $data['product_id'],
                         'organization_id' => $data['organization_id'],
                         'customer_type' => CustomerType::OLD_CUSTOMER->value,
+                        'source' => IntegrationType::MANUAL_DATA->value,
+                        'interaction_status' => InteractionStatus::FIRST_CALL->value,
 
                     ]);
                     DB::commit();
@@ -68,6 +72,7 @@ class CustomerService
                         'product_id' => $data['product_id'],
                         'organization_id' => $data['organization_id'],
                         'customer_type' => CustomerType::NEW_DUPLICATE->value,
+                        'interaction_status' => InteractionStatus::FIRST_CALL->value,
 
                     ]);
                     DB::commit();
@@ -86,6 +91,7 @@ class CustomerService
                 'product_id' => $data['product_id'],
                 'organization_id' => $data['organization_id'],
                 'customer_type' => CustomerType::NEW->value,
+                'interaction_status' => InteractionStatus::FIRST_CALL->value,
             ]);
 
             DB::commit();
@@ -399,7 +405,7 @@ class CustomerService
 
 
     /**
-     * Helper: Tạo và đưa Job vào Queue.
+     * Helper: Make and dispatch job
      */
     public function dispatchDistribution(int $customerId, ?string $queue = null): void
     {
@@ -418,12 +424,11 @@ class CustomerService
     }
 
     /**
-     * Được gọi từ bên ngoài để bắt đầu quá trình bất đồng bộ.
+     * Call dispatchDistribution to queue the job
      */
     public function initiateDistributionJob(int $customerId): ServiceReturn
     {
         try {
-            // Chỉ gọi hàm dispatch, không thực hiện logic phân bổ
             $this->dispatchDistribution($customerId, 'customer-distribution');
 
             return ServiceReturn::success([

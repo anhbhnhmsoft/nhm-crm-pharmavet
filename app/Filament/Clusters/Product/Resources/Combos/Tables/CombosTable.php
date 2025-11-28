@@ -39,15 +39,15 @@ class CombosTable
                     ->limit(50)
                     ->tooltip(fn($state) => strlen($state) > 50 ? $state : null),
 
-                TextColumn::make('total_product')
-                    ->label(__('filament.combo.total_product'))
-                    ->badge()
-                    ->sortable()
-                    ->color(fn(int $state): string => match (true) {
-                        $state < 2 => 'warning',
-                        $state >= 5 => 'success',
-                        default => 'info',
-                    }),
+                // TextColumn::make('total_product')
+                //     ->label(__('filament.combo.total_product'))
+                //     ->badge()
+                //     ->sortable()
+                //     ->color(fn(int $state): string => match (true) {
+                //         $state < 2 => 'warning',
+                //         $state >= 5 => 'success',
+                //         default => 'info',
+                //     }),
 
                 TextColumn::make('total_cost')
                     ->label(__('filament.combo.total_cost'))
