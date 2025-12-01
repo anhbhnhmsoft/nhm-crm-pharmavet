@@ -66,6 +66,7 @@ return new class extends Migration
             $table->string('address', 255)->nullable()->comment('Địa chỉ');
 
             $table->unsignedTinyInteger('customer_type')->comment('Loại khách hàng');
+            $table->tinyInteger('interaction_status')->comment('Trạng thái tương tác khách hàng');
 
             $table->foreignId('assigned_staff_id')
                 ->nullable()

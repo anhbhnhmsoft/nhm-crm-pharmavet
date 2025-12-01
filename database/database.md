@@ -1,20 +1,18 @@
 -- Database Schema Documentation
 
-# provinces 
+# provinces
 
     # note
     - bảng lưu trữ thông tin các tỉnh/thành phố
 
-    # cấu trúc 
+    # cấu trúc
     - id: (int, primary key, auto-increment)
-    - code_v1: (varchar(2), not null, unique)
-    - code_v2: (varchar(2), nullable, unique)
+    - code (varchar(2), not null, unique)
     - name: (varchar(5), not null)
     - code_name: (varchar(20), not null, unique)
     - division_type: (varchar(50), not null)
     - metadata: (json, nullable)
     - timestamps
-
 
 # districts
 
@@ -23,15 +21,14 @@
 
     # cấu trúc
     - id: (int, primary key, auto-increment)
-    - name: (varchar(255), not null)
-    - code_v1: (varchar(3), not null, unique)
-    - code_v2: (varchar(3), nullable, unique)
-    - code_name: (varchar(20), not null, unique)
-    - division_type: (varchar(50), not null)
+    - code: (char(5), not null, indexed)
+    - name: (varchar(100), not null)
+    - code_name: (varchar(150), not null)
+    - division_type: (varchar(100), not null)
+    - province_id: (unsignedBigInteger, not null, foreign key → provinces.id) -- tỉnh/thành phố sở hữu quận/huyện
+    - province_code: (char(2), nullable, indexed) -- mã tỉnh để tham chiếu API
     - metadata: (json, nullable)
     - timestamps
-    - province_id: (unsignedBigInteger, not null) -- tỉnh/thành phố sở hữu quận/huyện
-    - province_code_v1: (varchar(2), nullable, unique)
 
 # wards
 
@@ -40,17 +37,14 @@
 
     # cấu trúc
     - id: (int, primary key, auto-increment)
-    - name: (varchar(255), not null)
-    - code_v1: (varchar(5), not null, unique)
-    - code_v2: (varchar(5), nullable, unique)
-    - code_name: (varchar(20), not null, unique)
-    - division_type: (varchar(50), not null)
+    - code: (char(5), not null, indexed) -- mã từ API
+    - name: (varchar(100), not null)
+    - code_name: (varchar(150), not null)
+    - division_type: (varchar(100), not null)
+    - district_id: (unsignedBigInteger, not null, foreign key → districts.id) -- quận/huyện sở hữu phường/xã
+    - district_code: (char(5), nullable, indexed) -- mã quận để tham chiếu API
     - metadata: (json, nullable)
     - timestamps
-    - district_id: (unsignedBigInteger, not null) -- quận/huyện sở hữu phường/xã
-    - district_code_v1: (varchar(3), nullable, unique)
-    - province_code_v1: (varchar(2), nullable, unique)
-    - province_code_v2: (varchar(2), nullable, unique)
 
 # organizations
 
@@ -282,22 +276,28 @@
     - address : (varchar(255), nullable) -- địa chỉ khách hàng
     - birthday : (date, nullable) -- ngày sinh khách hàng
     - customer_type : (tiny integer, not null) -- phân loại khách hàng đầu vào ~ số mới, số mới trùng, số cũ
+    - interaction_status : (tiny integer, default 1, not null) -- trạng thái tương tác (1=FIRST_CALL, 2=SECOND_CALL, etc.)
     - assigned_staff_id : (int, foreign key -> users.id, nullable) -- nhân viên sở hữu số này ~ nhân viên nhận số đầu vào này
-    - status : (varchar(50), default 'new') -- trạng thái tác nghiệp (new, processing, potential, unreachable, closed, cancelled)
     - next_action_at : (timestamp, nullable) -- hẹn lịch gọi lại
+    - product_id : (int, foreign key -> products.id, nullable) -- sản phẩm quan tâm
     - province_id : (unsigned int, nullable) -- tỉnh/thành phố
     - district_id : (unsigned int, nullable) -- quận/huyện
     - ward_id : (unsigned int, nullable) -- phường/xã
     - shipping_address : (varchar(255), nullable) -- địa chỉ giao hàng chi tiết
+    - avatar : (varchar(255), nullable) -- ảnh đại diện
     - source : (varchar(100), nullable) -- tên nguồn (Facebook Ads, Landing Page, Website, Manual, etc.)
     - source_detail : (varchar(255), nullable) -- tên nguồn chi tiết VD: campaign, form v.v
     - source_id : (varchar(255), nullable) -- id từ source bên ngoài
     - note : (text, nullable) -- ghi chú của khách hàng
+    - note_temp : (text, nullable) -- ghi chú tạm thời
     - softDeletes
     - timestamps
     - index[phone]
     - index[assigned_staff_id, customer_type]
     - index[source]
+    - index[interaction_status]
+    - index[next_action_at]
+    - index[organization_id, customer_type]
 
 # bảng lead_distribution_rules
 
@@ -388,20 +388,29 @@
     - organization_id : (int, foreign key -> organizations.id, not null) -- tổ chức sở hữu đơn hàng
     - customer_id : (int, foreign key -> customers.id, not null) -- khách hàng đặt hàng
     - code : (varchar(50), unique, not null) -- mã đơn hàng
-    - status : (varchar(50), default 'pending') -- trạng thái (pending, confirmed, shipping, completed, cancelled)
+    - status : (tiny integer, nullable) -- trạng thái (pending, confirmed, shipping, completed, cancelled)
     - total_amount : (decimal(15,2), default 0) -- tổng tiền
     - discount : (decimal(15,2), default 0) -- chiết khấu
     - shipping_fee : (decimal(15,2), default 0) -- phí vận chuyển
+    - deposit : (decimal(15,2), default 0) -- tiền đặt cọc
+    - cod_fee : (decimal(15,2), default 0) -- phí dịch vụ COD
+    - ck1 : (decimal(5,2), default 0) -- chiết khấu 1 (%)
+    - ck2 : (decimal(5,2), default 0) -- chiết khấu 2 (%)
+    - gift_quantity : (integer, default 0) -- số lượng quà tặng
     - shipping_method : (varchar(50), nullable) -- đơn vị vận chuyển (ghn, ghtk)
     - shipping_address : (varchar(255), nullable) -- địa chỉ giao hàng
     - province_id : (unsigned int, nullable) -- tỉnh/thành phố
     - district_id : (unsigned int, nullable) -- quận/huyện
     - ward_id : (unsigned int, nullable) -- phường/xã
     - note : (text, nullable) -- ghi chú
+    - ghn_required_note : (varchar(50), nullable) -- lưu ý xem hàng GHN
     - created_by : (int, foreign key -> users.id, nullable) -- người tạo
     - updated_by : (int, foreign key -> users.id, nullable) -- người cập nhật
     - softDeletes
     - timestamps
+    - index [status]
+    - index [organization_id, status]
+    - index [created_at]
 
 # bảng order_items
 

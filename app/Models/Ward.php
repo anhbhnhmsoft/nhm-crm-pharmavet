@@ -35,9 +35,9 @@ class Ward extends Model
     /**
      * Lấy tỉnh/thành phố mà phường/xã này thuộc về (thông qua district)
      */
-    public function province(): BelongsTo
+    public function getProvinceAttribute()
     {
-        return $this->district->province();
+        return $this->district?->province;
     }
 
     /**

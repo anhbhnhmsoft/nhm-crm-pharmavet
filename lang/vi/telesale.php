@@ -6,6 +6,9 @@ return [
     'navigation_label' => 'Danh sách data Telesale',
     'model_label' => 'Data',
     'plural_model_label' => 'Danh sách Data',
+    'operation_page_title' => 'Tác nghiệp',
+    'operation_page_label' => 'Màn hình tác nghiệp',
+    'operation_navigation_label' => 'Tác nghiệp',
 
     // Table columns
     'table' => [
@@ -20,6 +23,8 @@ return [
         'next_action' => 'Tác nghiệp tiếp',
         'blacklist' => 'Danh sách đen',
         'unblacklist' => 'Xóa khỏi danh sách đen',
+        'customer_type' => 'Phân loại data',
+        'interaction_status' => 'Trạng thái tương tác',
     ],
 
     // Form sections
@@ -74,7 +79,7 @@ return [
         'discount_amount' => 'Giảm giá',
         'gift_quantity' => 'Số lượng quà tặng',
         'total_amount' => 'Tổng tiền',
-        'call_history' => 'Lịch sử gọi',
+        'call_history' => 'Lịch sử tương tác',
         'add_new_note' => 'Thêm ghi chú',
         'interaction_type' => 'Loại tương tác',
         'result' => 'Kết quả',
@@ -125,8 +130,10 @@ return [
         'assign_sale' => 'Gán Sale',
         'select_staff' => 'Chọn nhân viên',
         'add_data' => 'Nhập Data/Đơn mới',
-        'blacklist' => 'Thêm vào danh sách đen',
+        'blacklist' => 'Đưa vào danh sách đen',
         'unblacklist' => 'Xóa khỏi danh sách đen',
+        'start_call' => 'Bắt đầu gọi',
+        'hangup' => 'Tắt gọi',
     ],
 
     // Filters
@@ -153,7 +160,7 @@ return [
         'system' => 'Hệ thống',
         'unassigned' => 'Chưa phân công',
         'no_schedule' => 'Chưa hẹn lịch',
-        
+
     ],
 
     // Order status
@@ -163,5 +170,16 @@ return [
         'shipping' => 'Đang giao hàng',
         'completed' => 'Hoàn thành',
         'cancelled' => 'Đã hủy',
+    ],
+    'reason_interaction' => [
+        'closing_order' => 'Chốt đơn',
+        'no_answer' => 'Không trả lời',
+        'busy' => 'Máy bận',
+        'call_back' => 'Gọi lại',
+        'subscribers' => 'Theo dõi',
+        'think_more' => 'Cân nhắc',
+        'no_need' => 'Không cần',
+        'good_performance' => 'Hiệu quả',
+        'poor_performance' => 'Không hiệu quả',
     ],
 ];

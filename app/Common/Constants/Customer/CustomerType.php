@@ -25,4 +25,22 @@ enum CustomerType: int
         }
         return $options;
     }
+
+    public static function colors($type): string
+    {
+        return match ($type) {
+            self::NEW->value => 'primary',
+            self::NEW_DUPLICATE->value => 'warning',
+            self::OLD_CUSTOMER->value => 'danger',
+        };
+    }
+
+    public static function getLabel($type): string
+    {
+        return match ($type) {
+            self::NEW->value => __('filament.lead.customer.new'),
+            self::NEW_DUPLICATE->value => __('filament.lead.customer.new_duplicate'),
+            self::OLD_CUSTOMER->value => __('filament.lead.customer.old_customer'),
+        };
+    }
 }

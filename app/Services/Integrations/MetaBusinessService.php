@@ -17,6 +17,8 @@ use Laravel\Socialite\Facades\Socialite;
 use FacebookAds\Api;
 use FacebookAds\Object\Lead;
 use App\Common\Constants\Customer\CustomerType;
+use App\Common\Constants\Interaction\InteractionStatus;
+use App\Common\Constants\Marketing\IntegrationType;
 use App\Repositories\IntegrationRepository;
 use App\Repositories\LeadDistributionConfigRepository;
 use App\Services\LeadDistributionService;
@@ -675,57 +677,133 @@ class MetaBusinessService
 
             $phone = preg_replace('/[^0-9]/', '', $phone ?? '');
 
-            $exists = $this->customerRepository->query()
+            if ($phone) {
+                $isBlacklisted = DB::table('black_list')
+                    ->join('customers', 'black_list.customer_id', '=', 'customers.id')
+                    ->where('customers.phone', $phone)
+                    ->where('customers.organization_id', $integration->organization_id)
+                    ->exists();
+
+                if ($isBlacklisted) {
+                    Log::warning('Customer is blacklisted, skipping', [
+                        'phone' => $phone,
+                        'organization_id' => $integration->organization_id,
+                        'source' => 'facebook_lead',
+                    ]);
+                    DB::commit();
+                    return ServiceReturn::error(__('messages.meta_business.error.customer_blacklisted'));
+                }
+            }
+
+            $existingCustomer = $this->customerRepository->query()
                 ->where('organization_id', $integration->organization_id)
                 ->where(function ($q) use ($phone, $email) {
                     if ($phone) {
-                        $q->orWhere('phone', $phone);
+                        $q->where('phone', $phone);
                     }
-                    if ($email) {
+                    if ($email && !$phone) {
                         $q->orWhere('email', $email);
                     }
                 })
                 ->first();
 
-            if ($exists) {
-                $exists->update([
-                    'username' => $exists->username ?: $username,
-                    'email' => $exists->email ?: $email,
-                    'source' => 'facebook',
+            if ($existingCustomer) {
+                $hasCompletedOrder = $existingCustomer->orders()
+                    ->where('status', \App\Common\Constants\StatusProgress::COMPLETED->value)
+                    ->exists();
+
+                if ($hasCompletedOrder) {
+                    $customer = $this->customerRepository->create([
+                        'organization_id' => $integration->organization_id,
+                        'username' => $username ?: ($email ?: $phone ?: 'Lead'),
+                        'phone' => $phone ?: null,
+                        'email' => $email ?: null,
+                        'address' => null,
+                        'customer_type' => CustomerType::OLD_CUSTOMER->value,
+                        'assigned_staff_id' => null,
+                        'note' => null,
+                        'source' => IntegrationType::FACEBOOK_ADS->value,
+                        'source_detail' => $this->formatSourceDetail($leadData, $marketingData),
+                        'source_id' => (string) ($leadData['id'] ?? ''),
+                        'interaction_status' => InteractionStatus::FIRST_CALL->value,
+                        'product_id' => $productId,
+                    ]);
+
+                    Log::info('Created OLD_CUSTOMER from Facebook lead', [
+                        'customer_id' => $customer->id,
+                        'phone' => $phone,
+                        'existing_customer_id' => $existingCustomer->id,
+                    ]);
+                } else {
+                    $customer = $this->customerRepository->create([
+                        'organization_id' => $integration->organization_id,
+                        'username' => $username ?: ($email ?: $phone ?: 'Lead'),
+                        'phone' => $phone ?: null,
+                        'email' => $email ?: null,
+                        'address' => null,
+                        'customer_type' => CustomerType::NEW_DUPLICATE->value,
+                        'assigned_staff_id' => null,
+                        'note' => null,
+                        'source' => IntegrationType::FACEBOOK_ADS->value,
+                        'source_detail' => $this->formatSourceDetail($leadData, $marketingData),
+                        'source_id' => (string) ($leadData['id'] ?? ''),
+                        'interaction_status' => InteractionStatus::FIRST_CALL->value,
+                        'product_id' => $productId,
+                    ]);
+
+                    Log::info('Created NEW_DUPLICATE from Facebook lead', [
+                        'customer_id' => $customer->id,
+                        'phone' => $phone,
+                        'existing_customer_id' => $existingCustomer->id,
+                    ]);
+                }
+            } else {
+                $customer = $this->customerRepository->create([
+                    'organization_id' => $integration->organization_id,
+                    'username' => $username ?: ($email ?: $phone ?: 'Lead'),
+                    'phone' => $phone ?: null,
+                    'email' => $email ?: null,
+                    'address' => null,
+                    'customer_type' => CustomerType::NEW->value,
+                    'assigned_staff_id' => null,
+                    'note' => null,
+                    'source' => IntegrationType::FACEBOOK_ADS->value,
                     'source_detail' => $this->formatSourceDetail($leadData, $marketingData),
                     'source_id' => (string) ($leadData['id'] ?? ''),
+                    'interaction_status' => InteractionStatus::FIRST_CALL->value,
+                    'product_id' => $productId,
                 ]);
-                DB::commit();
-                return ServiceReturn::success();
+
+                Log::info('Created NEW customer from Facebook lead', [
+                    'customer_id' => $customer->id,
+                    'phone' => $phone,
+                ]);
             }
 
-            $customer = $this->customerRepository->create([
-                'organization_id' => $integration->organization_id,
-                'username' => $username ?: ($email ?: $phone ?: 'Lead'),
-                'phone' => $phone ?: null,
-                'email' => $email ?: null,
-                'address' => null,
-                'customer_type' => CustomerType::NEW->value,
-                'assigned_staff_id' => null,
-                'note' => null,
-                'source' => 'facebook',
-                'source_detail' => $this->formatSourceDetail($leadData, $marketingData),
-                'source_id' => (string) ($leadData['id'] ?? ''),
-            ]);
-
-            // Distribute lead if product ID is available
-            if ($productId && $customer) {
+            if ($customer) {
                 $staff = $this->leadDistributionService->assignLead($customer, $productId, $integration->organization_id);
                 if ($staff) {
                     $customer->update(['assigned_staff_id' => $staff->id]);
+
+                    Log::info('Assigned Facebook lead to staff', [
+                        'customer_id' => $customer->id,
+                        'staff_id' => $staff->id,
+                        'staff_name' => $staff->name,
+                    ]);
                 }
             }
 
             DB::commit();
-            return ServiceReturn::success();
+
+            return ServiceReturn::success([
+                'customer' => $customer,
+                'customer_type' => CustomerType::getLabel($customer->customer_type),
+            ]);
         } catch (\Throwable $th) {
             DB::rollBack();
-            Log::error('Store Facebook lead error: ' . $th->getMessage());
+            Log::error('Store Facebook lead error: ' . $th->getMessage(), [
+                'trace' => $th->getTraceAsString(),
+            ]);
             return ServiceReturn::error('Store Facebook lead error: ' . $th->getMessage());
         }
     }
