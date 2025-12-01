@@ -38,7 +38,7 @@ return new class extends Migration
                 ->nullable()
                 ->comment('Giới hạn giá trị bảo hiểm tối đa (VNĐ) mà GHN cho phép, ví dụ 5.000.000');
 
-            $table->tinyInteger('required_note')
+            $table->string('required_note', 20)
                 ->comment('Cho phép khách hàng xem hàng trước khi nhận: true = cho xem, false = không cho xem');
 
             $table->boolean('allow_cod_on_failed')

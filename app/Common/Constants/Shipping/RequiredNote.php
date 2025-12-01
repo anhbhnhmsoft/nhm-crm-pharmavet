@@ -28,6 +28,6 @@ enum RequiredNote: string
 
     public static function getLabel(string $value): string
     {
-        return self::tryFrom($value)?->label();
+        return self::tryFrom($value)->label();
     }
 }

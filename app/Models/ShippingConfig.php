@@ -24,7 +24,8 @@ class ShippingConfig extends Model
         'required_note',
         'allow_cod_on_failed',
         'default_pickup_shift',
-        'default_pickup_time'
+        'default_pickup_time',
+        'warehouse_id',
     ];
 
     protected $casts = [
@@ -47,4 +48,8 @@ class ShippingConfig extends Model
         return $this->belongsTo(Organization::class);
     }
 
+    public function warehouse(): BelongsTo
+    {
+        return $this->belongsTo(Warehouse::class);
+    }
 }
