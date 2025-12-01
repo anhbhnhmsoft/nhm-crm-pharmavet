@@ -62,6 +62,8 @@ return [
     ],
     'form' => [
         'location_search_placeholder' => 'Tìm kiếm địa điểm',
+        'latitude'   => 'Vĩ độ',
+        'longitude' => 'Kinh độ'
     ],
     'table' => [
         'name' => 'Tên',
@@ -80,6 +82,7 @@ return [
         'result' => 'Kết quả',
         'phone' => 'Số điện thoại',
         'product' => 'Sản phẩm',
+        'address' => 'Địa chỉ',
     ],
     'status' => [
         'label'    => 'Trạng thái',

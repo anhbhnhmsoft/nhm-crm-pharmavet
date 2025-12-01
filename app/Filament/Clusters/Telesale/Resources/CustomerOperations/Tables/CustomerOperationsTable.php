@@ -19,6 +19,7 @@ use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
+use Filament\Forms\Components\Textarea;
 use Filament\Schemas\Components\Grid;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TrashedFilter;
@@ -100,6 +101,35 @@ class CustomerOperationsTable
                         ->label(__('common.action.view'))
                         ->tooltip(__('common.tooltip.view'))
                         ->icon('heroicon-o-eye'),
+
+                    Action::make('blacklist')
+                        ->label(__('telesale.table.blacklist'))
+                        ->icon('heroicon-o-no-symbol')
+                        ->color('danger')
+                        ->form([
+                            Textarea::make('note')
+                                ->label(__('common.table.note'))
+                                ->required(),
+                        ])
+                        ->action(function ($record, array $data) {
+                            $record->blackList()->create([
+                                'note' => $data['note'],
+                                'user_id' => Auth::id(),
+                            ]);
+                            Notification::make()->title(__('common.success.update_success'))->success()->send();
+                        })
+                        ->visible(fn($record) => !$record->blackList),
+
+                    Action::make('unblacklist')
+                        ->label(__('telesale.table.unblacklist'))
+                        ->icon('heroicon-o-check-circle')
+                        ->color('success')
+                        ->requiresConfirmation()
+                        ->action(function ($record) {
+                            $record->blackList()->delete();
+                            Notification::make()->title(__('common.success.update_success'))->success()->send();
+                        })
+                        ->visible(fn($record) => $record->blackList),
 
                     // FIRST_CALL Action
                     Action::make('first_call')

@@ -79,7 +79,7 @@ return [
         'discount_amount' => 'Giảm giá',
         'gift_quantity' => 'Số lượng quà tặng',
         'total_amount' => 'Tổng tiền',
-        'call_history' => 'Lịch sử gọi',
+        'call_history' => 'Lịch sử tương tác',
         'add_new_note' => 'Thêm ghi chú',
         'interaction_type' => 'Loại tương tác',
         'result' => 'Kết quả',
