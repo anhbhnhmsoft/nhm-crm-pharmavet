@@ -4,9 +4,11 @@ namespace App\Filament\Clusters\Telesale\Resources\CustomerOperations;
 
 use App\Filament\Clusters\Telesale\Resources\CustomerOperations\Pages\ListCustomerOperations;
 use App\Filament\Clusters\Telesale\Resources\CustomerOperations\Tables\CustomerOperationsTable;
+use App\Filament\Clusters\Telesale\Resources\CustomerOperations\Schemas\CustomerOperationForm;
 use App\Models\Customer;
 use BackedEnum;
 use Filament\Resources\Resource;
+use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -36,6 +38,11 @@ class CustomerOperationResource extends Resource
     public static function getNavigationLabel(): string
     {
         return __('telesale.operation_navigation_label');
+    }
+
+    public static function form(Schema $schema): Schema
+    {
+        return CustomerOperationForm::configure($schema);
     }
 
     public static function table(Table $table): Table

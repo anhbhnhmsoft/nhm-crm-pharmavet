@@ -14,12 +14,8 @@ return new class extends Migration {
 
 
         Schema::create('provinces', function (Blueprint $table) {
-            $table->id(); // Khóa chính tự động tăng
-
-            // Mã V1 (2 ký tự, indexed để tìm kiếm nhanh)
-            $table->char('code_v1', 2)->index();
-            // Mã V2 (2 ký tự, unique nếu có)
-            $table->char('code_v2', 2)->nullable()->unique();
+            $table->id();
+            $table->char('code', 2)->index();
 
             $table->string('name', 100);
             $table->string('code_name', 100);
@@ -31,44 +27,39 @@ return new class extends Migration {
         });
 
         Schema::create('districts', function (Blueprint $table) {
-            $table->id(); // Khóa chính tự động tăng
-
-            // Mã V1 (5 ký tự, indexed để tìm kiếm nhanh)
-            $table->char('code_v1', 5)->index();
+            $table->id();
+            $table->char('code', 5)->index();
 
             $table->string('name', 100);
             $table->string('code_name', 150);
             $table->string('division_type', 100);
 
-            // Khóa ngoại tham chiếu đến districts.id
-            $table->foreignId('district_id')
-                ->constrained('districts')
-                ->onDelete('cascade');
+            $table->foreignId('province_id')
+                ->constrained('provinces')
+                ->onDelete('cascade')
+                ->comment('Tỉnh/thành phố sở hữu quận/huyện');
 
-            // Cột lưu code_v1 của huyện, chỉ để tham chiếu dữ liệu API
-            $table->char('district_code_v1', 3)->nullable()->index();
-
-            // Cột lưu code_v1 và code_v2 của tỉnh (để tham chiếu, không phải khóa ngoại)
-            $table->char('province_code_v1', 2)->nullable()->index();
-            $table->char('province_code_v2', 2)->nullable()->index();
-
+            $table->char('province_code', 2)->nullable()->index();
             $table->json('metadata')->nullable();
             $table->timestamps();
         });
 
 
         Schema::create('wards', function (Blueprint $table) {
-            $table->char('code', 5)->primary();
-
+            $table->id();
+            $table->char('code', 5)->index();
             $table->string('name', 100);
-            $table->string('code_name', 100)->unique();
-            $table->string('division_type', 100); // Ví dụ: Phường, Xã, Thị trấn
+            $table->string('code_name', 150);
+            $table->string('division_type', 100);
 
-            $table->char('district_code', 5);
-            $table->foreign('district_code')->references('code')->on('districts')->onDelete('cascade');
+            $table->foreignId('district_id')
+                ->constrained('districts')
+                ->onDelete('cascade')
+                ->comment('Quận/huyện sở hữu phường/xã');
+
+            $table->char('district_code', 5)->nullable()->index();
 
             $table->json('metadata')->nullable();
-
             $table->timestamps();
         });
 
@@ -405,14 +396,21 @@ return new class extends Migration {
             $table->string('address', 255)->nullable()->comment('Địa chỉ');
 
             $table->unsignedTinyInteger('customer_type')->comment('Loại khách hàng');
-            $table->tinyInteger('interaction_status')->comment('Trạng thái tương tác khách hàng');
+            $table->tinyInteger('interaction_status')->default(1)->comment('Trạng thái tương tác khách hàng');
 
             $table->foreignId('assigned_staff_id')
                 ->nullable()
                 ->constrained('users')
                 ->nullOnDelete()
                 ->comment('Nhân viên được phân công chính');
-            $table->foreignId('interaction_id')->nullable()->constrained('interactions')->nullOnDelete()->comment('Nguồn tương tác đổ data về ');
+
+            $table->foreignId('product_id')
+                ->nullable()
+                ->constrained('products')
+                ->nullOnDelete()
+                ->comment('Sản phẩm quan tâm');
+
+            $table->text('note_temp')->nullable()->comment('Ghi chú tạm thời');
 
             // Thông tin nguồn dữ liệu
             $table->string('source', 100)->nullable()->comment('Nguồn lead: Facebook Ads, Landing Page, Website, Manual, etc.');
@@ -426,6 +424,9 @@ return new class extends Migration {
             $table->index('phone');
             $table->index(['assigned_staff_id', 'customer_type']);
             $table->index('source');
+            $table->index('interaction_status');
+            $table->index('next_action_at');
+            $table->index(['organization_id', 'customer_type']);
         });
 
         /**

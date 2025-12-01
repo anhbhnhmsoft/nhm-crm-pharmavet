@@ -162,9 +162,23 @@ class Customer extends Model
         return $this->belongsToMany(User::class, 'user_assigned_staff', 'customer_id', 'staff_id');
     }
 
-    public function blackList(): BelongsTo
+    public function blackList()
     {
-        return $this->belongsTo(BlackList::class, 'black_list');
+        return $this->hasOne(BlackList::class, 'customer_id');
     }
 
+    public function ward(): BelongsTo
+    {
+        return $this->belongsTo(Ward::class, 'ward_id');
+    }
+
+    public function district(): BelongsTo
+    {
+        return $this->belongsTo(District::class, 'district_id');
+    }
+
+    public function province(): BelongsTo
+    {
+        return $this->belongsTo(Province::class, 'province_id');
+    }
 }

@@ -2,29 +2,17 @@
 
 namespace App\Filament\Clusters\Telesale\Resources\TelesaleOperations\Schemas;
 
-use App\Common\Constants\Interaction\InteractionStatus;
-use App\Common\Constants\Shipping\ShippingMethod;
-use App\Filament\Forms\Components\LocationPicker;
-use App\Common\Constants\Shipping\RequiredNote;
-use App\Models\District;
-use App\Models\Product;
-use App\Models\Province;
-use App\Models\Ward;
+
 use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\DateTimePicker;
-use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Tabs;
-use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
-use Illuminate\Support\Facades\Auth;
 
 class TelesaleOperationForm
 {
@@ -157,7 +145,7 @@ class TelesaleOperationForm
                 //                                             'required' => __('common.error.required'),
                 //                                         ])
                 //                                         ->columnSpanFull(),
-                //                                 ]),                                               
+                //                                 ]),
                 //                             ])
                 //                             ->collapsible(),
 
