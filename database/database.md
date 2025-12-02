@@ -496,3 +496,161 @@
     - timestamps
     - index [warehouse_id, province_id]
     - index [province_id]
+
+# bảng inventory_tickets
+
+    # note
+    - Quản lý phiếu nhập/xuất kho
+    - Hỗ trợ 4 loại phiếu: Nhập kho (1), Xuất kho (2), Chuyển kho (3), Xuất hủy (4)
+    - 3 trạng thái: Phiếu tạm (1), Hoàn thành (2), Đã hủy (3)
+    - Chỉ phiếu tạm mới có thể chỉnh sửa/xóa
+    - Phiếu hoàn thành không thể sửa, chỉ có thể hủy
+
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - organization_id : (int, foreign key -> organizations.id, not null) -- tổ chức sở hữu phiếu
+    - code : (varchar(255), unique, not null) -- mã phiếu (auto-generate: INV-XXXXXXXX)
+    - type : (tiny integer, not null) -- loại phiếu
+        * 1 = Nhập kho (IMPORT)
+        * 2 = Xuất kho (EXPORT)
+        * 3 = Chuyển kho (TRANSFER)
+        * 4 = Xuất hủy (CANCEL_EXPORT)
+    - status : (tiny integer, default 1, not null) -- trạng thái phiếu
+        * 1 = Phiếu tạm (DRAFT) - có thể chỉnh sửa
+        * 2 = Hoàn thành (COMPLETED) - đã duyệt, không thể sửa
+        * 3 = Đã hủy (CANCELLED) - đã hủy
+    - warehouse_id : (int, foreign key -> warehouses.id, not null) -- kho thực hiện (cho Nhập/Xuất/Xuất hủy)
+    - source_warehouse_id : (int, foreign key -> warehouses.id, nullable) -- kho nguồn (chỉ cho Chuyển kho)
+    - target_warehouse_id : (int, foreign key -> warehouses.id, nullable) -- kho đích (chỉ cho Chuyển kho)
+    - note : (text, nullable) -- ghi chú
+    - created_by : (int, foreign key -> users.id, nullable) -- người tạo
+    - updated_by : (int, foreign key -> users.id, nullable) -- người cập nhật
+    - approved_by : (int, foreign key -> users.id, nullable) -- người duyệt
+    - approved_at : (timestamp, nullable) -- thời gian duyệt
+    - softDeletes
+    - timestamps
+    - index [organization_id]
+    - index [code]
+    - index [type]
+    - index [status]
+    - index [created_at]
+
+# bảng inventory_ticket_details
+
+    # note
+    - Chi tiết sản phẩm trong phiếu kho
+    - Lưu số lượng và tồn kho tại thời điểm tạo phiếu
+
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - inventory_ticket_id : (int, foreign key -> inventory_tickets.id, not null) -- phiếu kho
+    - product_id : (int, foreign key -> products.id, not null) -- sản phẩm
+    - quantity : (integer, not null) -- số lượng nhập/xuất
+    - current_quantity : (integer, nullable) -- số lượng tồn kho tại thời điểm tạo phiếu (để tracking)
+    - timestamps
+    - index [inventory_ticket_id]
+    - index [product_id]
+
+# bảng inventory_ticket_logs
+
+    # note
+    - Lịch sử thay đổi phiếu kho
+    - Tracking các thao tác: tạo, duyệt, hủy, sửa
+
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - inventory_ticket_id : (int, foreign key -> inventory_tickets.id, not null) -- phiếu kho
+    - product_id : (int, foreign key -> products.id, not null) -- sản phẩm liên quan
+    - note : (varchar(255), nullable) -- ghi chú thay đổi
+    - reason : (varchar(255), nullable) -- lý do thay đổi
+    - user_id : (int, foreign key -> users.id, nullable) -- người thực hiện
+    - created_by : (int, foreign key -> users.id, nullable) -- người tạo log
+    - updated_by : (int, foreign key -> users.id, nullable) -- người cập nhật log
+    - softDeletes
+    - timestamps
+    - index [inventory_ticket_id]
+    - index [product_id]
+    - index [created_at]
+
+# bảng product_warehouse
+
+    # note
+    - Bảng pivot quản lý tồn kho theo từng kho
+    - Tracking số lượng tồn kho và số lượng chờ xuất
+    - Mỗi sản phẩm có thể có tồn kho ở nhiều kho khác nhau
+
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - product_id : (int, foreign key -> products.id, not null) -- sản phẩm
+    - warehouse_id : (int, foreign key -> warehouses.id, not null) -- kho
+    - quantity : (integer, default 0, not null) -- số lượng tồn kho thực tế
+    - pending_quantity : (integer, default 0, not null) -- số lượng chờ xuất (đã chốt đơn nhưng chưa xuất)
+    - timestamps
+    - unique [product_id, warehouse_id]
+    - index [product_id]
+    - index [warehouse_id]
+
+# bảng shipping_config_for_warehouses
+
+    # note
+    - Cấu hình giao hàng GHN riêng cho từng kho
+    - Mỗi kho có thể có cấu hình GHN riêng
+    - Hỗ trợ nhiều tài khoản GHN cho các kho khác nhau
+
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - warehouse_id : (int, foreign key -> warehouses.id, not null) -- kho áp dụng cấu hình
+    - organization_id : (int, foreign key -> organizations.id, not null) -- tổ chức sở hữu
+    - account_name : (varchar(255), not null) -- tên tài khoản GHN
+    - api_token : (varchar(255), not null) -- API Token GHN
+    - store_id : (varchar(255), nullable) -- ID cửa hàng GHN
+    - use_insurance : (boolean, default false) -- sử dụng bảo hiểm
+    - insurance_limit : (unsigned big integer, nullable) -- giá trị bảo hiểm tối đa
+    - required_note : (varchar(255), nullable) -- lựa chọn xem hàng (CHOTHUHANG, CHOXEMHANGKHONGTHU, KHONGCHOXEMHANG)
+    - pickup_shift : (varchar(255), nullable) -- ca lấy hàng (1: sáng, 2: chiều, 3: tối)
+    - cod_failed_amount : (decimal(15,0), default 0) -- số tiền thu khi giao hàng thất bại
+    - fix_receiver_phone : (boolean, default false) -- cố định số điện thoại người nhận
+    - is_default : (boolean, default false) -- cấu hình mặc định cho kho này
+    - timestamps
+    - index [warehouse_id]
+    - index [organization_id]
+
+# Quan hệ giữa các bảng Inventory
+
+    ## Workflow quản lý kho:
+    1. Tạo phiếu (inventory_tickets) với trạng thái DRAFT
+    2. Thêm sản phẩm vào phiếu (inventory_ticket_details)
+    3. Duyệt phiếu -> chuyển sang COMPLETED
+    4. Cập nhật tồn kho (product_warehouse)
+    5. Ghi log thay đổi (inventory_ticket_logs)
+
+    ## Loại phiếu và logic cập nhật tồn kho:
+
+    ### Nhập kho (IMPORT):
+    - warehouse_id: kho nhập
+    - Khi duyệt: quantity += số lượng nhập
+
+    ### Xuất kho (EXPORT):
+    - warehouse_id: kho xuất
+    - Khi duyệt: quantity -= số lượng xuất
+    - Validate: quantity >= số lượng xuất
+
+    ### Chuyển kho (TRANSFER):
+    - source_warehouse_id: kho nguồn
+    - target_warehouse_id: kho đích
+    - Khi duyệt:
+        * Kho nguồn: quantity -= số lượng
+        * Kho đích: quantity += số lượng
+    - Validate: kho nguồn quantity >= số lượng chuyển
+
+    ### Xuất hủy (CANCEL_EXPORT):
+    - warehouse_id: kho xuất hủy
+    - Khi duyệt: quantity -= số lượng hủy
+    - Validate: quantity >= số lượng hủy
+
+    ## Pending Quantity (Số lượng chờ xuất):
+    - Tăng khi: Chốt đơn hàng (order status = CONFIRMED)
+    - Giảm khi:
+        * Xuất kho thực tế (inventory ticket EXPORT được duyệt)
+        * Hủy đơn hàng (order status = CANCELLED)
+    - Công thức tồn khả dụng: quantity - pending_quantity

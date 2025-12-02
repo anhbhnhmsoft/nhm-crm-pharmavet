@@ -12,10 +12,10 @@ enum TypeTicket: int
     public function getLabel(): string
     {
         return match ($this) {
-            self::IMPORT => 'Nhập kho',
-            self::EXPORT => 'Xuất kho',
-            self::TRANSFER => 'Chuyển kho',
-            self::CANCEL_EXPORT => 'Xuất hủy',
+            self::IMPORT => __('warehouse.type_ticket.import'),
+            self::EXPORT => __('warehouse.type_ticket.export'),
+            self::TRANSFER => __('warehouse.type_ticket.transfer'),
+            self::CANCEL_EXPORT => __('warehouse.type_ticket.cancel_export'),
         };
     }
 

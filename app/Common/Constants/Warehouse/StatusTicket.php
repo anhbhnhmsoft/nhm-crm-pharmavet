@@ -11,9 +11,9 @@ enum StatusTicket: int
     public function getLabel(): string
     {
         return match ($this) {
-            self::DRAFT => 'Phiếu tạm',
-            self::COMPLETED => 'Hoàn thành',
-            self::CANCELLED => 'Đã hủy',
+            self::DRAFT => __('warehouse.status_ticket.draft'),
+            self::COMPLETED => __('warehouse.status_ticket.completed'),
+            self::CANCELLED => __('warehouse.status_ticket.cancelled'),
         };
     }
 

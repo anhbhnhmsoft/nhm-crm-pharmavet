@@ -95,4 +95,17 @@ return [
         ],
     ],
 
+    'status_ticket' => [
+        'draft' => 'Phiếu tạm',
+        'completed' => 'Hoàn thành',
+        'cancelled' => 'Đã hủy',
+    ],
+
+    'type_ticket' => [
+        'import' => 'Nhập kho',
+        'export' => 'Xuất kho',
+        'transfer' => 'Chuyển kho',
+        'cancel_export' => 'Xuất hủy',
+    ],
+
 ];
