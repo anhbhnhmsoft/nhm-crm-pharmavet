@@ -4,7 +4,8 @@ return [
     'navigation' => [
         'unit_administration' => 'Quản trị đơn vị',
         'unit_marketing' => 'Marketing',
-        'unit_telesale'  => 'Sale tác nghiệp'
+        'unit_telesale'  => 'Sale tác nghiệp',
+        'unit_warehouse' => 'Kho',
     ],
     'login' => [
         'organization_code' => 'Mã tổ chức',

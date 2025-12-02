@@ -40,6 +40,6 @@ enum UserRole: int
 
     public static function getLabel(int $value): string
     {
-        return self::tryFrom($value)?->label();
+        return self::tryFrom($value)->label();
     }
 }

@@ -457,3 +457,42 @@
     - note : (text, nullable) -- ghi chú
     - timestamps
     - index [order_id, created_at]
+
+# bảng warehouses
+
+    # note
+    - Quản lý kho
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - organization_id : (int, foreign key -> organizations.id, not null) -- tổ chức sở hữu kho
+    - name : (varchar(255), not null) -- tên kho
+    - code : (varchar(50), unique, not null) -- mã kho
+    - address : (varchar(255), nullable) -- địa chỉ
+    - province_id : (unsigned int, nullable) -- tỉnh/thành phố
+    - district_id : (unsigned int, nullable) -- quận/huyện
+    - ward_id : (unsigned int, nullable) -- phường/xã
+    - note : (text, nullable) -- ghi chú
+    - created_by : (int, foreign key -> users.id, nullable) -- người tạo
+    - updated_by : (int, foreign key -> users.id, nullable) -- người cập nhật
+    - manager_id : (int, foreign key -> users.id, nullable) -- người quản lý
+    - manager_phone : (varchar(20), nullable) -- số điện thoại người quản lý
+    - sender_name : (varchar(255), nullable) -- tên người gửi
+    - sender_info : (text, nullable) -- thông tin người gửi
+    - is_active : (tiny integer, default 1) -- trạng thái (active/inactive)
+    - softDeletes
+    - timestamps
+    - index [organization_id]
+    - index [code]
+    - index [created_at]
+
+# bảng warehouse_delivery_provinces
+
+    # note
+    - Quản lý tỉnh/thành phố có thể giao hàng
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - warehouse_id : (int, foreign key -> warehouses.id, not null) -- kho
+    - province_id : (unsigned int, not null) -- tỉnh/thành phố
+    - timestamps
+    - index [warehouse_id, province_id]
+    - index [province_id]
