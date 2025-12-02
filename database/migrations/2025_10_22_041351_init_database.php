@@ -197,6 +197,7 @@ return new class extends Migration {
             $table->string('height', 50)->nullable()->comment('Chiều cao');
             $table->unsignedInteger('quantity')->default(0)->comment('Số lượng sản phẩm');
             $table->unsignedTinyInteger('vat_rate')->default(0)->comment('Thuế VAT (%)');
+            $table->tinyInteger('type_vat')->default(1)->comment('Phân loại/Trạng thái Thuế VAT (KCT, KKKNT, Thuế suất)');
             $table->boolean('is_business_product')->default(false)->comment('SP ngừng kinh doanh');
             $table->boolean('has_attributes')->default(false)->comment('Có thuộc tính (biến thể)');
             $table->timestamps();
@@ -287,51 +288,8 @@ return new class extends Migration {
             $table->unique(['combo_id', 'product_id'], 'combo_product_unique');
         });
 
-        // --- 9. Bảng Shipping_Configs ---
-        Schema::create('shipping_configs', function (Blueprint $table) {
-            $table->id()->comment('Khóa chính của bảng cấu hình GHN');
-
-            $table->foreignId('organization_id')
-                ->constrained()
-                ->cascadeOnDelete()
-                ->comment('Mã tổ chức (organization) sở hữu cấu hình GHN này');
-
-            $table->string('account_name')
-                ->comment('Tên tài khoản GHN do người dùng nhập, dùng để xác định tài khoản GHN đang kết nối');
-
-            $table->text('api_token')
-                ->encrypted()
-                ->comment('API Token do GHN cấp, dùng để xác thực khi gọi API GHN; được mã hóa khi lưu');
-
-            $table->string('default_store_id')
-                ->nullable()
-                ->comment('ID cửa hàng hoặc kho mặc định được chọn từ danh sách cửa hàng GHN');
-
-            $table->boolean('use_insurance')
-                ->default(false)
-                ->comment('Bật/tắt sử dụng bảo hiểm cho đơn hàng GHN');
-
-            $table->decimal('insurance_limit', 15, 2)
-                ->nullable()
-                ->comment('Giới hạn giá trị bảo hiểm tối đa (VNĐ) mà GHN cho phép, ví dụ 5.000.000');
-
-            $table->string('required_note', 20)
-                ->comment('Cho phép khách hàng xem hàng trước khi nhận: true = cho xem, false = không cho xem');
-
-            $table->boolean('allow_cod_on_failed')
-                ->default(false)
-                ->comment('Cho phép thu thêm khi giao hàng thất bại: true = có, false = không');
-
-            $table->tinyInteger('default_pickup_shift')
-                ->nullable()
-                ->comment('Mã ca lấy hàng mặc định từ GHN, ví dụ: sáng / chiều / tối');
-
-            $table->timestamp('default_pickup_time')
-                ->nullable()
-                ->comment('Thời gian lấy hàng mặc định mong muốn');
-            $table->softDeletes();
-            $table->timestamps();
-        });
+        // --- 9. Bảng Shipping_Configs ~ Cấu hình giao hàng ---
+        // (Moved to end of file to ensure warehouses table exists)
 
         /**
          *  10 . Cấu hình phân bổ (LeadDistributionConfig)
@@ -692,6 +650,172 @@ return new class extends Migration {
 
             $table->index(['customer_id', 'created_at']);
         });
+
+        // --- 23. Shipping Config For Warehouses ~ Cấu hình giao hàng cho kho ---
+        // (Moved to end of file to ensure warehouses table exists)
+
+        Schema::create('warehouses', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('organization_id')->constrained()->cascadeOnDelete();
+            $table->string('name')->comment('Tên kho');
+            $table->string('code')->comment('Mã kho');
+            $table->foreignId('province_id')->constrained()->comment('Tỉnh/TP');
+            $table->foreignId('district_id')->constrained()->comment('Quận/Huyện');
+            $table->foreignId('ward_id')->constrained()->comment('Phường/Xã');
+            $table->string('address')->comment('Địa chỉ chi tiết');
+            $table->string('phone')->comment('Số điện thoại kho');
+            $table->text('note')->nullable()->comment('Ghi chú');
+            $table->integer('order')->default(0)->comment('Thứ tự');
+            $table->foreignId('manager_id')->nullable()->constrained('users')->comment('Quản kho');
+            $table->string('manager_phone')->nullable()->comment('Số ĐT quản kho');
+            $table->string('sender_name')->nullable()->comment('Đăng đơn người gửi');
+            $table->text('sender_info')->nullable()->comment('In đơn người gửi');
+            $table->boolean('is_active')->default(true);
+            $table->foreignId('created_by')->nullable()->constrained('users')->comment('Người tạo');
+            $table->foreignId('updated_by')->nullable()->constrained('users')->comment('Người cập nhật');
+            $table->softDeletes();
+            $table->timestamps();
+
+            // Unique code per organization
+            $table->unique(['organization_id', 'code']);
+        });
+
+        Schema::create('warehouse_delivery_provinces', function (Blueprint $table) {
+            $table->foreignId('warehouse_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('province_id')->constrained()->cascadeOnDelete();
+            $table->primary(['warehouse_id', 'province_id']);
+        });
+
+        Schema::create('inventory_tickets', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('organization_id')->constrained()->cascadeOnDelete();
+            $table->string('code')->unique()->comment('Mã phiếu');
+            $table->unsignedTinyInteger('type')->comment('1: Import, 2: Export, 3: Transfer, 4: Cancel Export');
+            $table->unsignedTinyInteger('status')->default(1)->comment('1: Draft, 2: Completed, 3: Cancelled');
+
+            $table->foreignId('warehouse_id')->constrained()->cascadeOnDelete()->comment('Kho thực hiện');
+            $table->foreignId('source_warehouse_id')->nullable()->constrained('warehouses')->nullOnDelete()->comment('Kho nguồn (cho chuyển kho)');
+            $table->foreignId('target_warehouse_id')->nullable()->constrained('warehouses')->nullOnDelete()->comment('Kho đích (cho chuyển kho)');
+
+            $table->text('note')->nullable();
+
+            $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('updated_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('approved_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->timestamp('approved_at')->nullable();
+
+            $table->timestamps();
+            $table->softDeletes();
+        });
+
+        // 2. Inventory Ticket Details
+        Schema::create('inventory_ticket_details', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('inventory_ticket_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('product_id')->constrained()->cascadeOnDelete();
+            $table->integer('quantity')->comment('Số lượng');
+            $table->integer('current_quantity')->nullable()->comment('Số lượng tồn tại thời điểm tạo phiếu');
+            $table->timestamps();
+        });
+
+        // 3. Inventory Ticket Logs
+        Schema::create('inventory_ticket_logs', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('inventory_ticket_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('product_id')->constrained()->cascadeOnDelete();
+            $table->string('note', 255)->nullable();
+            $table->string('reason', 255)->nullable();
+            $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('updated_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->timestamps();
+            $table->softDeletes();
+        });
+
+        // 4. Product Warehouse (Pivot)
+        Schema::create('product_warehouse', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('product_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('warehouse_id')->constrained()->cascadeOnDelete();
+            $table->integer('quantity')->default(0)->comment('Số lượng tồn kho');
+            $table->integer('pending_quantity')->default(0)->comment('Số lượng chờ xuất');
+            $table->timestamps();
+
+            $table->unique(['product_id', 'warehouse_id']);
+        });
+
+        Schema::create('shipping_configs', function (Blueprint $table) {
+            $table->id()->comment('Khóa chính của bảng cấu hình GHN');
+
+            $table->foreignId('organization_id')
+                ->constrained()
+                ->cascadeOnDelete()
+                ->comment('Mã tổ chức (organization) sở hữu cấu hình GHN này');
+
+            $table->foreignId('warehouse_id')
+                ->nullable()
+                ->constrained('warehouses')
+                ->nullOnDelete()
+                ->comment('Kho mặc định (nếu có)');
+
+            $table->string('account_name')
+                ->comment('Tên tài khoản GHN do người dùng nhập, dùng để xác định tài khoản GHN đang kết nối');
+
+            $table->text('api_token')
+                ->encrypted()
+                ->comment('API Token do GHN cấp, dùng để xác thực khi gọi API GHN; được mã hóa khi lưu');
+
+            $table->string('default_store_id')
+                ->nullable()
+                ->comment('ID cửa hàng hoặc kho mặc định được chọn từ danh sách cửa hàng GHN');
+
+            $table->boolean('use_insurance')
+                ->default(false)
+                ->comment('Bật/tắt sử dụng bảo hiểm cho đơn hàng GHN');
+
+            $table->decimal('insurance_limit', 15, 2)
+                ->nullable()
+                ->comment('Giới hạn giá trị bảo hiểm tối đa (VNĐ) mà GHN cho phép, ví dụ 5.000.000');
+
+            $table->string('required_note', 20)
+                ->comment('Cho phép khách hàng xem hàng trước khi nhận: true = cho xem, false = không cho xem');
+
+            $table->boolean('allow_cod_on_failed')
+                ->default(false)
+                ->comment('Cho phép thu thêm khi giao hàng thất bại: true = có, false = không');
+
+            $table->tinyInteger('default_pickup_shift')
+                ->nullable()
+                ->comment('Mã ca lấy hàng mặc định từ GHN, ví dụ: sáng / chiều / tối');
+
+            $table->timestamp('default_pickup_time')
+                ->nullable()
+                ->comment('Thời gian lấy hàng mặc định mong muốn');
+            $table->softDeletes();
+            $table->timestamps();
+        });
+
+        Schema::create('shipping_config_for_warehouses', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('warehouse_id')->constrained('warehouses')->cascadeOnDelete();
+            $table->foreignId('organization_id')->constrained('organizations')->cascadeOnDelete();
+
+            $table->string('account_name')->comment('Tài khoản');
+            $table->string('api_token')->comment('API Token');
+            $table->string('store_id')->nullable()->comment('ID Cửa hàng GHN');
+
+            $table->boolean('use_insurance')->default(false)->comment('Sử dụng bảo hiểm');
+            $table->unsignedBigInteger('insurance_limit')->nullable()->comment('Giá trị bảo hiểm tối đa');
+
+            $table->string('required_note')->nullable()->comment('Lựa chọn xem hàng');
+            $table->string('pickup_shift')->nullable()->comment('Ca lấy hàng');
+
+            $table->decimal('cod_failed_amount', 15, 0)->default(0)->comment('Giao hàng thất bại thu tiền');
+            $table->boolean('fix_receiver_phone')->default(false)->comment('Cố định SĐT người nhận');
+            $table->boolean('is_default')->default(false)->comment('Giao hàng bằng mặc định');
+
+            $table->timestamps();
+        });
     }
 
     /**
@@ -699,30 +823,46 @@ return new class extends Migration {
      */
     public function down(): void
     {
+        Schema::dropIfExists('shipping_config_for_warehouses');
+        Schema::dropIfExists('product_warehouse');
+        Schema::dropIfExists('inventory_ticket_logs');
+        Schema::dropIfExists('inventory_ticket_details');
+        Schema::dropIfExists('inventory_tickets');
+        Schema::dropIfExists('warehouse_delivery_provinces');
+        Schema::dropIfExists('warehouses');
 
-        Schema::dropIfExists('sessions');
-        Schema::dropIfExists('order_status_logs');
+        Schema::dropIfExists('black_list');
         Schema::dropIfExists('customer_interactions');
         Schema::dropIfExists('customer_status_logs');
-        Schema::dropIfExists('black_list');
+        Schema::dropIfExists('order_status_logs');
         Schema::dropIfExists('order_items');
-        Schema::dropIfExists('orders');
-        Schema::dropIfExists('shipping_configs');
-        Schema::dropIfExists('combo_product');
-        Schema::dropIfExists('combos');
+
         Schema::dropIfExists('product_user_assignments');
         Schema::dropIfExists('product_attributes');
+        Schema::dropIfExists('combo_product');
+        Schema::dropIfExists('lead_distribution_staff');
+        Schema::dropIfExists('lead_distribution_rules');
+
+        Schema::dropIfExists('integration_tokens');
+        Schema::dropIfExists('integration_entities');
+
+        Schema::dropIfExists('orders');
+        Schema::dropIfExists('combos');
+        Schema::dropIfExists('shipping_configs');
+
+        Schema::dropIfExists('customers');
+        Schema::dropIfExists('lead_distribution_configs');
+        Schema::dropIfExists('integrations');
+
         Schema::dropIfExists('products');
         Schema::dropIfExists('user_shift');
         Schema::dropIfExists('user_logs');
+        Schema::dropIfExists('sessions');
+        Schema::dropIfExists('users');
         Schema::dropIfExists('teams');
         Schema::dropIfExists('shifts');
-        Schema::dropIfExists('users');
         Schema::dropIfExists('organizations');
-        Schema::dropIfExists('lead_distribution_staff');
-        Schema::dropIfExists('lead_distribution_rules');
-        Schema::dropIfExists('customers');
-        Schema::dropIfExists('lead_distribution_configs');
+
         Schema::dropIfExists('wards');
         Schema::dropIfExists('districts');
         Schema::dropIfExists('provinces');
