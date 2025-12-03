@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\Clusters\Organization\Resources\Organizations\Pages;
+namespace App\Filament\Clusters\Organization\Pages;
 
 use App\Common\Constants\Customer\CustomerType;
 use App\Common\Constants\Team\TeamType;
@@ -14,12 +14,13 @@ use Filament\Pages\Page;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use App\Common\Constants\Customer\DistributionMethod;
+use App\Common\Constants\User\UserRole;
 use App\Models\Team;
 use App\Models\User;
 use App\Services\LeadDistributionConfigService;
+use App\Utils\Helper;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
-use Filament\Schemas\Components\Utilities\State;
 
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Auth;
@@ -30,6 +31,14 @@ class LeadDistributionConfig extends Page
 
     protected string $view = 'filament.clusters.organization.resources.organizations.pages.lead-distribution-config';
 
+    public static function canAccess(): bool
+    {
+        return Helper::checkPermission([
+            UserRole::SUPER_ADMIN->value,
+            UserRole::ADMIN->value,
+        ], Auth::user()->role);
+    }
+    
     public ?array $data = [];
     public ?LeadDistributionConfigModel $config = null;
     public ?int $organizationId = null;

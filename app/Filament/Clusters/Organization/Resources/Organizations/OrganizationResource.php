@@ -10,6 +10,7 @@ use App\Filament\Clusters\Organization\Resources\Organizations\Pages\ListOrganiz
 use App\Filament\Clusters\Organization\Resources\Organizations\Schemas\OrganizationForm;
 use App\Filament\Clusters\Organization\Resources\Organizations\Tables\OrganizationsTable;
 use App\Models\Organization;
+use App\Utils\Helper;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -29,7 +30,9 @@ class OrganizationResource extends Resource
 
     public static  function canAccess(): bool
     {
-        return Auth::user()->hasRole(UserRole::SUPER_ADMIN);
+        return Helper::checkPermission([
+            UserRole::SUPER_ADMIN->value,
+        ], Auth::user()->role);
     }
 
     public static function getModelLabel(): string

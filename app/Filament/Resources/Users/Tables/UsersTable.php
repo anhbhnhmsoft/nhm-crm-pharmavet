@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Users\Tables;
 
 use App\Common\Constants\User\UserPosition;
 use App\Common\Constants\User\UserRole;
+use App\Utils\Helper;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
@@ -99,7 +100,10 @@ class UsersTable
                     ->relationship('organization', 'name')
                     ->searchable()
                     ->preload()
-                    ->hidden(Auth::user()->hasRole(UserRole::ADMIN)),
+                    ->hidden(Helper::checkPermission([
+                        UserRole::ADMIN->value,
+                        UserRole::ACCOUNTING->value,
+                    ], Auth::user()->role)),
 
                 SelectFilter::make('role')
                     ->label(__('filament.user.role'))
@@ -127,7 +131,11 @@ class UsersTable
                     Impersonate::make()
                         ->visible(
                             fn($record) =>
-                            Auth::user() && Auth::user()->hasRole(UserRole::SUPER_ADMIN) && Auth::user()->id !== $record->id
+                            Auth::user() && Helper::checkPermission([
+                                UserRole::SUPER_ADMIN->value,
+                                UserRole::ADMIN->value,
+                                UserRole::ACCOUNTING->value,
+                            ], Auth::user()->role) && Auth::user()->id !== $record->id
                         ),
                     Action::make('export_user')
                         ->label(__('common.action.export_excel'))

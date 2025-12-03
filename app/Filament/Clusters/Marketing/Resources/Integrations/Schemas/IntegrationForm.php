@@ -64,7 +64,7 @@ class IntegrationForm
                                     })
                                     ->helperText(fn(Get $get) => IntegrationType::tryFrom($get('type'))?->description())
                                     ->validationMessages([
-                                        'required' => 'Vui lòng chọn loại tích hợp.',
+                                        'required' => __('common.error.required'),
                                     ]),
 
                                 TextInput::make('name')
@@ -73,8 +73,8 @@ class IntegrationForm
                                     ->maxLength(255)
                                     ->placeholder(__('filament.integration.fields.name_placeholder'))
                                     ->validationMessages([
-                                        'required' => 'Tên tích hợp không được để trống.',
-                                        'max' => 'Tên tích hợp không được vượt quá :max ký tự.',
+                                        'required' => __('common.error.required'),
+                                        'max' => __('common.error.max_length', ['max' => 255]),
                                     ]),
                             ]),
                     ]),
@@ -184,8 +184,8 @@ class IntegrationForm
                                     ->maxLength(255)
                                     ->helperText(__('filament.integration.fields.webhook_url_helper'))
                                     ->validationMessages([
-                                        'url' => 'URL webhook không hợp lệ. Vui lòng nhập đúng định dạng (https://...).',
-                                        'max' => 'URL webhook không được vượt quá :max ký tự.',
+                                        'url' => __('common.error.url'),
+                                        'max' => __('common.error.max_length', ['max' => 255]),
                                     ]),
 
                                 TextInput::make('config.webhook_secret')
@@ -197,7 +197,7 @@ class IntegrationForm
                                         ? __('filament.integration.fields.webhook_secret_locked')
                                         : __('filament.integration.fields.webhook_secret_helper'))
                                     ->validationMessages([
-                                        'required' => 'Mã bảo mật webhook không được để trống.',
+                                        'required' => __('common.error.required'),
                                     ]),
 
                                 Select::make('config.default_product_id')

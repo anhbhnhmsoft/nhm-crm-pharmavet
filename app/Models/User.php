@@ -9,6 +9,7 @@ use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
@@ -102,8 +103,8 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasManyThrough(Shift::class, UserShift::class);
     }
 
-    public function assignCustomer(): HasManyThrough
+    public function assignedCustomers(): BelongsToMany
     {
-        return $this->hasManyThrough(Customer::class, 'user_assigned_staff');
+        return $this->belongsToMany(Customer::class, UserAssignedStaff::class);
     }
 }

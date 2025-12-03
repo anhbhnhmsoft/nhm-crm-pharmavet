@@ -2,12 +2,14 @@
 
 namespace App\Filament\Clusters\Warehouse\Resources\Warehouses;
 
+use App\Common\Constants\User\UserRole;
 use App\Filament\Clusters\Warehouse\Resources\Warehouses\Schemas\WarehouseForm;
 use App\Filament\Clusters\Warehouse\Resources\Warehouses\Tables\WarehousesTable;
 use App\Filament\Clusters\Warehouse\Resources\Warehouses\Pages\CreateWarehouse;
 use App\Filament\Clusters\Warehouse\Resources\Warehouses\Pages\EditWarehouse;
 use App\Filament\Clusters\Warehouse\Resources\Warehouses\Pages\ListWarehouses;
 use App\Models\Warehouse;
+use App\Utils\Helper;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -15,6 +17,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\Auth;
 
 class WarehouseResource extends Resource
 {
@@ -39,6 +42,29 @@ class WarehouseResource extends Resource
     public static function getNavigationLabel(): string
     {
         return __('filament.navigation.unit_warehouse');
+    }
+
+    public static function canAccess(): bool
+    {
+        return Helper::checkPermission([
+            UserRole::SUPER_ADMIN->value,
+            UserRole::ADMIN->value,
+            UserRole::WAREHOUSE->value,
+            UserRole::ACCOUNTING->value,
+        ], Auth::user()->role);
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery()
+            ->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ]);
+
+        $organizationId = Auth::user()->organization_id;
+        return $query->where(function (Builder $subQuery) use ($organizationId) {
+            $subQuery->where('organization_id', $organizationId);
+        });
     }
 
     public static function form(Schema $schema): Schema

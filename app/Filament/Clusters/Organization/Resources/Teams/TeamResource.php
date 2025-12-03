@@ -10,6 +10,7 @@ use App\Filament\Clusters\Organization\Resources\Teams\Pages\ListTeams;
 use App\Filament\Clusters\Organization\Resources\Teams\Schemas\TeamForm;
 use App\Filament\Clusters\Organization\Resources\Teams\Tables\TeamsTable;
 use App\Models\Team;
+use App\Utils\Helper;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -65,7 +66,9 @@ class TeamResource extends Resource
 
     public static  function canAccess(): bool
     {
-        return Auth::user()->hasRole(UserRole::ADMIN);
+        return Helper::checkPermission([
+            UserRole::ADMIN->value,
+        ], Auth::user()->role);
     }
 
     public static function getEloquentQuery(): Builder
@@ -73,7 +76,9 @@ class TeamResource extends Resource
         $query = parent::getEloquentQuery();
         $currentUser = Auth::user();
 
-        if ($currentUser && $currentUser->hasRole(UserRole::SUPER_ADMIN)) {
+        if (Helper::checkPermission([
+            UserRole::ADMIN->value,
+        ], Auth::user()->role)) {
             return $query->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ]);
