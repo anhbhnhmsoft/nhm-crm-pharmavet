@@ -54,4 +54,58 @@ return [
     'tooltip' => [
         'load_stores' => 'Tải danh sách cửa hàng',
     ],
+    'ticket' => [
+        'primary' => 'Nhập/ Xuất',
+        'form' => [
+            'code' => 'Mã phiếu',
+            'type' => 'Loại phiếu',
+            'status' => 'Trạng thái',
+            'warehouse' => 'Kho',
+            'source_warehouse' => 'Kho nguồn',
+            'target_warehouse' => 'Kho đích',
+            'note' => 'Ghi chú',
+            'approved_by' => 'Người duyệt',
+            'approved_at' => 'Ngày duyệt',
+            'created_at' => 'Ngày tạo',
+            'updated_at' => 'Ngày cập nhật',
+            'product' => 'Sản phẩm',
+            'quantity' => 'Số lượng',
+            'current_quantity' => 'Tồn kho hiện tại',
+        ],
+        'section' => [
+            'basic_info' => 'Thông tin cơ bản',
+            'warehouse_info' => 'Thông tin kho',
+            'products' => 'Danh sách sản phẩm',
+        ],
+        'placeholder' => [
+            'select_type' => 'Chọn loại phiếu',
+            'select_warehouse' => 'Chọn kho',
+            'select_source_warehouse' => 'Chọn kho nguồn',
+            'select_target_warehouse' => 'Chọn kho đích',
+            'select_product' => 'Chọn sản phẩm',
+            'enter_quantity' => 'Nhập số lượng',
+        ],
+        'action' => [
+            'approve' => 'Duyệt phiếu',
+            'approve_description' => 'Bạn có chắc chắn muốn duyệt phiếu này? Sau khi duyệt, phiếu sẽ không thể chỉnh sửa.',
+            'approved' => 'Đã duyệt',
+            'cancel' => 'Hủy phiếu',
+            'cancel_description' => 'Bạn có chắc chắn muốn hủy phiếu này?',
+            'cancelled' => 'Đã hủy',
+        ],
+    ],
+
+    'status_ticket' => [
+        'draft' => 'Phiếu tạm',
+        'completed' => 'Hoàn thành',
+        'cancelled' => 'Đã hủy',
+    ],
+
+    'type_ticket' => [
+        'import' => 'Nhập kho',
+        'export' => 'Xuất kho',
+        'transfer' => 'Chuyển kho',
+        'cancel_export' => 'Xuất hủy',
+    ],
+
 ];

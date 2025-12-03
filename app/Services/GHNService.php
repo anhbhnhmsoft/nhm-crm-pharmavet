@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Common\Constants\Order\API;
 use App\Core\ServiceReturn;
 use App\Models\ShippingConfig;
+use App\Repositories\ShippingConfigRepository;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -18,7 +19,7 @@ class GHNService
     /**
      * Initialize with organization ID
      */
-    public function __construct(?int $organizationId = null)
+    public function __construct(?int $organizationId = null, protected ShippingConfigRepository $shippingConfigRepository)
     {
         if ($organizationId) {
             $this->loadConfig($organizationId);
@@ -30,7 +31,7 @@ class GHNService
      */
     protected function loadConfig(int $organizationId): void
     {
-        $config = ShippingConfig::where('organization_id', $organizationId)->first();
+        $config = $this->shippingConfigRepository->query()->where('organization_id', $organizationId)->first();
 
         if ($config) {
             $this->token = $config->api_token;
