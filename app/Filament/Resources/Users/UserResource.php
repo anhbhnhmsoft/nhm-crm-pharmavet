@@ -31,7 +31,7 @@ class UserResource extends Resource
         return __('filament.navigation.unit_administration');
     }
     public static function getModelLabel(): string
-    {   
+    {
         return __('filament.user.label');
     }
 
@@ -99,9 +99,20 @@ class UserResource extends Resource
             UserRole::ADMIN->value,
             UserRole::ACCOUNTING->value,
         ], Auth::user()->role)) {
-            return $query->whereNotIn('role', [UserRole::SUPER_ADMIN->value]);
+            $query->whereNotIn('role', [UserRole::SUPER_ADMIN->value])->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ]);
         }
-        return $query->where('organization_id', $currentUser->organization_id)->whereNotIn('role', [UserRole::SUPER_ADMIN->value])->withoutGlobalScopes([
+
+        if (Helper::checkPermission([
+            UserRole::SUPER_ADMIN->value,
+        ], Auth::user()->role)) {
+            $query->where('organization_id', $currentUser->organization_id)->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ]);
+        }
+
+        return $query->whereNotIn('role', [UserRole::SUPER_ADMIN->value])->withoutGlobalScopes([
             SoftDeletingScope::class,
         ]);
     }

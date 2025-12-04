@@ -132,7 +132,7 @@ class LeadDistributionService
 
         // Filter staff theo điều kiện
         return User::whereIn('id', $staffIds)
-            ->whereHas('team', function ($query) use ($staffType, $config) {
+            ->whereHas('teams', function ($query) use ($staffType, $config) {
                 $query->where('organization_id', $config->organization_id)
                     ->where('type', $staffType);
             })

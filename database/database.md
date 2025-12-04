@@ -105,6 +105,17 @@
     - softDeletes
     - timestamps
 
+# bảng user_team
+
+    # note
+    - bảng lưu thông tin người dùng trong đội nhóm
+
+    # cấu trúc
+    - id : (int, primary key, auto-increment)
+    - user_id : (int, foreign key -> users.id, not null) -- người dùng thuộc về
+    - team_id : (int, foreign key -> teams.id, not null) -- đội nhóm thuộc về
+    - timestamps
+
 # bảng user_logs
 
     # note

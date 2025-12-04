@@ -26,7 +26,7 @@ class UserDetailExport implements FromArray, WithHeadings
             $roleName,
             $positionName,
             $user->organization?->name ?? '',
-            $user->team?->name ?? '',
+            $user->teams?->pluck('name')->implode(', ') ?? '',
             $status,
             optional($user->last_login_at)->format('d/m/Y H:i') ?? '',
             optional($user->created_at)->format('d/m/Y H:i') ?? '',
