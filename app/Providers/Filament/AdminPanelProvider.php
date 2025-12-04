@@ -19,6 +19,7 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+use Filament\Support\Enums\Width;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -30,7 +31,7 @@ class AdminPanelProvider extends PanelProvider
             ->path('')
             ->login(Login::class)
             ->colors([
-                'primary' => Color::Blue,
+                'primary' => Color::Sky,
             ])
             ->brandName(config('app.name'))
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
@@ -40,6 +41,7 @@ class AdminPanelProvider extends PanelProvider
             ->pages([
                 Dashboard::class,
             ])
+            ->sidebarWidth('14  rem')
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([
                 AccountWidget::class,
@@ -62,6 +64,9 @@ class AdminPanelProvider extends PanelProvider
                 NavigationGroup::make()
                     ->label(__('filament.navigation.unit_administration'))
                     ->collapsed(),
-            ]);
+            ])
+            // ->theme('filament/admin/theme.css')
+            ->databaseTransactions()
+            ->maxContentWidth(Width::Full);
     }
 }

@@ -2,12 +2,14 @@
 
 namespace App\Filament\Clusters\Telesale\Resources\TelesaleOperations;
 
+use App\Common\Constants\User\UserRole;
 use App\Filament\Clusters\Telesale\Resources\TelesaleOperations\Pages\CreateTelesaleOperation;
 use App\Filament\Clusters\Telesale\Resources\TelesaleOperations\Pages\EditTelesaleOperation;
 use App\Filament\Clusters\Telesale\Resources\TelesaleOperations\Pages\ListTelesaleOperations;
 use App\Filament\Clusters\Telesale\Resources\TelesaleOperations\Schemas\TelesaleOperationForm;
 use App\Filament\Clusters\Telesale\Resources\TelesaleOperations\Tables\TelesaleOperationsTable;
 use App\Filament\Clusters\Telesale\TelesaleCluster;
+use App\Utils\Helper;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -15,14 +17,18 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\Auth;
 
 class TelesaleOperationResource extends Resource
 {
     protected static ?string $model = \App\Models\Customer::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = '';
 
-    protected static ?string $cluster = TelesaleCluster::class;
+    public static function getNavigationGroup(): \UnitEnum|string|null
+    {
+        return __('filament.navigation.unit_telesale');
+    }
 
     public static function getModelLabel(): string
     {
@@ -54,6 +60,31 @@ class TelesaleOperationResource extends Resource
         return [
             //
         ];
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery()
+            ->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ]);
+
+        $organizationId = Auth::user()->organization_id;
+        return $query->where(function (Builder $subQuery) use ($organizationId) {
+            $subQuery->where('organization_id', $organizationId);
+        });
+    }
+
+    public static function canAccess(): bool
+    {
+        return Helper::checkPermission([
+            UserRole::SUPER_ADMIN->value,
+            UserRole::ADMIN->value,
+            UserRole::WAREHOUSE->value,
+            UserRole::ACCOUNTING->value,
+            UserRole::MARKETING->value,
+            UserRole::SALE->value,
+        ], Auth::user()->role);
     }
 
     public static function getPages(): array

@@ -2,10 +2,12 @@
 
 namespace App\Filament\Clusters\Telesale\Resources\CustomerOperations;
 
+use App\Common\Constants\User\UserRole;
 use App\Filament\Clusters\Telesale\Resources\CustomerOperations\Pages\ListCustomerOperations;
 use App\Filament\Clusters\Telesale\Resources\CustomerOperations\Tables\CustomerOperationsTable;
 use App\Filament\Clusters\Telesale\Resources\CustomerOperations\Schemas\CustomerOperationForm;
 use App\Models\Customer;
+use App\Utils\Helper;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -13,12 +15,13 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\Auth;
 
 class CustomerOperationResource extends Resource
 {
     protected static ?string $model = Customer::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = '';
 
     public static function getNavigationGroup(): \UnitEnum|string|null
     {
@@ -50,6 +53,31 @@ class CustomerOperationResource extends Resource
         return CustomerOperationsTable::configure($table);
     }
 
+    public static function canAccess(): bool
+    {
+        return Helper::checkPermission([
+            UserRole::SUPER_ADMIN->value,
+            UserRole::ADMIN->value,
+            UserRole::SALE->value,
+        ], Auth::user()->role);
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery()
+            ->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ]);
+
+        $userId = Auth::user()->id;
+        return $query->where(function (Builder $subQuery) use ($userId) {
+            $subQuery->where('assigned_staff_id', $userId)
+                ->orWhereHas('assignedStaff', function (Builder $relQuery) use ($userId) {
+                    $relQuery->where('user_assigned_staff.staff_id', $userId);
+                });
+        });
+    }
+
     public static function getRelations(): array
     {
         return [
@@ -63,6 +91,8 @@ class CustomerOperationResource extends Resource
             'index' => ListCustomerOperations::route('/'),
         ];
     }
+
+
 
     public static function getRecordRouteBindingEloquentQuery(): Builder
     {

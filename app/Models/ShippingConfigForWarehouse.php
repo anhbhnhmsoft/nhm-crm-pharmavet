@@ -9,6 +9,8 @@ class ShippingConfigForWarehouse extends Model
 {
     use HasFactory;
 
+    protected $table = 'shipping_config_for_warehouse';
+
     protected $fillable = [
         'warehouse_id',
         'organization_id',
@@ -33,6 +35,6 @@ class ShippingConfigForWarehouse extends Model
 
     public function warehouse()
     {
-        return $this->belongsTo(Warehouse::class);
+        return $this->belongsTo(Warehouse::class, 'warehouse_id');
     }
 }

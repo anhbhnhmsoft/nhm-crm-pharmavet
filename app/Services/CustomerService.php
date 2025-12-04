@@ -73,6 +73,7 @@ class CustomerService
                         'organization_id' => $data['organization_id'],
                         'customer_type' => CustomerType::NEW_DUPLICATE->value,
                         'interaction_status' => InteractionStatus::FIRST_CALL->value,
+                        'source' => IntegrationType::MANUAL_DATA->value,
 
                     ]);
                     DB::commit();
@@ -92,6 +93,7 @@ class CustomerService
                 'organization_id' => $data['organization_id'],
                 'customer_type' => CustomerType::NEW->value,
                 'interaction_status' => InteractionStatus::FIRST_CALL->value,
+                'source' => IntegrationType::MANUAL_DATA->value,
             ]);
 
             DB::commit();

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Clusters\Marketing\Resources\Integrations;
 
+use App\Common\Constants\User\UserRole;
 use App\Filament\Clusters\Marketing\MarketingCluster;
 use App\Filament\Clusters\Marketing\Resources\Integrations\Pages\CreateIntegration;
 use App\Filament\Clusters\Marketing\Resources\Integrations\Pages\EditIntegration;
@@ -9,6 +10,7 @@ use App\Filament\Clusters\Marketing\Resources\Integrations\Pages\ListIntegration
 use App\Filament\Clusters\Marketing\Resources\Integrations\Schemas\IntegrationForm;
 use App\Filament\Clusters\Marketing\Resources\Integrations\Tables\IntegrationsTable;
 use App\Models\Integration;
+use App\Utils\Helper;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -16,14 +18,18 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\Auth;
 
 class IntegrationResource extends Resource
 {
     protected static ?string $model = Integration::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = '';
 
-    protected static ?string $cluster = MarketingCluster::class;
+    public static function getNavigationGroup(): \UnitEnum|string|null
+    {
+        return __('filament.navigation.unit_marketing');
+    }
 
     protected static ?string $recordTitleAttribute = 'Integration';
 
@@ -57,6 +63,29 @@ class IntegrationResource extends Resource
         return [
             //
         ];
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery()
+            ->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ]);
+
+        $organizationId = Auth::user()->organization_id;
+        return $query->where(function (Builder $subQuery) use ($organizationId) {
+            $subQuery->where('organization_id', $organizationId);
+        });
+    }
+
+    public static function canAccess(): bool
+    {
+        return Helper::checkPermission([
+            UserRole::SUPER_ADMIN->value,
+            UserRole::ADMIN->value,
+            UserRole::ACCOUNTING->value,
+            UserRole::MARKETING->value,
+        ], Auth::user()->role);
     }
 
     public static function getPages(): array

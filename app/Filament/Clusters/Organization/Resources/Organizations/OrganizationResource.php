@@ -3,13 +3,13 @@
 namespace App\Filament\Clusters\Organization\Resources\Organizations;
 
 use App\Common\Constants\User\UserRole;
-use App\Filament\Clusters\Organization\OrganizationCluster;
 use App\Filament\Clusters\Organization\Resources\Organizations\Pages\CreateOrganization;
 use App\Filament\Clusters\Organization\Resources\Organizations\Pages\EditOrganization;
 use App\Filament\Clusters\Organization\Resources\Organizations\Pages\ListOrganizations;
 use App\Filament\Clusters\Organization\Resources\Organizations\Schemas\OrganizationForm;
 use App\Filament\Clusters\Organization\Resources\Organizations\Tables\OrganizationsTable;
 use App\Models\Organization;
+use App\Utils\Helper;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -23,13 +23,21 @@ class OrganizationResource extends Resource
 {
     protected static ?string $model = Organization::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = '';
 
-    protected static ?string $cluster = OrganizationCluster::class;
+    // protected static ?string $cluster = OrganizationCluster::class;
+
+
+    public static function getNavigationGroup(): \UnitEnum|string|null
+    {
+        return __('filament.navigation.unit_administration');
+    }
 
     public static  function canAccess(): bool
     {
-        return Auth::user()->hasRole(UserRole::SUPER_ADMIN);
+        return Helper::checkPermission([
+            UserRole::SUPER_ADMIN->value,
+        ], Auth::user()->role);
     }
 
     public static function getModelLabel(): string

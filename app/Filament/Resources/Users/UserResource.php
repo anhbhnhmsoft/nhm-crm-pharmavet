@@ -9,6 +9,7 @@ use App\Filament\Resources\Users\Pages\ListUsers;
 use App\Filament\Resources\Users\Schemas\UserForm;
 use App\Filament\Resources\Users\Tables\UsersTable;
 use App\Models\User;
+use App\Utils\Helper;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -22,7 +23,7 @@ use UnitEnum;
 class UserResource extends Resource
 {
     protected static ?string $model = User::class;
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = '';
     protected static string|null|\UnitEnum $navigationGroup = 'unit_administration';
 
     public static function getNavigationGroup(): string|UnitEnum|null
@@ -46,7 +47,11 @@ class UserResource extends Resource
 
     public static  function canAccess(): bool
     {
-        return Auth::user()->hasRole(UserRole::SUPER_ADMIN);
+        return Helper::checkPermission([
+            UserRole::SUPER_ADMIN->value,
+            UserRole::ADMIN->value,
+            UserRole::ACCOUNTING->value,
+        ], Auth::user()->role);
     }
 
     public static function form(Schema $schema): Schema
@@ -89,10 +94,25 @@ class UserResource extends Resource
 
         $currentUser = Auth::user();
 
-        if ($currentUser && $currentUser->hasRole(UserRole::SUPER_ADMIN)) {
-            return $query->whereNotIn('role', [UserRole::SUPER_ADMIN->value]);
+        if (Helper::checkPermission([
+            UserRole::SUPER_ADMIN->value,
+            UserRole::ADMIN->value,
+            UserRole::ACCOUNTING->value,
+        ], Auth::user()->role)) {
+            $query->whereNotIn('role', [UserRole::SUPER_ADMIN->value])->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ]);
         }
-        return $query->where('organization_id', $currentUser->organization_id)->whereNotIn('role', [UserRole::SUPER_ADMIN->value])->withoutGlobalScopes([
+
+        if (Helper::checkPermission([
+            UserRole::SUPER_ADMIN->value,
+        ], Auth::user()->role)) {
+            $query->where('organization_id', $currentUser->organization_id)->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ]);
+        }
+
+        return $query->whereNotIn('role', [UserRole::SUPER_ADMIN->value])->withoutGlobalScopes([
             SoftDeletingScope::class,
         ]);
     }

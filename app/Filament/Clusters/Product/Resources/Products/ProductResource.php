@@ -10,6 +10,7 @@ use App\Filament\Clusters\Product\Resources\Products\Pages\ListProducts;
 use App\Filament\Clusters\Product\Resources\Products\Schemas\ProductForm;
 use App\Filament\Clusters\Product\Resources\Products\Tables\ProductsTable;
 use App\Models\Product;
+use App\Utils\Helper;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -23,16 +24,14 @@ class ProductResource extends Resource
 {
     protected static ?string $model = Product::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = '';
 
-    protected static ?string $cluster = ProductCluster::class;
-
-    protected static ?string $recordTitleAttribute = 'Product';
-
-    public static function getNavigationParentItem(): ?string
+    public static function getNavigationGroup(): \UnitEnum|string|null
     {
         return __('filament.navigation.unit_administration');
     }
+
+    protected static ?string $recordTitleAttribute = 'Product';
 
     public static function getModelLabel(): string
     {
@@ -75,17 +74,23 @@ class ProductResource extends Resource
         ];
     }
 
-    // public static  function canAccess(): bool
-    // {
-    //     return Auth::user()->hasRole(UserRole::ADMIN);
-    // }
+    public static function canAccess(): bool
+    {
+        return Helper::checkPermission([
+            UserRole::SUPER_ADMIN->value,
+            UserRole::ADMIN->value,
+        ], Auth::user()->role);
+    }
 
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery();
         $currentUser = Auth::user();
 
-        if ($currentUser && $currentUser->hasRole(UserRole::SUPER_ADMIN)) {
+        if (Helper::checkPermission([
+            UserRole::SUPER_ADMIN->value,
+            UserRole::ADMIN->value,
+        ], Auth::user()->role)) {
             return $query->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ]);

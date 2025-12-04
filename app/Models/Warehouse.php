@@ -63,4 +63,16 @@ class Warehouse extends Model
     {
         return $this->belongsTo(Organization::class);
     }
+
+    public function products()
+    {
+        return $this->belongsToMany(Product::class, 'product_warehouse')
+            ->withPivot(['quantity', 'pending_quantity'])
+            ->withTimestamps();
+    }
+
+    public function productWarehouses()
+    {
+        return $this->hasMany(ProductWarehouse::class);
+    }
 }

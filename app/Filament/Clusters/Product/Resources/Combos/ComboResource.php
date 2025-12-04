@@ -10,6 +10,7 @@ use App\Filament\Clusters\Product\Resources\Combos\Pages\ListCombos;
 use App\Filament\Clusters\Product\Resources\Combos\Schemas\ComboForm;
 use App\Filament\Clusters\Product\Resources\Combos\Tables\CombosTable;
 use App\Models\Combo;
+use App\Utils\Helper;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -23,9 +24,7 @@ class ComboResource extends Resource
 {
     protected static ?string $model = Combo::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
-
-    protected static ?string $cluster = ProductCluster::class;
+    protected static string|BackedEnum|null $navigationIcon = '';
 
     protected static ?string $recordTitleAttribute = 'Combo';
 
@@ -75,19 +74,24 @@ class ComboResource extends Resource
         ];
     }
 
-    // public static  function canAccess(): bool
-    // {
-    //     return Auth::user()->hasRole(UserRole::ADMIN);
-    // }
+    public static function canAccess(): bool
+    {
+        return Helper::checkPermission([
+            UserRole::SUPER_ADMIN->value,
+            UserRole::ADMIN->value,
+        ], Auth::user()->role);
+    }
 
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery()
-        ->with(['products', 'createdBy', 'updatedBy'])
+            ->with(['products', 'createdBy', 'updatedBy'])
             ->withCount('products');
         $currentUser = Auth::user();
 
-        if ($currentUser && $currentUser->hasRole(UserRole::SUPER_ADMIN)) {
+        if (Helper::checkPermission([
+            UserRole::ADMIN->value,
+        ], Auth::user()->role)) {
             return $query->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ]);

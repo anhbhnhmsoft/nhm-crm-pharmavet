@@ -4,18 +4,14 @@ namespace App\Filament\Resources\Users\Schemas;
 
 use App\Common\Constants\User\UserRole;
 use App\Common\Constants\User\UserPosition;
-use App\Models\Organization;
-use App\Models\Team;
-use Closure; // Import Closure
+
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Pages\CreateRecord;
 use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 
 class UserForm
@@ -92,42 +88,18 @@ class UserForm
                                 'required' => __('common.error.required'),
                             ]),
 
-                        Select::make('organization_id')
-                            ->label(__('filament.user.organization'))
-                            ->relationship('organization', 'name', fn($query) => $query->where('disable', false))
-                            ->searchable()
-                            ->preload()
-                            ->required()
-                            ->default(fn() => $isSuperAdmin ? null : $authUser->organization_id)
-                            ->disabled(fn() => ! $isSuperAdmin)
-                            ->live(debounce: 500)
-                            ->afterStateUpdated(fn(callable $set) => $set('team_id', null))
-                            ->validationMessages([
-                                'required' => __('common.error.required'),
-                            ]),
-
                         Select::make('team_id')
                             ->label(__('filament.user.team'))
                             ->relationship(
-                                'team',
+                                'teams',
                                 'name',
-                                fn($query, Get $get) =>
-                                $query->when(
-                                    $get('organization_id'),
-                                    fn($q, $orgId) =>
-                                    $q->where('organization_id', $orgId)
-                                )
+                                fn($query) =>
+                                $query->where('organization_id', $authUser->organization_id)
                             )
                             ->searchable()
                             ->preload()
                             ->nullable()
-                            ->live()
-                            ->placeholder(
-                                fn(Get $get) => $get('organization_id')
-                                    ? __('common.action.choose_team')
-                                    : __('filament.user.action.choose_organize_first')
-                            )
-                            ->disabled(fn(Get $get) => ! $get('organization_id')),
+                            ->live(),
 
                         Toggle::make('disable')
                             ->label(__('filament.user.disable'))

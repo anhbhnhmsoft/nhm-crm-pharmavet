@@ -9,7 +9,6 @@ use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\RestoreAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
-use Illuminate\Validation\ValidationException;
 
 class EditUser extends EditRecord
 {
@@ -35,10 +34,6 @@ class EditUser extends EditRecord
                     ->title(__('filament.user.exceed_members_limit'))
                     ->danger()
                     ->send();
-
-                throw ValidationException::withMessages([
-                    'data.organization_id' => __('filament.user.exceed_members_limit'),
-                ]);
             }
         }
 

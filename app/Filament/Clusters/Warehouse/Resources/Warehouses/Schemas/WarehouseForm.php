@@ -3,6 +3,8 @@
 namespace App\Filament\Clusters\Warehouse\Resources\Warehouses\Schemas;
 
 use App\Common\Constants\User\UserRole;
+use App\Models\Product;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -168,6 +170,55 @@ class WarehouseForm
                                 'max_length' => __('common.error.max_length', ['max' => 255]),
                             ]),
                     ])->columns(2),
+                Section::make()
+                    ->schema([
+                        Repeater::make('productWarehouses')
+                            ->label(__('warehouse.navigation.product'))
+                            ->relationship(
+                                name: 'productWarehouses',
+                                modifyQueryUsing: fn($query) =>
+                                $query->whereHas('product', fn($q) => $q->where('organization_id', Auth::user()->organization_id))
+                            )
+                            ->schema([
+
+                                Select::make('product_id')
+                                    ->label(__('warehouse.navigation.product_name'))
+                                    ->required()
+                                    ->options(fn() => Product::where('organization_id', Auth::user()->organization_id)->where('is_business_product', true)->pluck('name', 'id'))
+                                    ->native(false)
+                                    ->searchable()
+                                    ->preload()
+                                    ->distinct()
+                                    ->disableOptionsWhenSelectedInSiblingRepeaterItems()
+                                    ->columnSpanFull()
+                                    ->validationMessages([
+                                        'required' => __('common.error.required'),
+                                    ]),
+
+                                TextInput::make('quantity')
+                                    ->label(__('warehouse.navigation.product_quantity'))
+                                    ->required()
+                                    ->numeric()
+                                    ->validationMessages([
+                                        'required' => __('common.error.required'),
+                                        'numeric' => __('common.error.numeric'),
+                                    ]),
+
+                                TextInput::make('pending_quantity')
+                                    ->label(__('warehouse.navigation.product_pending_quantity'))
+                                    ->required()
+                                    ->numeric()
+                                    ->validationMessages([
+                                        'required' => __('common.error.required'),
+                                        'numeric' => __('common.error.numeric'),
+                                    ]),
+                            ])
+                            ->columns(2)
+                            ->minItems(1)
+                            ->maxItems(10)
+                            ->required()
+
+                    ]),
             ]);
     }
 }

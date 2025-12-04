@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Core\GenerateId\GenerateIdSnowflake;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Team extends Model
@@ -25,8 +26,8 @@ class Team extends Model
         return $this->belongsTo(Organization::class);
     }
 
-    public function users()
+    public function users(): BelongsToMany
     {
-        return $this->hasMany(User::class);
+        return $this->belongsToMany(User::class, 'user_team')->using(UserTeam::class)->withTimestamps();
     }
 }

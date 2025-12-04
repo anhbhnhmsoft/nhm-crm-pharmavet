@@ -3,7 +3,7 @@
 return [
     // Telesale Operations Module
     'cluster_label' => 'Telesale',
-    'navigation_label' => 'Danh sách data Telesale',
+    'navigation_label' => 'Danh sách data',
     'model_label' => 'Data',
     'plural_model_label' => 'Danh sách Data',
     'operation_page_title' => 'Tác nghiệp',
@@ -77,7 +77,6 @@ return [
         'cod_fee' => 'Phí COD',
         'deposit' => 'Đặt cọc',
         'discount_amount' => 'Giảm giá',
-        'gift_quantity' => 'Số lượng quà tặng',
         'total_amount' => 'Tổng tiền',
         'call_history' => 'Lịch sử tương tác',
         'add_new_note' => 'Thêm ghi chú',
@@ -181,5 +180,8 @@ return [
         'no_need' => 'Không cần',
         'good_performance' => 'Hiệu quả',
         'poor_performance' => 'Không hiệu quả',
+    ],
+    'helper' => [
+        'schedule_callback' => 'Hẹn lịch gọi lại',
     ],
 ];

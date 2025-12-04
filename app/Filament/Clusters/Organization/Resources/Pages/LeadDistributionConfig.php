@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\Clusters\Organization\Resources\Organizations\Pages;
+namespace App\Filament\Clusters\Organization\Resources\Pages;
 
 use App\Common\Constants\Customer\CustomerType;
 use App\Common\Constants\Team\TeamType;
@@ -17,12 +17,12 @@ use App\Common\Constants\Customer\DistributionMethod;
 use App\Models\Team;
 use App\Models\User;
 use App\Services\LeadDistributionConfigService;
+use App\Utils\Helper;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
-use Filament\Schemas\Components\Utilities\State;
-
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Auth;
+use App\Common\Constants\User\UserRole;
 
 class LeadDistributionConfig extends Page
 {
@@ -33,6 +33,14 @@ class LeadDistributionConfig extends Page
     public ?array $data = [];
     public ?LeadDistributionConfigModel $config = null;
     public ?int $organizationId = null;
+
+    public static function canAccess(): bool
+    {
+        return Helper::checkPermission([
+            UserRole::SUPER_ADMIN->value,
+            UserRole::ADMIN->value,
+        ], Auth::user()->role) && !is_null(Auth::user()->organization_id);
+    }
 
     public static function getNavigationGroup(): \UnitEnum|string|null
     {
@@ -348,7 +356,7 @@ class LeadDistributionConfig extends Page
                     ]),
             ])
             ->statePath('data')
-            ->model($this->config);
+            ->model($this->config ?? LeadDistributionConfigModel::class);
     }
 
     protected function getHeaderActions(): array

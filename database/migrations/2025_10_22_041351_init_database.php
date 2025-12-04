@@ -120,6 +120,15 @@ return new class extends Migration {
             $table->softDeletes();
         });
 
+        // Bảng danh sách người nhân viên trong team
+
+        Schema::create('user_team', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('user_id')->references('id')->on('users')->onDelete('cascade');
+            $table->foreignId('team_id')->references('id')->on('teams')->onDelete('cascade');
+            $table->timestamps();
+        });
+
         // --- 3. Bảng User_logs ---
         Schema::create('user_logs', function (Blueprint $table) {
             $table->id();
@@ -546,14 +555,20 @@ return new class extends Migration {
             $table->decimal('shipping_fee', 15, 2)->default(0);
 
             // Shipping
-            $table->string('shipping_method', 50)->nullable(); // ghn, ghtk
+            $table->string('shipping_method', 50)->nullable();
             $table->string('shipping_address', 255)->nullable();
             $table->unsignedInteger('province_id')->nullable();
             $table->unsignedInteger('district_id')->nullable();
             $table->unsignedInteger('ward_id')->nullable();
 
             $table->text('note')->nullable();
-            $table->unsignedTinyInteger('required_note')->nullable();
+            $table->string('required_note', 20)->nullable();
+            $table->string('provider_shipping', 50)->nullable();
+            $table->foreignId('warehouse_id')->nullable()->constrained('warehouses')->nullOnDelete();
+            $table->string('shipping_provider_code', 100)->nullable();
+            $table->decimal('deposit', 15, 2)->default(0);
+            $table->decimal('amount_recived_from_customer', 15, 2)->default(0);
+            $table->decimal('amout_support_fee', 15, 2)->default(0);
 
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignId('updated_by')->nullable()->constrained('users')->nullOnDelete();
@@ -630,6 +645,7 @@ return new class extends Migration {
             $table->unsignedTinyInteger('from_status')->nullable();
             $table->unsignedTinyInteger('to_status');
             $table->text('note')->nullable();
+            $table->tinyInteger('reason')->nullable();
 
             $table->timestamps();
 
@@ -859,6 +875,7 @@ return new class extends Migration {
         Schema::dropIfExists('user_logs');
         Schema::dropIfExists('sessions');
         Schema::dropIfExists('users');
+        Schema::dropIfExists('user_team');
         Schema::dropIfExists('teams');
         Schema::dropIfExists('shifts');
         Schema::dropIfExists('organizations');

@@ -2,12 +2,14 @@
 
 namespace App\Filament\Clusters\Warehouse\Resources\Warehouses;
 
+use App\Common\Constants\User\UserRole;
 use App\Filament\Clusters\Warehouse\Resources\Warehouses\Schemas\WarehouseForm;
 use App\Filament\Clusters\Warehouse\Resources\Warehouses\Tables\WarehousesTable;
 use App\Filament\Clusters\Warehouse\Resources\Warehouses\Pages\CreateWarehouse;
 use App\Filament\Clusters\Warehouse\Resources\Warehouses\Pages\EditWarehouse;
 use App\Filament\Clusters\Warehouse\Resources\Warehouses\Pages\ListWarehouses;
 use App\Models\Warehouse;
+use App\Utils\Helper;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -15,12 +17,13 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\Auth;
 
 class WarehouseResource extends Resource
 {
     protected static ?string $model = Warehouse::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = '';
 
     public static function getNavigationGroup(): \UnitEnum|string|null
     {
@@ -28,17 +31,40 @@ class WarehouseResource extends Resource
     }
     public static function getModelLabel(): string
     {
-        return __('filament.navigation.unit_warehouse');
+        return __('warehouse.primary');
     }
 
     public static function getPluralModelLabel(): string
     {
-        return __('filament.navigation.unit_warehouse');
+        return __('warehouse.label');
     }
 
     public static function getNavigationLabel(): string
     {
-        return __('filament.navigation.unit_warehouse');
+        return __('warehouse.label');
+    }
+
+    public static function canAccess(): bool
+    {
+        return Helper::checkPermission([
+            UserRole::SUPER_ADMIN->value,
+            UserRole::ADMIN->value,
+            UserRole::WAREHOUSE->value,
+            UserRole::ACCOUNTING->value,
+        ], Auth::user()->role);
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery()
+            ->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ]);
+
+        $organizationId = Auth::user()->organization_id;
+        return $query->where(function (Builder $subQuery) use ($organizationId) {
+            $subQuery->where('organization_id', $organizationId);
+        });
     }
 
     public static function form(Schema $schema): Schema
