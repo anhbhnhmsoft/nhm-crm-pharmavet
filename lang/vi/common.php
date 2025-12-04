@@ -45,6 +45,7 @@ return [
         'phone_format' => 'Định dạng số điện thoại không hợp lệ.',
         'date_before' => 'Ngày phải trước :date.',
         'date_after' => 'Ngày phải sau :date.',
+        'url' => 'URL không hợp lệ.',
         'min' => [
             'numeric' => 'Trường :attribute phải tối thiểu là :min.',
             'file' => 'Trường :attribute phải tối thiểu là :min kilobytes.',

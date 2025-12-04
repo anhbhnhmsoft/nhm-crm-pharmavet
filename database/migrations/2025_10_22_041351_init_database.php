@@ -120,6 +120,15 @@ return new class extends Migration {
             $table->softDeletes();
         });
 
+        // Bảng danh sách người nhân viên trong team
+
+        Schema::create('user_team', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('user_id')->references('id')->on('users')->onDelete('cascade');
+            $table->foreignId('team_id')->references('id')->on('teams')->onDelete('cascade');
+            $table->timestamps();
+        });
+
         // --- 3. Bảng User_logs ---
         Schema::create('user_logs', function (Blueprint $table) {
             $table->id();
@@ -859,6 +868,7 @@ return new class extends Migration {
         Schema::dropIfExists('user_logs');
         Schema::dropIfExists('sessions');
         Schema::dropIfExists('users');
+        Schema::dropIfExists('user_team');
         Schema::dropIfExists('teams');
         Schema::dropIfExists('shifts');
         Schema::dropIfExists('organizations');

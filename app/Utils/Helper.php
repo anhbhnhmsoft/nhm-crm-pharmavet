@@ -2,6 +2,8 @@
 
 namespace App\Utils;
 
+use App\Common\Constants\User\UserRole;
+
 class Helper
 {
     /**
@@ -62,5 +64,16 @@ class Helper
     {
         $prefix = strtoupper(substr(str($name)->slug('')->toString(), 0, 3));
         return 'CMB-' . $prefix . '-' . now()->format('His') . rand(10, 99);
+    }
+
+    /**
+     * Check permission for user by verifying if the user's role is in the allowed list.
+     * @param int[] $roleAllowed
+     * @param int $roleUser
+     * @return bool
+     */
+    public static function checkPermission(array $roleAllowed, int $roleUser): bool
+    {
+        return in_array($roleUser, $roleAllowed);
     }
 }

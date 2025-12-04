@@ -9,8 +9,8 @@ use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -62,9 +62,9 @@ class User extends Authenticatable implements FilamentUser
         return $this->belongsTo(Organization::class);
     }
 
-    public function team(): BelongsTo
+    public function teams(): BelongsToMany
     {
-        return $this->belongsTo(Team::class);
+        return $this->belongsToMany(Team::class)->using(UserTeam::class)->withTimestamps();
     }
 
     public function logs(): HasMany
@@ -102,8 +102,8 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasManyThrough(Shift::class, UserShift::class);
     }
 
-    public function assignCustomer(): HasManyThrough
+    public function assignedCustomers(): BelongsToMany
     {
-        return $this->hasManyThrough(Customer::class, 'user_assigned_staff');
+        return $this->belongsToMany(Customer::class, UserAssignedStaff::class);
     }
 }

@@ -10,6 +10,7 @@ use App\Filament\Clusters\Organization\Resources\Shifts\Pages\ListShifts;
 use App\Filament\Clusters\Organization\Resources\Shifts\Schemas\ShiftForm;
 use App\Filament\Clusters\Organization\Resources\Shifts\Tables\ShiftsTable;
 use App\Models\Shift;
+use App\Utils\Helper;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -56,8 +57,9 @@ class ShiftResource extends Resource
 
     public static function canAccess(): bool
     {
-        $user = Auth::user();
-        return $user && ($user->hasRole(UserRole::ADMIN) );
+        return Helper::checkPermission([
+            UserRole::ADMIN->value,
+        ], Auth::user()->role);
     }
 
     public static function getEloquentQuery(): Builder
@@ -66,7 +68,9 @@ class ShiftResource extends Resource
         $user = Auth::user();
 
 
-        if ($user?->hasRole(UserRole::ADMIN)) {
+        if (Helper::checkPermission([
+            UserRole::ADMIN->value,
+        ], Auth::user()->role)) {
             return $query->where('organization_id', $user->organization_id);
         }
 

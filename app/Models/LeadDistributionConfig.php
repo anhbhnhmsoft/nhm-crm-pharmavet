@@ -57,14 +57,14 @@ class LeadDistributionConfig extends Model
             'config_id',
             'staff_id'
         )
-        ->using(LeadDistributionStaff::class)
-        ->withPivot(['weight']);
+            ->using(LeadDistributionStaff::class)
+            ->withPivot(['weight']);
     }
 
     protected function staffByType(string $type): BelongsToMany
     {
         return $this->staff()
-            ->whereHas('team', function ($query) use ($type) {
+            ->whereHas('teams', function ($query) use ($type) {
                 $query->where('type', $type);
             })
             ->withPivot('weight');

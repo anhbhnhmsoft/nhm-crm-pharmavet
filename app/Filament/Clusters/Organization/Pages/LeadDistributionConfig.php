@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\Clusters\Organization\Resources\Organizations\Pages;
+namespace App\Filament\Clusters\Organization\Pages;
 
 use App\Common\Constants\Customer\CustomerType;
 use App\Common\Constants\Team\TeamType;
@@ -14,12 +14,14 @@ use Filament\Pages\Page;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use App\Common\Constants\Customer\DistributionMethod;
+use App\Common\Constants\User\UserRole;
 use App\Models\Team;
 use App\Models\User;
+use App\Models\Product;
 use App\Services\LeadDistributionConfigService;
+use App\Utils\Helper;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
-use Filament\Schemas\Components\Utilities\State;
 
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Auth;
@@ -29,6 +31,14 @@ class LeadDistributionConfig extends Page
     protected static ?int $navigationSort = 3;
 
     protected string $view = 'filament.clusters.organization.resources.organizations.pages.lead-distribution-config';
+
+    public static function canAccess(): bool
+    {
+        return Helper::checkPermission([
+            UserRole::SUPER_ADMIN->value,
+            UserRole::ADMIN->value,
+        ], Auth::user()->role);
+    }
 
     public ?array $data = [];
     public ?LeadDistributionConfigModel $config = null;
@@ -94,12 +104,12 @@ class LeadDistributionConfig extends Page
             ])->toArray(),
             'staffSale' => $this->config->staffSale->map(fn($staff) => [
                 'staff_id' => $staff->id,
-                'team_id' => $staff->team_id,
+                'team_id' => $staff->teams->first(fn($team) => $team->type == TeamType::SALE->value)?->id,
                 'weight' => $staff->pivot?->weight,
             ])->toArray(),
             'staffCSKH' => $this->config->staffCSKH->map(fn($staff) => [
                 'staff_id' => $staff->id,
-                'team_id' => $staff->team_id,
+                'team_id' => $staff->teams->first(fn($team) => $team->type == TeamType::CSKH->value)?->id,
                 'weight' => $staff->pivot?->weight,
             ])->toArray(),
         ];
@@ -120,7 +130,6 @@ class LeadDistributionConfig extends Page
                                     ->label(__('filament.lead.table.name'))
                                     ->required()
                                     ->maxLength(255)
-                                    ->placeholder(__('filament.lead.name_placeholder'))
                                     ->validationMessages([
                                         'required' => __('common.error.required'),
                                         'max' => __('common.error.max_length', ['max' => 255])
@@ -128,12 +137,11 @@ class LeadDistributionConfig extends Page
 
                                 Select::make('product_id')
                                     ->label(__('filament.lead.table.product'))
-                                    ->relationship(
-                                        name: 'product',
-                                        titleAttribute: 'name',
-                                        modifyQueryUsing: fn($query) => $query
+                                    ->options(
+                                        fn() => Product::query()
                                             ->where('organization_id', $this->organizationId)
                                             ->where('is_business_product', true)
+                                            ->pluck('name', 'id')
                                     )
                                     ->searchable()
                                     ->preload()
@@ -146,7 +154,6 @@ class LeadDistributionConfig extends Page
                     ->schema([
                         Repeater::make('rules')
                             ->label(__('filament.lead.rule.label'))
-                            ->relationship('rules')
                             ->schema([
                                 Grid::make(3)
                                     ->schema([
@@ -235,7 +242,7 @@ class LeadDistributionConfig extends Page
                                                 $selectedIds = array_diff($selectedIds, [$currentId]);
 
                                                 return User::query()
-                                                    ->where('team_id', $teamId)
+                                                    ->whereHas('teams', fn($q) => $q->where('teams.id', $teamId))
                                                     ->where('disable', false)
                                                     ->when(!empty($selectedIds), fn($query) => $query->whereNotIn('id', $selectedIds))
                                                     ->pluck('name', 'id');
@@ -311,7 +318,7 @@ class LeadDistributionConfig extends Page
                                                 $selectedIds = array_diff($selectedIds, [$currentId]);
 
                                                 return User::query()
-                                                    ->where('team_id', $teamId)
+                                                    ->whereHas('teams', fn($q) => $q->where('teams.id', $teamId))
                                                     ->where('disable', false)
                                                     ->when(!empty($selectedIds), fn($query) => $query->whereNotIn('id', $selectedIds))
                                                     ->pluck('name', 'id');
@@ -347,8 +354,7 @@ class LeadDistributionConfig extends Page
                             ->columns(1),
                     ]),
             ])
-            ->statePath('data')
-            ->model($this->config);
+            ->statePath('data');
     }
 
     protected function getHeaderActions(): array

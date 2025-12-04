@@ -10,6 +10,7 @@ use App\Filament\Clusters\Product\Resources\Combos\Pages\ListCombos;
 use App\Filament\Clusters\Product\Resources\Combos\Schemas\ComboForm;
 use App\Filament\Clusters\Product\Resources\Combos\Tables\CombosTable;
 use App\Models\Combo;
+use App\Utils\Helper;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -75,10 +76,12 @@ class ComboResource extends Resource
         ];
     }
 
-    // public static  function canAccess(): bool
-    // {
-    //     return Auth::user()->hasRole(UserRole::ADMIN);
-    // }
+    public static function canAccess(): bool
+    {
+        return Helper::checkPermission([
+            UserRole::ADMIN->value,
+        ], Auth::user()->role);
+    }
 
     public static function getEloquentQuery(): Builder
     {
@@ -87,7 +90,9 @@ class ComboResource extends Resource
             ->withCount('products');
         $currentUser = Auth::user();
 
-        if ($currentUser && $currentUser->hasRole(UserRole::SUPER_ADMIN)) {
+        if (Helper::checkPermission([
+            UserRole::ADMIN->value,
+        ], Auth::user()->role)) {
             return $query->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ]);

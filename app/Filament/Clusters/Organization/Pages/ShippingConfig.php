@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\Clusters\Organization\Resources\Organizations\Pages;
+namespace App\Filament\Clusters\Organization\Pages;
 
 use App\Services\GHNService;
 use Filament\Actions\Action;
@@ -18,10 +18,19 @@ use Illuminate\Support\Facades\Auth;
 use App\Common\Constants\Shipping\RequiredNote;
 use App\Common\Constants\Shipping\ShiftGetGood;
 use App\Common\Constants\User\UserRole;
+use App\Utils\Helper;
 
 class ShippingConfig extends Page
 {
     protected string $view = 'filament.clusters.organization.resources.organizations.pages.shipping-config';
+
+    public static function canAccess(): bool
+    {
+        return Helper::checkPermission([
+            UserRole::SUPER_ADMIN->value,
+            UserRole::ADMIN->value,
+        ], Auth::user()->role);
+    }
 
     public static function getNavigationGroup(): \UnitEnum|string|null
     {
@@ -321,15 +330,5 @@ class ShippingConfig extends Page
                 ->danger()
                 ->send();
         }
-    }
-
-    /**
-     * Can access this page
-     */
-    public static function canAccess(): bool
-    {
-        return Auth::check()
-            && Auth::user()->organization_id
-            && (Auth::user()->hasRole(UserRole::ADMIN));
     }
 }
