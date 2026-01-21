@@ -3,7 +3,6 @@
 namespace App\Filament\Clusters\Organization\Resources\Organizations;
 
 use App\Common\Constants\User\UserRole;
-use App\Filament\Clusters\Organization\OrganizationCluster;
 use App\Filament\Clusters\Organization\Resources\Organizations\Pages\CreateOrganization;
 use App\Filament\Clusters\Organization\Resources\Organizations\Pages\EditOrganization;
 use App\Filament\Clusters\Organization\Resources\Organizations\Pages\ListOrganizations;
@@ -24,9 +23,15 @@ class OrganizationResource extends Resource
 {
     protected static ?string $model = Organization::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = '';
 
-    protected static ?string $cluster = OrganizationCluster::class;
+    // protected static ?string $cluster = OrganizationCluster::class;
+
+
+    public static function getNavigationGroup(): \UnitEnum|string|null
+    {
+        return __('filament.navigation.unit_administration');
+    }
 
     public static  function canAccess(): bool
     {

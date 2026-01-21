@@ -64,7 +64,7 @@ class User extends Authenticatable implements FilamentUser
 
     public function teams(): BelongsToMany
     {
-        return $this->belongsToMany(Team::class)->using(UserTeam::class)->withTimestamps();
+        return $this->belongsToMany(Team::class, 'user_team')->using(UserTeam::class)->withTimestamps();
     }
 
     public function logs(): HasMany

@@ -2,7 +2,7 @@
 
 namespace App\Common\Constants\Order;
 
-enum API: string
+enum APIGHN: string
 {
     // Shop Management
     case GET_SHOP_ALL = 'online-gateway.ghn.vn/shiip/public-api/v2/shop/all'; // production
@@ -68,27 +68,6 @@ enum API: string
         return $this->isGetRequest() ? 'GET' : 'POST';
     }
 
-    /**
-     * Get endpoint description
-     */
-    public function description(): string
-    {
-        return match ($this) {
-            self::GET_SHOP_ALL => 'Lấy danh sách cửa hàng',
-            self::GET_PROVINCE => 'Lấy danh sách tỉnh/thành phố',
-            self::GET_DISTRICT => 'Lấy danh sách quận/huyện',
-            self::GET_WARD => 'Lấy danh sách phường/xã',
-            self::GET_SERVICE => 'Lấy danh sách dịch vụ vận chuyển',
-            self::CALCULATE_FEE => 'Tính phí vận chuyển',
-            self::CALCULATE_EXPECTED_DELIVERY => 'Tính thời gian giao hàng dự kiến',
-            self::CREATE_ORDER => 'Tạo đơn hàng vận chuyển',
-            self::UPDATE_ORDER => 'Cập nhật đơn hàng',
-            self::CANCEL_ORDER => 'Hủy đơn hàng',
-            self::GET_ORDER_INFO => 'Lấy thông tin đơn hàng',
-            self::GET_ORDER_STATUS => 'Lấy trạng thái đơn hàng',
-            self::PRINT_ORDER => 'In phiếu giao hàng',
-        };
-    }
 
     /**
      * Get required headers
@@ -128,17 +107,5 @@ enum API: string
             self::CALCULATE_FEE,
             self::GET_SERVICE,
         ]);
-    }
-
-    /**
-     * Get all endpoints as options
-     */
-    public static function toOptions(): array
-    {
-        $options = [];
-        foreach (self::cases() as $case) {
-            $options[$case->value] = $case->description();
-        }
-        return $options;
     }
 }

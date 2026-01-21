@@ -60,6 +60,7 @@ return [
         ],
         'exists' => 'Giá trị đã chọn trong trường :attribute không hợp lệ.',
         'update_error' => 'Cập nhật dữ liệu thất bại',
+        'in' => 'Giá trị đã chọn trong trường :attribute không hợp lệ.',
     ],
     'form' => [
         'location_search_placeholder' => 'Tìm kiếm địa điểm',

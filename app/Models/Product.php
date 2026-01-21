@@ -57,9 +57,11 @@ class Product extends Model
         return $this->hasMany(ProductUserAssignment::class);
     }
 
-    public function salesUsers()
+    public function saleUsers()
     {
         return $this->belongsToMany(User::class, 'product_user_assignments')
+            ->using(ProductUserAssignment::class)
+            ->withPivot('type')
             ->withTimestamps()
             ->wherePivot('type', TeamType::SALE->value);
     }
@@ -67,6 +69,8 @@ class Product extends Model
     public function cskhUsers()
     {
         return $this->belongsToMany(User::class, 'product_user_assignments')
+            ->using(ProductUserAssignment::class)
+            ->withPivot('type')
             ->withTimestamps()
             ->wherePivot('type', TeamType::CSKH->value);
     }
@@ -74,6 +78,8 @@ class Product extends Model
     public function marketingUsers()
     {
         return $this->belongsToMany(User::class, 'product_user_assignments')
+            ->using(ProductUserAssignment::class)
+            ->withPivot('type')
             ->withTimestamps()
             ->wherePivot('type', TeamType::MARKETING->value);
     }
@@ -81,6 +87,8 @@ class Product extends Model
     public function billOfLadingUsers()
     {
         return $this->belongsToMany(User::class, 'product_user_assignments')
+            ->using(ProductUserAssignment::class)
+            ->withPivot('type')
             ->withTimestamps()
             ->wherePivot('type', TeamType::BILL_OF_LADING->value);
     }
@@ -90,5 +98,17 @@ class Product extends Model
         return $this->belongsToMany(Combo::class, 'combo_product')
             ->withPivot(['quantity', 'price'])
             ->withTimestamps();
+    }
+
+    public function warehouses(): BelongsToMany
+    {
+        return $this->belongsToMany(Warehouse::class, 'product_warehouse')
+            ->withPivot(['quantity', 'pending_quantity'])
+            ->withTimestamps();
+    }
+
+    public function productWarehouse()
+    {
+        return $this->hasMany(ProductWarehouse::class);
     }
 }

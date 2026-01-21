@@ -23,9 +23,12 @@ class TelesaleOperationResource extends Resource
 {
     protected static ?string $model = \App\Models\Customer::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = '';
 
-    protected static ?string $cluster = TelesaleCluster::class;
+    public static function getNavigationGroup(): \UnitEnum|string|null
+    {
+        return __('filament.navigation.unit_telesale');
+    }
 
     public static function getModelLabel(): string
     {

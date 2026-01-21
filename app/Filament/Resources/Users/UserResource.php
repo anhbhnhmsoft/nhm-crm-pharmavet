@@ -23,7 +23,7 @@ use UnitEnum;
 class UserResource extends Resource
 {
     protected static ?string $model = User::class;
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = '';
     protected static string|null|\UnitEnum $navigationGroup = 'unit_administration';
 
     public static function getNavigationGroup(): string|UnitEnum|null

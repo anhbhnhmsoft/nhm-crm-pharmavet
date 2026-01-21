@@ -2,9 +2,8 @@
 
 namespace App\Services;
 
-use App\Common\Constants\Order\API;
+use App\Common\Constants\Order\APIGHN;
 use App\Core\ServiceReturn;
-use App\Models\ShippingConfig;
 use App\Repositories\ShippingConfigRepository;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -76,7 +75,7 @@ class GHNService
             $response = Http::withHeaders([
                 'Token' => $this->token,
                 'Content-Type' => 'application/json',
-            ])->get('https://' . API::GET_SHOP_ALL->value);
+            ])->get('https://' . APIGHN::GET_SHOP_ALL->value);
 
             if (!$response->successful()) {
                 Log::error('GHN API Error', [
@@ -171,16 +170,98 @@ class GHNService
 
     public function calculateFee(array $params): array
     {
-        // TODO: Implement fee calculation API
-        // https://online-gateway.ghn.vn/shiip/public-api/v2/shipping-order/fee
-        return [];
+        if (!$this->token) {
+            throw new \Exception(__('filament.shipping.token_required'));
+        }
+
+        $response = Http::withHeaders([
+            'Token' => $this->token,
+            'ShopId' => $this->shopId,
+            'Content-Type' => 'application/json',
+        ])->post('https://' . APIGHN::CALCULATE_FEE->value, $params);
+
+        if (!$response->successful()) {
+            Log::error('GHN Calculate Fee Error', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+                'params' => $params
+            ]);
+
+            throw new \Exception(
+                $response->json('message') ?? __('filament.shipping.api_request_failed')
+            );
+        }
+
+        $data = $response->json();
+
+        if (($data['code'] ?? 0) != 200) {
+            throw new \Exception($data['message'] ?? __('filament.shipping.unknown_error'));
+        }
+
+        return $data['data'];
     }
 
     public function createOrder(array $params): array
     {
-        // TODO: Implement order creation API
-        // https://online-gateway.ghn.vn/shiip/public-api/v2/shipping-order/create
-        return [];
+        if (!$this->token) {
+            throw new \Exception(__('filament.shipping.token_required'));
+        }
+
+        $response = Http::withHeaders([
+            'Token' => $this->token,
+            'ShopId' => $this->shopId,
+            'Content-Type' => 'application/json',
+        ])->post('https://' . APIGHN::CREATE_ORDER->value, $params);
+
+        if (!$response->successful()) {
+            Log::error('GHN Create Order Error', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+                'params' => $params
+            ]);
+
+            throw new \Exception(
+                $response->json('message') ?? __('filament.shipping.api_request_failed')
+            );
+        }
+
+        $data = $response->json();
+
+        if (($data['code'] ?? 0) != 200) {
+            throw new \Exception($data['message'] ?? __('filament.shipping.unknown_error'));
+        }
+
+        return $data['data'];
+    }
+
+    public function cancelOrder(string $orderCode): array
+    {
+        if (!$this->token) {
+            throw new \Exception(__('filament.shipping.token_required'));
+        }
+
+        $response = Http::withHeaders([
+            'Token' => $this->token,
+            'ShopId' => $this->shopId,
+            'Content-Type' => 'application/json',
+        ])->post('https://' . APIGHN::CANCEL_ORDER->value, [
+            'order_codes' => [$orderCode]
+        ]);
+
+        if (!$response->successful()) {
+            Log::error('GHN Cancel Order Error', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+            throw new \Exception($response->json('message') ?? __('filament.shipping.api_request_failed'));
+        }
+
+        $data = $response->json();
+        if (($data['code'] ?? 0) != 200) {
+            throw new \Exception($data['message'] ?? __('filament.shipping.unknown_error'));
+        }
+
+        return $data['data'];
     }
 
     public function testConnection(array $data)
@@ -193,7 +274,7 @@ class GHNService
             $response = Http::withHeaders([
                 'Token' => $token,
                 'Content-Type' => 'application/json',
-            ])->get('https://' . API::GET_SHOP_ALL->value);
+            ])->get('https://' . APIGHN::GET_SHOP_ALL->value);
 
             if (!$response->successful()) {
                 throw new \Exception(

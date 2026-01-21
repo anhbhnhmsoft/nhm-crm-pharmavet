@@ -24,9 +24,7 @@ class ComboResource extends Resource
 {
     protected static ?string $model = Combo::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
-
-    protected static ?string $cluster = ProductCluster::class;
+    protected static string|BackedEnum|null $navigationIcon = '';
 
     protected static ?string $recordTitleAttribute = 'Combo';
 
@@ -79,6 +77,7 @@ class ComboResource extends Resource
     public static function canAccess(): bool
     {
         return Helper::checkPermission([
+            UserRole::SUPER_ADMIN->value,
             UserRole::ADMIN->value,
         ], Auth::user()->role);
     }
@@ -86,7 +85,7 @@ class ComboResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery()
-        ->with(['products', 'createdBy', 'updatedBy'])
+            ->with(['products', 'createdBy', 'updatedBy'])
             ->withCount('products');
         $currentUser = Auth::user();
 

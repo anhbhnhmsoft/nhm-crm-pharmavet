@@ -18,6 +18,8 @@ use Filament\Actions\ViewAction;
 use Filament\Forms\Components\FileUpload;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\Layout\Panel;
+use Filament\Tables\Columns\Layout\Stack;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
@@ -32,14 +34,11 @@ class ProductsTable
     {
         return $table
             ->columns([
-                TextColumn::make('organization.name')
-                    ->label(__('filament.organization.cluster_label'))
-                    ->sortable(),
                 TextColumn::make('name')
                     ->label(__('common.table.name'))
                     ->searchable(),
                 TextColumn::make('sku')
-                    ->label('SKU')
+                    ->label('SKU')->wrap()
                     ->searchable(),
                 TextColumn::make('unit')
                     ->label(__('common.table.unit'))
@@ -56,23 +55,9 @@ class ProductsTable
                     ->label(__('filament.product.sale_price'))
                     ->numeric()
                     ->sortable(),
-                TextColumn::make('barcode')
-                    ->label(__('filament.product.barcode'))
-                    ->searchable(),
                 TextColumn::make('type')
                     ->label(__('filament.product.type'))
-                    ->searchable(),
-                TextColumn::make('length')
-                    ->label(__('filament.product.length'))
-                    ->sortable()
-                    ->searchable(),
-                TextColumn::make('width')
-                    ->label(__('filament.product.width'))
-                    ->sortable()
-                    ->searchable(),
-                TextColumn::make('height')
-                    ->label(__('filament.product.height'))
-                    ->sortable()
+                    ->formatStateUsing(fn($state) => ProductField::from($state)->label())
                     ->searchable(),
                 TextColumn::make('quantity')
                     ->label(__('filament.product.quantity'))

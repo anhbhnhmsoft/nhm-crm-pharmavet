@@ -407,14 +407,13 @@
     - cod_fee : (decimal(15,2), default 0) -- phí dịch vụ COD
     - ck1 : (decimal(5,2), default 0) -- chiết khấu 1 (%)
     - ck2 : (decimal(5,2), default 0) -- chiết khấu 2 (%)
-    - gift_quantity : (integer, default 0) -- số lượng quà tặng
     - shipping_method : (varchar(50), nullable) -- đơn vị vận chuyển (ghn, ghtk)
     - shipping_address : (varchar(255), nullable) -- địa chỉ giao hàng
     - province_id : (unsigned int, nullable) -- tỉnh/thành phố
     - district_id : (unsigned int, nullable) -- quận/huyện
     - ward_id : (unsigned int, nullable) -- phường/xã
     - note : (text, nullable) -- ghi chú
-    - ghn_required_note : (varchar(50), nullable) -- lưu ý xem hàng GHN
+    - required_note : (varchar(50), nullable) -- lưu ý xem hàng GHN
     - created_by : (int, foreign key -> users.id, nullable) -- người tạo
     - updated_by : (int, foreign key -> users.id, nullable) -- người cập nhật
     - softDeletes

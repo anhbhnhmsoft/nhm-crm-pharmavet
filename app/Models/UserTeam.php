@@ -3,10 +3,10 @@
 namespace App\Models;
 
 use App\Core\GenerateId\GenerateIdSnowflake;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\Pivot;
 
-class UserTeam extends Model
+class UserTeam extends Pivot
 {
     use GenerateIdSnowflake;
     protected $table = 'user_team';

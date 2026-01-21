@@ -6,6 +6,15 @@ use App\Common\Constants\Customer\CustomerType;
 use App\Common\Constants\Customer\ReasonInteraction;
 use App\Common\Constants\Interaction\InteractionStatus;
 use App\Common\Constants\Marketing\IntegrationType;
+use App\Common\Constants\Order\OrderStatus;
+use App\Common\Constants\Shipping\ProviderShipping;
+use App\Common\Constants\Shipping\RequiredNote;
+use App\Models\District;
+use App\Models\Order;
+use App\Models\Product;
+use App\Models\Province;
+use App\Models\Ward;
+use App\Services\OrderService;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
@@ -16,23 +25,34 @@ use Filament\Actions\RestoreAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\Radio;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Forms\Components\Textarea;
 use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Throwable;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 
 class CustomerOperationsTable
 {
     public static function configure(Table $table): Table
     {
         return $table
+            ->recordClasses(
+                fn($record) =>
+                $record->orders()->where('status', OrderStatus::PENDING->value)->exists()
+                    ? 'bg-red-50 dark:bg-red-900/10'
+                    : null
+            )
             ->columns([
                 TextColumn::make('id')
                     ->label(__('telesale.table.data_code'))
@@ -92,6 +112,283 @@ class CustomerOperationsTable
             ])
             ->recordActions([
                 ActionGroup::make([
+                    Action::make('finalize_order')
+                        ->label(__('warehouse.actions.finalize_order'))
+                        ->icon('heroicon-o-shopping-cart')
+                        ->color('success')
+                        ->modalWidth('7xl')
+                        ->mountUsing(function ($form, $record) {
+                            $order = Order::where('customer_id', $record->id)
+                                ->whereIn('status', [OrderStatus::PENDING->value, OrderStatus::CONFIRMED->value])
+                                ->latest()
+                                ->first();
+
+                            if ($order) {
+                                $data = $order->toArray();
+                                $data['items'] = $order->items->map(function ($item) {
+                                    return [
+                                        'product_id' => $item->product_id,
+                                        'quantity' => $item->quantity,
+                                        'price' => $item->price,
+                                        'total' => $item->total,
+                                    ];
+                                })->toArray();
+                                $data['status_action'] = $order->status;
+                                // Map customer info from order if needed, or keep current
+                                $form->fill($data);
+                            } else {
+                                $form->fill([
+                                    'username' => $record->username,
+                                    'phone' => $record->phone,
+                                    'address' => $record->address,
+                                    'province_id' => $record->province_id,
+                                    'district_id' => $record->district_id,
+                                    'ward_id' => $record->ward_id,
+                                    'status_action' => OrderStatus::CONFIRMED->value,
+                                ]);
+                            }
+                        })
+                        ->schema([
+                            Grid::make(3)->schema(function ($record) {
+                                // dump($record);
+                                return [
+                                    Section::make(__('warehouse.order.form.customer_info'))
+                                        ->columnSpan(1)
+                                        ->schema([
+                                            TextInput::make('username')->label(__('warehouse.order.form.username'))->formatStateUsing(fn($record) => $record->username)->disabled(),
+                                            TextInput::make('phone')->label(__('warehouse.order.form.phone'))->formatStateUsing(fn($record) => $record->phone)->disabled(),
+                                            Select::make('province_id')
+                                                ->label(__('warehouse.order.form.province'))
+                                                ->formatStateUsing(fn($record) => $record->province_id)
+                                                ->options(Province::all()->pluck('name', 'id'))
+                                                ->searchable()
+                                                ->live()
+                                                ->afterStateUpdated(fn($state, $get, $set) => $set('district_id', null))
+                                                ->required()
+                                                ->validationMessages([
+                                                    'required' => __('common.error.required')
+                                                ]),
+                                            Select::make('district_id')
+                                                ->label(__('warehouse.order.form.district'))
+                                                ->formatStateUsing(fn($record) => $record->district_id)
+                                                ->options(fn($get) => District::where('province_id', $get('province_id'))->pluck('name', 'id'))
+                                                ->searchable()
+                                                ->live()
+                                                ->afterStateUpdated(fn($state, $get, $set) => $set('ward_id', null))
+                                                ->required()
+                                                ->validationMessages([
+                                                    'required' => __('common.error.required')
+                                                ]),
+                                            Select::make('ward_id')
+                                                ->label(__('warehouse.order.form.ward'))
+                                                ->formatStateUsing(fn($record) => $record->ward_id)
+                                                ->options(fn($get) => Ward::where('district_id', $get('district_id'))->pluck('name', 'id'))
+                                                ->searchable()
+                                                ->required()
+                                                ->validationMessages([
+                                                    'required' => __('common.error.required')
+                                                ]),
+                                            TextInput::make('address')->label(__('warehouse.order.form.address'))->formatStateUsing(fn($record) => $record->address),
+                                        ]),
+                                    Section::make(__('warehouse.order.form.info'))
+                                        ->columnSpan(2)
+                                        ->schema([
+                                            Select::make('shipping_method')
+                                                ->label(__('warehouse.order.form.shipping_method'))
+                                                ->options(ProviderShipping::getOptions())
+                                                ->live()
+                                                ->required()
+                                                ->validationMessages([
+                                                    'required' => __('common.error.required')
+                                                ]),
+                                            Select::make('required_note')
+                                                ->label(__('warehouse.order.form.required_note'))
+                                                ->options(RequiredNote::getOptions())
+                                                ->required()
+                                                ->validationMessages([
+                                                    'required' => __('common.error.required')
+                                                ]),
+
+                                            Repeater::make('items')
+                                                ->label(__('warehouse.order.form.product'))
+                                                ->schema([
+                                                    Select::make('product_id')
+                                                        ->label(__('warehouse.order.form.product'))
+                                                        ->options(Product::all()->pluck('name', 'id'))
+                                                        ->searchable()
+                                                        ->required()
+                                                        ->live()
+                                                        ->afterStateUpdated(function ($state, $get, $set) {
+                                                            $product = Product::find($state);
+                                                            if ($product) {
+                                                                $set('price', $product->sale_price ?? 0);
+                                                            }
+                                                        })
+                                                        ->required()
+                                                        ->live()
+                                                        ->afterStateUpdated(function ($state, $get,  $set) {
+                                                            $set('quantity', 1);
+                                                            $set('total', $get('price') * $get('quantity'));
+                                                        })
+                                                        ->validationMessages([
+                                                            'required' => __('common.error.required')
+                                                        ]),
+                                                    TextInput::make('quantity')
+                                                        ->label(__('warehouse.order.form.quantity'))
+                                                        ->numeric()
+                                                        ->default(1)
+                                                        ->required()
+                                                        ->live()
+                                                        ->afterStateUpdated(function ($state, $get,  $set) {
+                                                            $set('total', $state * $get('price'));
+                                                        })
+                                                        ->required()
+                                                        ->validationMessages([
+                                                            'required' => __('common.error.required')
+                                                        ]),
+                                                    TextInput::make('price')
+                                                        ->label(__('warehouse.order.form.price'))
+                                                        ->numeric()
+                                                        ->disabled()
+                                                        ->dehydrated()
+                                                        ->required()
+                                                        ->validationMessages([
+                                                            'required' => __('common.error.required')
+                                                        ]),
+                                                    TextInput::make('total')
+                                                        ->label(__('warehouse.order.form.total'))
+                                                        ->numeric()
+                                                        ->disabled()
+                                                        ->dehydrated()
+                                                        ->required()
+                                                        ->validationMessages([
+                                                            'required' => __('common.error.required')
+                                                        ]),
+                                                ])
+                                                ->columns(4)
+                                                ->live(debounce: 500)
+                                                ->afterStateUpdated(function ($get,  $set) {
+                                                    $items = $get('items');
+                                                    $total = collect($items)->sum(function ($item) {
+                                                        if ($item['price'] == null || $item['quantity'] == null || $item['price'] == 0 || is_int($item['quantity']) == false) {
+                                                            return 0;
+                                                        }
+                                                        return ($item['quantity'] ?? 0) * ($item['price'] ?? 0);
+                                                    });
+                                                    $set('total_amount_temp', $total);
+                                                }),
+
+                                            Grid::make(3)->schema([
+                                                TextInput::make('discount')
+                                                    ->label(__('warehouse.order.form.discount'))
+                                                    ->numeric()
+                                                    ->default(0)
+                                                    ->live()
+                                                    ->afterStateUpdated(function (Get $get, Set $set) {
+                                                        $productTotal = $get('total_amount_temp') ?? 0;
+                                                        $ck1 = $get('ck1') ?? 0;
+                                                        $ck2 = $get('ck2') ?? 0;
+                                                        $orderDiscount = $get('discount') ?? 0;
+                                                        $productDiscount = $productTotal * ($ck1 + $ck2) / 100;
+                                                        $totalDiscount = $productDiscount + $orderDiscount;
+                                                        $set('total_discount_display', number_format($totalDiscount) . ' VNĐ');
+                                                    }),
+                                                TextInput::make('ck1')
+                                                    ->label('CK1 (%)')
+                                                    ->numeric()
+                                                    ->default(0)
+                                                    ->live()
+                                                    ->afterStateUpdated(function (Get $get, Set $set) {
+                                                        $productTotal = $get('total_amount_temp') ?? 0;
+                                                        $ck1 = $get('ck1') ?? 0;
+                                                        $ck2 = $get('ck2') ?? 0;
+                                                        $orderDiscount = $get('discount') ?? 0;
+                                                        $productDiscount = $productTotal * ($ck1 + $ck2) / 100;
+                                                        $totalDiscount = $productDiscount + $orderDiscount;
+                                                        $set('total_discount_display', number_format($totalDiscount) . ' VNĐ');
+                                                    }),
+                                                TextInput::make('ck2')
+                                                    ->label('CK2 (%)')
+                                                    ->numeric()
+                                                    ->default(0)
+                                                    ->live()
+                                                    ->afterStateUpdated(function (Get $get, Set $set) {
+                                                        $productTotal = $get('total_amount_temp') ?? 0;
+                                                        $ck1 = $get('ck1') ?? 0;
+                                                        $ck2 = $get('ck2') ?? 0;
+                                                        $orderDiscount = $get('discount') ?? 0;
+                                                        $productDiscount = $productTotal * ($ck1 + $ck2) / 100;
+                                                        $totalDiscount = $productDiscount + $orderDiscount;
+                                                        $set('total_discount_display', number_format($totalDiscount) . ' VNĐ');
+                                                    }),
+                                            ]),
+
+                                            TextInput::make('total_discount_display')
+                                                ->label(__('warehouse.order.form.total_discount_display'))
+                                                ->disabled()
+                                                ->dehydrated(false),
+
+                                            Grid::make(3)->schema([
+                                                // TextInput::make('shipping_fee')->label(__('warehouse.order.form.shipping_fee'))->numeric()->default(0),
+                                                TextInput::make('cod_fee')
+                                                    ->label(__('warehouse.order.form.cod_fee'))
+                                                    ->numeric()
+                                                    ->live()
+                                                    ->afterStateUpdated(fn($state, Set $set) => $set('cod_amount', round($state))),
+                                                TextInput::make('cod_amount')->label(__('warehouse.order.form.cod_amount'))->numeric(),
+                                            ]),
+
+                                            TextInput::make('deposit')->label(__('warehouse.order.form.deposit'))->numeric()->default(0),
+
+                                            Radio::make('status_action')
+                                                ->label(__('warehouse.order.form.status_action'))
+                                                ->options([
+                                                    OrderStatus::CONFIRMED->value => OrderStatus::CONFIRMED->label(),
+                                                ])
+                                                ->default(OrderStatus::CONFIRMED->value)
+                                                ->inline()
+                                                ->required()
+                                                ->validationMessages([
+                                                    'required' => __('common.error.required'),
+                                                    'in' => __('common.error.in', ['attribute' => 'Trạng thái']),
+                                                ]),
+                                        ]),
+                                ];
+                            }),
+                        ])
+                        ->extraModalFooterActions(fn($record) => [
+                            Action::make('cancel_finalize')
+                                ->label(__('warehouse.order.form.cancel_finalize'))
+                                ->color('danger')
+                                ->requiresConfirmation()
+                                ->visible(function () use ($record) {
+                                    $order = Order::where('customer_id', $record->id)->latest()->first();
+                                    return $order && $order->status == OrderStatus::CONFIRMED->value;
+                                })
+                                ->action(function () use ($record) {
+                                    $order = Order::where('customer_id', $record->id)->latest()->first();
+                                    if ($order && $order->status == OrderStatus::CONFIRMED->value) {
+                                        $order->update(['status' => OrderStatus::PENDING->value]);
+                                        Notification::make()->title(__('warehouse.order.form.cancel_finalize'))->success()->send();
+                                    }
+                                }),
+                        ])
+                        ->action(function (array $data, $record) {
+                            $data['customer_id'] = $record->id;
+                            $data['created_by'] = Auth::id();
+                            $data['updated_by'] = Auth::id();
+
+                            /** @var OrderService $orderService */
+                            $orderService = app(OrderService::class);
+                            $result = $orderService->finalizeOrder($data, $record);
+
+                            if ($result->isSuccess()) {
+                                Notification::make()->title(__('common.success.update_success'))->success()->send();
+                            } else {
+                                Notification::make()->title($result->getMessage())->danger()->send();
+                            }
+                        }),
+
                     ViewAction::make()
                         ->label(__('common.action.view'))
                         ->tooltip(__('common.tooltip.view'))
@@ -104,7 +401,10 @@ class CustomerOperationsTable
                         ->form([
                             Textarea::make('note')
                                 ->label(__('common.table.note'))
-                                ->required(),
+                                ->required()
+                                ->validationMessages([
+                                    'required' => __('common.error.required'),
+                                ]),
                         ])
                         ->action(function ($record, array $data) {
                             $record->blackList()->create([
@@ -185,7 +485,7 @@ class CustomerOperationsTable
                                     ->required()
                                     ->live()
                                     ->validationMessages([
-                                        'required' => __('common.validation.required'),
+                                        'required' => __('common.error.required'),
                                     ]),
                                 DateTimePicker::make('next_action_at')
                                     ->label(__('telesale.table.next_action'))
@@ -203,7 +503,7 @@ class CustomerOperationsTable
                                     )
                                     ->helperText(__('telesale.helper.schedule_callback'))
                                     ->validationMessages([
-                                        'required' => __('common.validation.required'),
+                                        'required' => __('common.error.required'),
                                     ]),
                             ])
                         ])
@@ -272,7 +572,7 @@ class CustomerOperationsTable
                                     ->required()
                                     ->live()
                                     ->validationMessages([
-                                        'required' => __('common.validation.required'),
+                                        'required' => __('common.error.required'),
                                     ]),
                                 DateTimePicker::make('next_action_at')
                                     ->label(__('telesale.table.next_action'))
@@ -283,7 +583,7 @@ class CustomerOperationsTable
                                     ->required(fn($get) => ReasonInteraction::requiresScheduling((int)$get('reason')))
                                     ->visible(fn($get) => ReasonInteraction::requiresScheduling((int)$get('reason')))
                                     ->helperText(__('telesale.helper.schedule_callback'))
-                                    ->validationMessages(['required' => __('common.validation.required')]),
+                                    ->validationMessages(['required' => __('common.error.required')]),
                             ])
                         ])
                         ->action(function (array $data, $record) {
@@ -333,7 +633,7 @@ class CustomerOperationsTable
                                     ->required()
                                     ->live()
                                     ->validationMessages([
-                                        'required' => __('common.validation.required'),
+                                        'required' => __('common.error.required'),
                                     ]),
                                 DateTimePicker::make('next_action_at')
                                     ->label(__('telesale.table.next_action'))
@@ -344,7 +644,7 @@ class CustomerOperationsTable
                                     ->required(fn($get) => ReasonInteraction::requiresScheduling((int)$get('reason')))
                                     ->visible(fn($get) => ReasonInteraction::requiresScheduling((int)$get('reason')))
                                     ->helperText(__('telesale.helper.schedule_callback'))
-                                    ->validationMessages(['required' => __('common.validation.required')]),
+                                    ->validationMessages(['required' => __('common.error.required')]),
                             ])
                         ])
                         ->action(function (array $data, $record) {
@@ -394,7 +694,7 @@ class CustomerOperationsTable
                                     ->required()
                                     ->live()
                                     ->validationMessages([
-                                        'required' => __('common.validation.required'),
+                                        'required' => __('common.error.required'),
                                     ]),
                                 DateTimePicker::make('next_action_at')
                                     ->label(__('telesale.table.next_action'))
@@ -405,7 +705,7 @@ class CustomerOperationsTable
                                     ->required(fn($get) => ReasonInteraction::requiresScheduling((int)$get('reason')))
                                     ->visible(fn($get) => ReasonInteraction::requiresScheduling((int)$get('reason')))
                                     ->helperText(__('telesale.helper.schedule_callback'))
-                                    ->validationMessages(['required' => __('common.validation.required')]),
+                                    ->validationMessages(['required' => __('common.error.required')]),
                             ])
                         ])
                         ->action(function (array $data, $record) {
@@ -455,7 +755,7 @@ class CustomerOperationsTable
                                     ->required()
                                     ->live()
                                     ->validationMessages([
-                                        'required' => __('common.validation.required'),
+                                        'required' => __('common.error.required'),
                                     ]),
                                 DateTimePicker::make('next_action_at')
                                     ->label(__('telesale.table.next_action'))
@@ -466,7 +766,7 @@ class CustomerOperationsTable
                                     ->required(fn($get) => ReasonInteraction::requiresScheduling((int)$get('reason')))
                                     ->visible(fn($get) => ReasonInteraction::requiresScheduling((int)$get('reason')))
                                     ->helperText(__('telesale.helper.schedule_callback'))
-                                    ->validationMessages(['required' => __('common.validation.required')]),
+                                    ->validationMessages(['required' => __('common.error.required')]),
                             ])
                         ])
                         ->action(function (array $data, $record) {
@@ -516,7 +816,7 @@ class CustomerOperationsTable
                                     ->required()
                                     ->live()
                                     ->validationMessages([
-                                        'required' => __('common.validation.required'),
+                                        'required' => __('common.error.required'),
                                     ]),
                                 DateTimePicker::make('next_action_at')
                                     ->label(__('telesale.table.next_action'))
@@ -527,7 +827,7 @@ class CustomerOperationsTable
                                     ->required(fn($get) => ReasonInteraction::requiresScheduling((int)$get('reason')))
                                     ->visible(fn($get) => ReasonInteraction::requiresScheduling((int)$get('reason')))
                                     ->helperText(__('telesale.helper.schedule_callback'))
-                                    ->validationMessages(['required' => __('common.validation.required')]),
+                                    ->validationMessages(['required' => __('common.error.required')]),
                             ])
                         ])
                         ->action(function (array $data, $record) {
@@ -577,7 +877,7 @@ class CustomerOperationsTable
                                     ->required()
                                     ->live()
                                     ->validationMessages([
-                                        'required' => __('common.validation.required'),
+                                        'required' => __('common.error.required'),
                                     ]),
                                 DateTimePicker::make('next_action_at')
                                     ->label(__('telesale.table.next_action'))
@@ -588,7 +888,7 @@ class CustomerOperationsTable
                                     ->required(fn($get) => ReasonInteraction::requiresScheduling((int)$get('reason')))
                                     ->visible(fn($get) => ReasonInteraction::requiresScheduling((int)$get('reason')))
                                     ->helperText(__('telesale.helper.schedule_callback'))
-                                    ->validationMessages(['required' => __('common.validation.required')]),
+                                    ->validationMessages(['required' => __('common.error.required')]),
                             ])
                         ])
                         ->action(function (array $data, $record) {
@@ -638,7 +938,7 @@ class CustomerOperationsTable
                                     ->required()
                                     ->live()
                                     ->validationMessages([
-                                        'required' => __('common.validation.required'),
+                                        'required' => __('common.error.required'),
                                     ]),
                                 DateTimePicker::make('next_action_at')
                                     ->label(__('telesale.table.next_action'))
@@ -649,7 +949,7 @@ class CustomerOperationsTable
                                     ->required(fn($get) => ReasonInteraction::requiresScheduling((int)$get('reason')))
                                     ->visible(fn($get) => ReasonInteraction::requiresScheduling((int)$get('reason')))
                                     ->helperText(__('telesale.helper.schedule_callback'))
-                                    ->validationMessages(['required' => __('common.validation.required')]),
+                                    ->validationMessages(['required' => __('common.error.required')]),
                             ])
                         ])
                         ->action(function (array $data, $record) {
@@ -699,7 +999,7 @@ class CustomerOperationsTable
                                     ->required()
                                     ->live()
                                     ->validationMessages([
-                                        'required' => __('common.validation.required'),
+                                        'required' => __('common.error.required'),
                                     ]),
                                 DateTimePicker::make('next_action_at')
                                     ->label(__('telesale.table.next_action'))
@@ -710,7 +1010,7 @@ class CustomerOperationsTable
                                     ->required(fn($get) => ReasonInteraction::requiresScheduling((int)$get('reason')))
                                     ->visible(fn($get) => ReasonInteraction::requiresScheduling((int)$get('reason')))
                                     ->helperText(__('telesale.helper.schedule_callback'))
-                                    ->validationMessages(['required' => __('common.validation.required')]),
+                                    ->validationMessages(['required' => __('common.error.required')]),
                             ])
                         ])
                         ->action(function (array $data, $record) {

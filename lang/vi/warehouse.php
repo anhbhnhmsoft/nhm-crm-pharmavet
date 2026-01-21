@@ -1,7 +1,8 @@
 <?php
 
 return [
-    'label' => 'Kho',
+    'label' => 'Danh sách kho',
+    'primary' => 'Kho',
     'form' => [
         'unit_warehouse' => 'Kho',
         'code' => 'Mã kho',
@@ -32,6 +33,7 @@ return [
     ],
     'actions' => [
         'configure_shipping' => 'Cấu hình vận chuyển GHN',
+        'finalize_order' => 'Chốt đơn',
     ],
     'navigation' => [
         'delivery' => 'Cấu hình giao hàng',
@@ -41,6 +43,10 @@ return [
         'manager_phone' => 'Số ĐT quản kho',
         'sender_name' => 'Đăng đơn người gửi',
         'sender_info' => 'In đơn người gửi',
+        'product' => 'Sản phẩm',
+        'product_name' => 'Tên sản phẩm',
+        'product_quantity' => 'Số lượng sản phẩm',
+        'product_pending_quantity' => 'Số lượng sản phẩm chờ',
     ],
     'messages' => [
         'error' => [
@@ -106,6 +112,49 @@ return [
         'export' => 'Xuất kho',
         'transfer' => 'Chuyển kho',
         'cancel_export' => 'Xuất hủy',
+    ],
+    'order' => [
+        'primary' => 'Đơn hàng',
+        'action' => [
+            'finalize_order' => 'Lên đơn / Chốt đơn',
+        ],
+        'form' => [
+            'username' => 'Tên khách hàng',
+            'phone' => 'Số điện thoại',
+            'province' => 'Tỉnh/Thành phố',
+            'district' => 'Quận/Huyện',
+            'ward' => 'Phường/Xã',
+            'address' => 'Địa chỉ',
+            'note' => 'Ghi chú',
+            'customer_type' => 'Loại khách hàng',
+            'interaction_status' => 'Trạng thái giao dịch',
+            'blackList' => 'Blacklist',
+            'discount' => 'Chiết khấu theo đơn (VNĐ)',
+            'total_discount_display' => 'Chiết khấu tổng',
+            'shipping_fee' => 'Phí vận chuyển',
+            'cod_fee' => 'Phí dịch vụ COD',
+            'cod_amount' => 'COD thu của khách',
+            'deposit' => 'Khách đã đặt cọc',
+            'status_action' => 'Hành động',
+            'cancel_finalize' => 'Hủy chốt đơn',
+            'customer_info' => 'Thông tin khách hàng',
+            'info' => 'Thông tin đơn hàng',
+            'shipping_method' => 'Phương thức giao hàng',
+            'required_note' => 'Chú thích',
+            'product' => 'Sản phẩm',
+            'quantity' => 'Số lượng',
+            'price' => 'Giá',
+            'total' => 'Tổng',
+            'discount' => 'Chiết khấu',
+            'total_discount_display' => 'Chiết khấu tổng',
+            'shipping_fee' => 'Phí vận chuyển',
+            'cod_fee' => 'Phí COD',
+            'cod_amount' => 'COD thu của khách',
+            'deposit' => 'Khách đã đặt cọc',
+            'product' => 'Sản phẩm',
+            'quantity' => 'Số lượng sở hữu',
+            'pending_quantity' => 'Số lượng còn trong kho',
+        ],
     ],
 
 ];

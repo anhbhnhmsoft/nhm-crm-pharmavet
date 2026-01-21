@@ -154,42 +154,49 @@ class TeamForm
                             ->searchable()
                             ->preload()
                             ->getSearchResultsUsing(function (string $search, Get $get) use ($userService) {
-                                switch ($get('type')) { 
+                                $result = null;
+                                switch ($get('type')) {
                                     case TeamType::SALE->value:
-                                        return $userService->getListUser([
+                                        $result = $userService->getListUser([
                                             'keyword' => $search,
                                             'role' => UserRole::SALE->value
                                         ]);
+                                        break;
                                     case TeamType::CSKH->value:
-                                        return $userService->getListUser([
+                                        $result = $userService->getListUser([
                                             'keyword' => $search,
                                             'role' => UserRole::SALE->value
                                         ]);
+                                        break;
                                     case TeamType::MARKETING->value:
-                                        return $userService->getListUser([
+                                        $result = $userService->getListUser([
                                             'keyword' => $search,
                                             'role' => UserRole::MARKETING->value
                                         ]);
+                                        break;
                                     case TeamType::BILL_OF_LADING->value:
-                                        return $userService->getListUser([
+                                        $result = $userService->getListUser([
                                             'keyword' => $search,
                                             'role' => UserRole::WAREHOUSE->value
                                         ]);
+                                        break;
                                     default:
-                                        return $userService->getListUser([
+                                        $result = $userService->getListUser([
                                             'keyword' => $search
                                         ]);
+                                        break;
                                 }
-                                if ($result->isSuccess() && $search) {
+
+                                if ($result && $result->isSuccess()) {
                                     return $result->getData()
                                         ->whereNotIn('role', [UserRole::SUPER_ADMIN->value, UserRole::ADMIN->value])
-                                        ->limit(50)
-                                        ->pluck('name', 'id');
-                                } else {
-                                    return [];
+                                        ->take(50)
+                                        ->pluck('name', 'id')
+                                        ->toArray();
                                 }
+                                return [];
                             })
-                            ->getOptionLabelUsing(function ($value, $userService): ?string {
+                            ->getOptionLabelUsing(function ($value) use ($userService): ?string {
                                 $result = $userService->find($value);
                                 return $result->isSuccess() ? $result->getData()->name : null;
                             })

@@ -71,26 +71,13 @@ class UsersTable
                     ->label(__('filament.user.last_login'))
                     ->dateTime()
                     ->sortable(),
-                TextColumn::make('updated_at')
-                    ->label(__('filament.user.updated_at'))
-                    ->dateTime()
-                    ->sortable(),
-
-                TextColumn::make('updatedBy.name')
-                    ->label(__('filament.user.updated_by'))
-                    ->sortable(),
-
-                TextColumn::make('createdBy.name')
-                    ->label(__('filament.user.created_by'))
-                    ->sortable(),
 
                 TextColumn::make('organization.name')
                     ->label(__('filament.user.organization'))
                     ->sortable(),
 
                 TextColumn::make('team.name')
-                    ->label(__('filament.user.team'))
-                    ->sortable(),
+                    ->label(__('filament.user.team')),
             ])
             ->filters([
                 TrashedFilter::make(),
@@ -169,7 +156,7 @@ class UsersTable
                         ->visible(fn($record) => $record->trashed()),
 
                 ])
-            ])
+            ], position: \Filament\Tables\Enums\RecordActionsPosition::BeforeColumns)
 
             ->toolbarActions([
                 BulkActionGroup::make([

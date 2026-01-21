@@ -157,7 +157,7 @@ return [
 
         'assignments' => 'Phân công nhân sự',
         'assignments_info' => 'Gán người phụ trách sản phẩm',
-        'sales_staff' => 'Nhân viên Kinh doanh (Sales)',
+        'sale_staff' => 'Nhân viên Kinh doanh (Sales)',
         'marketing_staff' => 'Nhân viên Marketing',
         'cskh_staff' => 'Nhân viên CSKH',
         'select_staff_placeholder' => 'Chọn nhân viên phụ trách',
@@ -191,7 +191,7 @@ return [
         'vat_inclusive_info' => 'Giá chưa VAT: :price ₫ | VAT: :vat ₫',
         'vat_exclusive_info' => 'VAT: :vat ₫ | Tổng giá: :total ₫',
 
-        'sales_team' => 'Đội Sales',
+        'sale_team' => 'Đội Sales',
         'marketing_team' => 'Đội Marketing',
         'cskh_team' => 'Đội CSKH',
         'select_team_first' => 'Chọn đội trước',
@@ -397,6 +397,8 @@ return [
         'note_1' => 'Token API rất quan trọng, không chia sẻ với người khác',
         'note_2' => 'Mỗi tổ chức chỉ được cấu hình một tài khoản GHN',
         'note_3' => 'Bạn cần có ít nhất một cửa hàng đã được kích hoạt trên GHN',
+        'token_required' => 'Token API không được để trống',
+        'no_config_found' => 'Không tìm thấy cấu hình GHN',
     ],
     'lead' => [
         'label' => 'Cấu hình phân bổ ',

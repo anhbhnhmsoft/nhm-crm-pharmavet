@@ -3,10 +3,12 @@
 namespace App\Filament\Pages;
 
 use App\Common\Constants\Language;
+use App\Models\Organization;
 use App\Services\AuthService;
 use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
 use Filament\Auth\Http\Responses\Contracts\LoginResponse;
 use Filament\Auth\Pages\Login as BaseLogin;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Schema;
@@ -31,19 +33,15 @@ class Login extends BaseLogin
     public function boot()
     {
         $this->authService = app(AuthService::class);
-        FilamentAsset::register([
-            Css::make('app-css', Vite::asset('resources/css/app.css')),
-        ]);
     }
 
     public function form(Schema $schema): Schema
     {
         return $schema->components([
-            TextInput::make('organization_code')
+            Select::make('organization_code')
                 ->label(__('filament.login.organization_code'))
+                ->options(fn() => Organization::get()->pluck('name', 'code')->toArray())
                 ->required()
-                ->autocomplete()
-                ->autofocus()
                 ->extraInputAttributes(['tabindex' => 1])
                 ->validationMessages([
                     'required' => __('common.error.required'),

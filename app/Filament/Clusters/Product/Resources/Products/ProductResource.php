@@ -24,16 +24,14 @@ class ProductResource extends Resource
 {
     protected static ?string $model = Product::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = '';
 
-    protected static ?string $cluster = ProductCluster::class;
-
-    protected static ?string $recordTitleAttribute = 'Product';
-
-    public static function getNavigationParentItem(): ?string   
+    public static function getNavigationGroup(): \UnitEnum|string|null
     {
         return __('filament.navigation.unit_administration');
     }
+
+    protected static ?string $recordTitleAttribute = 'Product';
 
     public static function getModelLabel(): string
     {

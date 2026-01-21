@@ -24,9 +24,13 @@ class ShiftResource extends Resource
 {
     protected static ?string $model = Shift::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = '';
 
-    protected static ?string $cluster = OrganizationCluster::class;
+
+    public static function getNavigationGroup(): \UnitEnum|string|null
+    {
+        return __('filament.navigation.unit_administration');
+    }
 
     public static function getModelLabel(): string
     {
@@ -58,6 +62,7 @@ class ShiftResource extends Resource
     public static function canAccess(): bool
     {
         return Helper::checkPermission([
+            UserRole::SUPER_ADMIN->value,
             UserRole::ADMIN->value,
         ], Auth::user()->role);
     }

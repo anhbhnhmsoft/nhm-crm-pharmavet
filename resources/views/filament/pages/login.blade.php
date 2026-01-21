@@ -1,4 +1,5 @@
 <x-filament-panels::page.simple>
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
     <div class="flex gap-2 justify-center">
         <button wire:click="switchLanguage('vi')" type="button" @class([
             'flex items-center  text-gray-700 gap-2 px-3 py-2 rounded-lg transition-all duration-200 border',

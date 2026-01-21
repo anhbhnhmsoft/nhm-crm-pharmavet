@@ -11,7 +11,6 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Pages\CreateRecord;
 use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Auth;
 
@@ -92,7 +91,7 @@ class UserForm
                         Select::make('team_id')
                             ->label(__('filament.user.team'))
                             ->relationship(
-                                'team',
+                                'teams',
                                 'name',
                                 fn($query) =>
                                 $query->where('organization_id', $authUser->organization_id)

@@ -2,7 +2,9 @@
 
 namespace App\Filament\Clusters\Telesale\Resources\TelesaleOperations\Schemas;
 
-
+use App\Models\District;
+use App\Models\Province;
+use App\Models\Ward;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -77,7 +79,7 @@ class TelesaleOperationForm
                                         ->label(__('telesale.form.note_temp')),
                                     Select::make('product_id')
                                         ->label(__('telesale.form.product'))
-                                        ->relationship(name :'product', titleAttribute: 'name', modifyQueryUsing: fn($query) => $query->where('is_business_product', true)),
+                                        ->relationship(name: 'product', titleAttribute: 'name', modifyQueryUsing: fn($query) => $query->where('is_business_product', true)),
                                 ]),
                             ])
                             ->collapsible()
@@ -100,6 +102,45 @@ class TelesaleOperationForm
                         'md' => 6,
                         'default' => 3,
                     ]),
+                Group::make()
+                    ->schema([
+                        Section::make(__('telesale.form.shipping_info'))
+                            ->schema([
+                                Select::make('province_id')
+                                    ->label(__('warehouse.order.form.province'))
+                                    ->options(Province::all()->pluck('name', 'id'))
+                                    ->searchable()
+                                    ->live()
+                                    ->afterStateUpdated(function ($state, callable $set) {
+                                        $set('district_id', null);
+                                        $set('ward_id', null);
+                                    })
+                                    ->required()
+                                    ->validationMessages([
+                                        'required' => __('common.error.required'),
+                                    ]),
+                                Select::make('district_id')
+                                    ->label(__('warehouse.order.form.district'))
+                                    ->options(fn($get) => District::where('province_id', $get('province_id'))->pluck('name', 'id'))
+                                    ->searchable()
+                                    ->live()
+                                    ->afterStateUpdated(function ($state, callable $set) {
+                                        $set('ward_id', null);
+                                    })
+                                    ->required()
+                                    ->validationMessages([
+                                        'required' => __('common.error.required'),
+                                    ]),
+                                Select::make('ward_id')
+                                    ->label(__('warehouse.order.form.ward'))
+                                    ->options(fn($get) => Ward::where('district_id', $get('district_id'))->pluck('name', 'id'))
+                                    ->searchable()
+                                    ->required()->validationMessages([
+                                        'required' => __('common.error.required'),
+                                    ]),
+                            ]),
+                    ])
+                    ->columnSpanFull(),
 
                 // Group::make()
                 //     ->schema([
@@ -200,7 +241,7 @@ class TelesaleOperationForm
                 //                                             'required' => __('common.error.required'),
                 //                                         ]),
 
-                //                                     Select::make('ghn_required_note')
+                //                                     Select::make('required_note')
                 //                                         ->label(__('telesale.form.ghn_check_goods'))
                 //                                         ->options(RequiredNote::getOptions())
                 //                                         ->visible(fn(Get $get) => $get('shipping_method') === 'ghn')
@@ -255,11 +296,6 @@ class TelesaleOperationForm
                 //                                             ->live()
                 //                                             ->afterStateUpdated(fn(Get $get, Set $set) => $calculateTotal($get, $set)),
                 //                                     ]),
-
-                //                                     TextInput::make('gift_quantity')
-                //                                         ->label(__('telesale.form.gift_quantity'))
-                //                                         ->numeric()
-                //                                         ->default(0),
 
                 //                                     TextInput::make('total_amount')
                 //                                         ->label(__('telesale.form.total_amount'))

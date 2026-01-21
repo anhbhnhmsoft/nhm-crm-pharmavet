@@ -24,7 +24,7 @@ class EditTeam extends EditRecord
 
     protected function mutateFormDataBeforeFill(array $data): array
     {
-        $data['member_ids'] = $this->record->users()->pluck('id')->toArray();
+        $data['member_ids'] = $this->record->users()->pluck('users.id')->toArray();
 
         return $data;
     }
@@ -40,7 +40,7 @@ class EditTeam extends EditRecord
     {
         $memberIds = $this->data['member_ids'] ?? [];
         $userService = app(UserService::class);
-        $result = $userService->updateTeamFoMember(users: $memberIds,teamId: $this->record->id,ableRemove: true);
+        $result = $userService->updateTeamFoMember(users: $memberIds, teamId: $this->record->id, ableRemove: true);
         if ($result->isError()) {
             $errorMessage = $result->getMessage();
             $this->addError('data.member_ids', $errorMessage);

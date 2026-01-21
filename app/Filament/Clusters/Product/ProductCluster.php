@@ -8,7 +8,7 @@ use Filament\Support\Icons\Heroicon;
 
 class ProductCluster extends Cluster
 {
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedSquares2x2;
+    protected static string|BackedEnum|null $navigationIcon = '';
 
     public static function getNavigationGroup(): \UnitEnum|string|null
     {

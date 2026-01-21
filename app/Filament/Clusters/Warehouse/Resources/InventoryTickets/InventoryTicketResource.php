@@ -24,7 +24,7 @@ class InventoryTicketResource extends Resource
 {
     protected static ?string $model = InventoryTicket::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = '';
 
     public static function getNavigationGroup(): \UnitEnum|string|null
     {

@@ -24,10 +24,12 @@ class TeamResource extends Resource
 {
     protected static ?string $model = Team::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = '';
 
-    protected static ?string $cluster = OrganizationCluster::class;
-
+    public static function getNavigationGroup(): \UnitEnum|string|null
+    {
+        return __('filament.navigation.unit_administration');
+    }
     public static function getModelLabel(): string
     {
         return __('filament.team.label');
@@ -67,6 +69,7 @@ class TeamResource extends Resource
     public static  function canAccess(): bool
     {
         return Helper::checkPermission([
+            UserRole::SUPER_ADMIN->value,
             UserRole::ADMIN->value,
         ], Auth::user()->role);
     }

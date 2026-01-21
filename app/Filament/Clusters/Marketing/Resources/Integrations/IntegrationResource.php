@@ -24,9 +24,12 @@ class IntegrationResource extends Resource
 {
     protected static ?string $model = Integration::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = '';
 
-    protected static ?string $cluster = MarketingCluster::class;
+    public static function getNavigationGroup(): \UnitEnum|string|null
+    {
+        return __('filament.navigation.unit_marketing');
+    }
 
     protected static ?string $recordTitleAttribute = 'Integration';
 

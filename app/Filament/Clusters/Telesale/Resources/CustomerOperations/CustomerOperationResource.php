@@ -21,7 +21,7 @@ class CustomerOperationResource extends Resource
 {
     protected static ?string $model = Customer::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = '';
 
     public static function getNavigationGroup(): \UnitEnum|string|null
     {
@@ -56,6 +56,8 @@ class CustomerOperationResource extends Resource
     public static function canAccess(): bool
     {
         return Helper::checkPermission([
+            UserRole::SUPER_ADMIN->value,
+            UserRole::ADMIN->value,
             UserRole::SALE->value,
         ], Auth::user()->role);
     }
