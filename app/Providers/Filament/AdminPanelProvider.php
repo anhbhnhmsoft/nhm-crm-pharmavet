@@ -30,6 +30,8 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('')
             ->login(Login::class)
+            ->brandLogo(asset('logo.png'))
+            ->favicon(asset('favicon.png'))
             ->colors([
                 'primary' => Color::Sky,
             ])
@@ -41,7 +43,7 @@ class AdminPanelProvider extends PanelProvider
             ->pages([
                 Dashboard::class,
             ])
-            ->sidebarWidth('14  rem')
+            ->sidebarWidth('14rem')
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([
                 AccountWidget::class,
@@ -65,7 +67,6 @@ class AdminPanelProvider extends PanelProvider
                     ->label(__('filament.navigation.unit_administration'))
                     ->collapsed(),
             ])
-            // ->theme('filament/admin/theme.css')
             ->databaseTransactions()
             ->maxContentWidth(Width::Full);
     }
