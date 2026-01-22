@@ -30,6 +30,9 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('')
             ->login(Login::class)
+            ->pages([
+                Dashboard::class
+            ])
             ->brandLogo(asset('logo.png'))
             ->favicon(asset('favicon.png'))
             ->colors([
