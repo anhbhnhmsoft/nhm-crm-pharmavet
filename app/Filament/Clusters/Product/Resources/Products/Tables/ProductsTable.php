@@ -118,7 +118,7 @@ class ProductsTable
                         ->icon('heroicon-o-arrow-path')
                         ->visible(fn($record) => $record->trashed()),
                 ])
-            ])
+            ], position: \Filament\Tables\Enums\RecordActionsPosition::BeforeColumns)
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()

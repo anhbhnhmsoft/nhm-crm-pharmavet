@@ -120,7 +120,7 @@ class OrganizationsTable
                         ->visible(fn($record) => $record->trashed()),
 
                 ])
-            ])
+            ], position: \Filament\Tables\Enums\RecordActionsPosition::BeforeColumns)
 
             ->toolbarActions([
                 BulkActionGroup::make([
