@@ -26,6 +26,7 @@ class Organization extends Model
         // "ward_code",
         'maximum_employees',
         "disable",
+        "is_foreign_merchant"
     ];
 
     protected $casts = [

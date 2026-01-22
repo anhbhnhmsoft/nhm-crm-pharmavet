@@ -160,7 +160,7 @@ class InventoryTicketsTable
                         ->icon('heroicon-o-arrow-path')
                         ->visible(fn($record) => $record->trashed()),
                 ]),
-            ])
+            ], position: \Filament\Tables\Enums\RecordActionsPosition::BeforeColumns)
             ->bulkActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()

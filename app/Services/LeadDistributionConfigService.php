@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use App\Common\Constants\Customer\DistributionMethod;
 use App\Models\LeadDistributionConfig;
+use Hamcrest\Text\IsEmptyString;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
@@ -94,7 +95,7 @@ class LeadDistributionConfigService
             return DB::transaction(function () use ($config, $data) {
                 $config->update([
                     'name' => $data['name'],
-                    'product_id' => $data['product_id'] ?? null,
+                    'product_id' => empty($data['product_id']) ? null : $data['product_id'],
                     'updated_by' => Auth::id(),
                 ]);
 
