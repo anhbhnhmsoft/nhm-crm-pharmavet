@@ -8,6 +8,13 @@ return [
         'completed' => 'Hoàn thành',
         'cancelled' => 'Đã hủy',
     ],
+    'ghn_status' => [
+        'ready_to_pick' => 'Sẵn sàng lấy hàng',
+        'picking' => 'Đang lấy hàng',
+        'delivering' => 'Đang giao hàng',
+        'delivered' => 'Đã giao hàng',
+        'cancelled' => 'Đã hủy vận đơn',
+    ],
     'form' => [
         'code' => 'Mã đơn hàng',
         'status' => 'Trạng thái',

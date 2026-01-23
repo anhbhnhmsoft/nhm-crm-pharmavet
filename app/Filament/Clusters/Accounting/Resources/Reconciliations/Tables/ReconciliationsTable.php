@@ -4,6 +4,7 @@ namespace App\Filament\Clusters\Accounting\Resources\Reconciliations\Tables;
 
 use App\Common\Constants\Accounting\ReconciliationStatus;
 use App\Common\Constants\CacheKey;
+use App\Common\Constants\Order\GhnOrderStatus;
 use App\Common\Constants\Shipping\RequiredNote;
 use App\Core\Caching;
 use App\Filament\Clusters\Accounting\Resources\Reconciliations\ReconciliationResource;
@@ -115,7 +116,8 @@ class ReconciliationsTable
 
                         $form->fill([
                             'order_code' => $orderDetail['order_code'] ?? '',
-                            'status' => $orderDetail['status'] ?? '',
+                            'status' => GhnOrderStatus::tryFrom($orderDetail['status'] ?? '')?->label()
+                                ?? ($orderDetail['status'] ?? ''),
                             'created_date' => $orderDetail['created_date'] ?? '',
                             'to_name' => $orderDetail['to_name'] ?? '',
                             'to_phone' => $orderDetail['to_phone'] ?? '',
