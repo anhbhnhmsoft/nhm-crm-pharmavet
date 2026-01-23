@@ -2,6 +2,7 @@
 
 namespace App\Filament\Clusters\Warehouse\Resources\Orders\Tables;
 
+use App\Common\Constants\Order\GhnOrderStatus;
 use App\Common\Constants\Order\OrderStatus;
 use App\Common\Constants\Order\PaymentType;
 use App\Common\Constants\Order\ServiceType;
@@ -87,14 +88,7 @@ class OrdersTable
                 TextColumn::make('ghn_status')
                     ->label(__('order.table.ghn_status'))
                     ->badge()
-                    ->color(fn(?string $state): string => match ($state) {
-                        'ready_to_pick' => 'info',
-                        'picking' => 'warning',
-                        'delivering' => 'primary',
-                        'delivered' => 'success',
-                        'cancelled' => 'danger',
-                        default => 'gray',
-                    })
+                    ->color(fn(?string $state): string => GhnOrderStatus::color($state))
                     ->toggleable()
                     ->placeholder(__('order.table.not_posted')),
 
@@ -134,13 +128,7 @@ class OrdersTable
 
                 SelectFilter::make('ghn_status')
                     ->label(__('order.filter.ghn_status'))
-                    ->options([
-                        'ready_to_pick' => __('order.ghn_status.ready_to_pick'),
-                        'picking' => __('order.ghn_status.picking'),
-                        'delivering' => __('order.ghn_status.delivering'),
-                        'delivered' => __('order.ghn_status.delivered'),
-                        'cancelled' => __('order.ghn_status.cancelled'),
-                    ])
+                    ->options(GhnOrderStatus::toOptions())
                     ->multiple(),
             ])
             ->recordActions([

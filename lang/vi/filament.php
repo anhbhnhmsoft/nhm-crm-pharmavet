@@ -6,6 +6,7 @@ return [
         'unit_marketing' => 'Marketing',
         'unit_telesale'  => 'Sale tác nghiệp',
         'unit_warehouse' => 'Kho',
+        'unit_accounting' => 'Kế toán',
     ],
     'login' => [
         'organization_code' => 'Mã tổ chức',

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Common\Constants\Order\GhnOrderStatus;
 use App\Common\Constants\Order\OrderStatus;
 use App\Common\Constants\Shipping\RequiredNote;
 use App\Core\ServiceReturn;
@@ -208,7 +209,7 @@ class OrderService
                     : null,
                 'ghn_total_fee' => $result['total_fee'] ?? null,
                 'ghn_response' => json_encode($result),
-                'ghn_status' => 'ready_to_pick',
+                'ghn_status' => GhnOrderStatus::READY_TO_PICK->value,
                 'ghn_posted_at' => now(),
             ]);
 
@@ -329,7 +330,7 @@ class OrderService
             $order->update([
                 'status' => OrderStatus::CONFIRMED->value,
                 'code' => $newCode,
-                'ghn_status' => 'cancelled',
+                'ghn_status' => GhnOrderStatus::CANCELLED->value,
                 'ghn_cancelled_at' => now(),
                 'ghn_response' => json_encode(array_merge(
                     json_decode($order->ghn_response ?? '{}', true),

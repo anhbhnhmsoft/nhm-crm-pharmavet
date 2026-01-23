@@ -18,6 +18,10 @@ use App\Repositories\OrderItemRepository;
 use App\Repositories\OrderRepository;
 use App\Repositories\OrderStatusLogRepository;
 use App\Repositories\OrganizationRepository;
+use App\Repositories\ExchangeRateRepository;
+use App\Repositories\ReconciliationRepository;
+use App\Repositories\ExpenseRepository;
+use App\Repositories\RevenueRepository;
 use App\Repositories\ProductAttributeRepository;
 use App\Repositories\ProductRepository;
 use App\Repositories\ProductUserAssignmentRepository;
@@ -31,6 +35,9 @@ use App\Services\CustomerService;
 use App\Services\Integrations\IntegrationService;
 use App\Services\LeadDistributionConfigService;
 use App\Services\OrganizationService;
+use App\Services\AccountingService;
+use App\Services\ReconciliationService;
+use App\Services\ReportService;
 use App\Services\ProductService;
 use App\Services\TeamService;
 use App\Services\UserService;
@@ -89,6 +96,10 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(FundRepository::class);
         $this->app->bind(FundTransactionRepository::class);
         $this->app->bind(InventoryTicketRepository::class);
+        $this->app->bind(ExchangeRateRepository::class);
+        $this->app->bind(ReconciliationRepository::class);
+        $this->app->bind(ExpenseRepository::class);
+        $this->app->bind(RevenueRepository::class);
 
     }
 
@@ -103,6 +114,9 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(IntegrationService::class);
         $this->app->bind(CustomerService::class);
         $this->app->bind(LeadDistributionConfigService::class);
+        $this->app->bind(AccountingService::class);
+        $this->app->bind(ReconciliationService::class);
+        $this->app->bind(ReportService::class);
     }
 
     private function registerObserver(): void

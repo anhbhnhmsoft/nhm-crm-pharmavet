@@ -44,28 +44,6 @@ class WarehouseResource extends Resource
         return __('warehouse.label');
     }
 
-    public static function canAccess(): bool
-    {
-        return Helper::checkPermission([
-            UserRole::SUPER_ADMIN->value,
-            UserRole::ADMIN->value,
-            UserRole::WAREHOUSE->value,
-            UserRole::ACCOUNTING->value,
-        ], Auth::user()->role);
-    }
-
-    public static function getEloquentQuery(): Builder
-    {
-        $query = parent::getEloquentQuery()
-            ->withoutGlobalScopes([
-                SoftDeletingScope::class,
-            ]);
-
-        $organizationId = Auth::user()->organization_id;
-        return $query->where(function (Builder $subQuery) use ($organizationId) {
-            $subQuery->where('organization_id', $organizationId);
-        });
-    }
 
     public static function form(Schema $schema): Schema
     {

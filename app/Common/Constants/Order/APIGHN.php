@@ -5,7 +5,7 @@ namespace App\Common\Constants\Order;
 enum APIGHN: string
 {
     // Shop Management
-    case GET_SHOP_ALL = 'online-gateway.ghn.vn/shiip/public-api/v2/shop/all'; // production
+    case GET_SHOP_ALL = 'online-gateway.ghn.vn/shiip/public-api/v2/shop/all';
 
         // Master Data
     case GET_PROVINCE = 'online-gateway.ghn.vn/shiip/public-api/master-data/province';
@@ -20,9 +20,14 @@ enum APIGHN: string
         // Order Management
     case CREATE_ORDER = 'online-gateway.ghn.vn/shiip/public-api/v2/shipping-order/create';
     case UPDATE_ORDER = 'online-gateway.ghn.vn/shiip/public-api/v2/shipping-order/update';
+    case UPDATE_COD = 'online-gateway.ghn.vn/shiip/public-api/v2/shipping-order/updateCOD';
     case CANCEL_ORDER = 'online-gateway.ghn.vn/shiip/public-api/v2/switch-status/cancel';
     case GET_ORDER_INFO = 'online-gateway.ghn.vn/shiip/public-api/v2/shipping-order/detail';
     case GET_ORDER_STATUS = 'online-gateway.ghn.vn/shiip/public-api/v2/shipping-order/detail-by-client-order-code';
+    case SEARCH_ORDERS = 'online-gateway.ghn.vn/shiip/public-api/v2/shipping-order/search';
+
+        // Finance
+    case GET_CASH_LOG = 'online-gateway.ghn.vn/shiip/public-api/v2/finance/cash-log';
 
         // Print
     case PRINT_ORDER = 'online-gateway.ghn.vn/shiip/public-api/v2/a5/gen-token';
@@ -88,8 +93,11 @@ enum APIGHN: string
         return match ($this) {
             self::CREATE_ORDER,
             self::UPDATE_ORDER,
+            self::UPDATE_COD,
             self::CALCULATE_FEE,
-            self::GET_SERVICE => [
+            self::GET_SERVICE,
+            self::GET_CASH_LOG,
+            self::SEARCH_ORDERS => [
                 'ShopId' => 'Shop ID (optional, will use default if not provided)',
             ],
             default => [],
@@ -104,8 +112,12 @@ enum APIGHN: string
         return in_array($this, [
             self::CREATE_ORDER,
             self::UPDATE_ORDER,
+            self::UPDATE_COD,
             self::CALCULATE_FEE,
             self::GET_SERVICE,
+            self::GET_CASH_LOG,
+            self::SEARCH_ORDERS,
+            self::GET_ORDER_INFO,
         ]);
     }
 }
