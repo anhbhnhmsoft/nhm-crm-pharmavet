@@ -49,6 +49,13 @@ class OrganizationsTable
                     ->label(__('filament.organization.table.quantity_members'))
                     ->counts('users')
                     ->sortable(),
+                IconColumn::make('is_foreign')
+                    ->label(__('filament.organization.table.is_foreign'))
+                    ->boolean()
+                    ->trueIcon('heroicon-o-check-circle')
+                    ->falseIcon('heroicon-o-x-circle')
+                    ->trueColor('danger')
+                    ->falseColor('success'),
 
                 IconColumn::make('disable')
                     ->label(__('filament.organization.form.status'))

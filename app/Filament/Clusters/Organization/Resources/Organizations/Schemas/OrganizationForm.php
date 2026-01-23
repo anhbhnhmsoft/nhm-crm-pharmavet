@@ -109,6 +109,10 @@ class OrganizationForm
                                 'max'      => __('common.error.max_value', ['max' => 9999]),
                                 'numeric'  => __('common.error.numeric'),
                             ]),
+                        Toggle::make('is_foreign')
+                            ->label(__('filament.organization.form.is_foreign'))
+                            ->default(false)
+                            ->dehydrated(true),
                     ]),
 
                     Textarea::make('description')
@@ -123,9 +127,8 @@ class OrganizationForm
                             Toggle::make('disable')
                                 ->label(__('filament.organization.form.disable'))
                                 ->default(false)
-                                ->disabled(fn($livewire) => $livewire instanceof ViewRecord)
-                                ->disabled()
                                 ->dehydrated(true),
+
                         ])
                         ->headerActions([
                             Action::make('toggle_disable')

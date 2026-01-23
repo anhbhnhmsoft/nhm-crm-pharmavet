@@ -21,30 +21,15 @@ class Organization extends Model
         "address",
         "phone",
         "product_field",
-        // "province_code",
-        // "district_code",
-        // "ward_code",
         'maximum_employees',
         "disable",
-        "is_foreign_merchant"
+        "is_foreign"
     ];
 
     protected $casts = [
         'disable' => 'boolean',
+        'is_foreign' => 'boolean',
     ];
-
-    // public function province(): BelongsTo
-    // {
-    //     return $this->belongsTo(Province::class, 'province_code', 'code');
-    // }
-    // public function district(): BelongsTo
-    // {
-    //     return $this->belongsTo(District::class, 'district_code', 'code');
-    // }
-    // public function ward(): BelongsTo
-    // {
-    //     return $this->belongsTo(Ward::class, 'ward_code', 'code');
-    // }
 
     public function users(): HasMany
     {
@@ -56,7 +41,7 @@ class Organization extends Model
         return $this->hasMany(Team::class);
     }
 
-    public function shippingConfig() : HasOne
+    public function shippingConfig(): HasOne
     {
         return $this->hasOne(ShippingConfig::class);
     }
@@ -69,5 +54,10 @@ class Organization extends Model
     public function customers(): HasMany
     {
         return $this->hasMany(Customer::class);
+    }
+
+    public function fund () : HasOne
+    {
+        return $this->hasOne(Fund::class);
     }
 }

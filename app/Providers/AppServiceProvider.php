@@ -2,11 +2,16 @@
 
 namespace App\Providers;
 
+use App\Models\Organization;
+use App\Observers\OrganizationObserver;
 use App\Repositories\ComboRepository;
 use App\Repositories\CustomerRepository;
+use App\Repositories\FundRepository;
+use App\Repositories\FundTransactionRepository;
 use App\Repositories\IntegrationEntityRepository;
 use App\Repositories\IntegrationRepository;
 use App\Repositories\IntegrationTokenRepository;
+use App\Repositories\InventoryTicketRepository;
 use App\Repositories\LeadDistributionConfigRepository;
 use App\Repositories\LeadDistributionRuleRepository;
 use App\Repositories\OrderItemRepository;
@@ -57,6 +62,8 @@ class AppServiceProvider extends ServiceProvider
         if (config('app.env') === 'local' && (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) || isset($_SERVER['HTTP_X_FORWARDED_HOST']))) {
             URL::forceScheme('https');
         }
+
+        $this->registerObserver();
     }
 
     private function registerRepository(): void
@@ -79,6 +86,9 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(OrderRepository::class);
         $this->app->bind(OrderItemRepository::class);
         $this->app->bind(OrderStatusLogRepository::class);
+        $this->app->bind(FundRepository::class);
+        $this->app->bind(FundTransactionRepository::class);
+        $this->app->bind(InventoryTicketRepository::class);
 
     }
 
@@ -93,5 +103,10 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(IntegrationService::class);
         $this->app->bind(CustomerService::class);
         $this->app->bind(LeadDistributionConfigService::class);
+    }
+
+    private function registerObserver(): void
+    {
+        Organization::observe(OrganizationObserver::class);
     }
 }

@@ -24,6 +24,7 @@ return [
             'product_field' => 'Sản phẩm chính',
             'quantity_members' => 'Số lượng thành viên',
             'list_member' => 'Danh sách thành viên',
+            'is_foreign'  => 'Doanh nghiệp nước ngoài'
         ],
         'form' => [
             'general_info' => 'Thông tin chung',
@@ -45,6 +46,7 @@ return [
             'status' => 'Trạng thái',
             'disable_action' => 'Vô hiệu hóa',
             'enable' => 'Kích hoạt lại',
+            'is_foreign' => 'Doanh nghiệp nước ngoài',
             'confirm_change' => 'Xác nhận thay đổi trạng thái',
             'disable_warning' => 'Việc vô hiệu hóa sẽ khóa quyền truy cập của tất cả thành viên vào hệ thống. Bạn có chắc chắn không?',
             'enable_warning' => 'Việc kích hoạt lại sẽ khôi phục quyền truy cập cho tất cả thành viên của tổ chức này. Bạn có chắc chắn không?',
