@@ -3,15 +3,32 @@
 namespace App\Services;
 
 use App\Common\Constants\Order\APIGHN;
+use App\Common\Constants\CacheKey;
 use App\Core\ServiceReturn;
+use App\Core\Logging;
+use App\Core\Caching;
 use App\Repositories\ShippingConfigRepository;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class GHNService
 {
+    /**
+     * Build GHN request with standard headers.
+     */
+    protected function request(APIGHN $endpoint)
+    {
+        $headers = [
+            'Token' => $this->token,
+            'Content-Type' => 'application/json',
+        ];
+
+        if ($endpoint->requiresShopId() && $this->shopId) {
+            $headers['ShopId'] = $this->shopId;
+        }
+
+        return Http::withHeaders($headers);
+    }
     protected ?string $token = null;
     protected ?int $shopId = null;
 
@@ -198,7 +215,7 @@ class GHNService
             throw new \Exception($data['message'] ?? __('filament.shipping.unknown_error'));
         }
 
-        return $data['data'];
+        return $data['data'] ?? [];
     }
 
     public function createOrder(array $params): array
@@ -231,7 +248,7 @@ class GHNService
             throw new \Exception($data['message'] ?? __('filament.shipping.unknown_error'));
         }
 
-        return $data['data'];
+        return $data['data'] ?? [];
     }
 
     public function cancelOrder(string $orderCode): array
@@ -261,7 +278,225 @@ class GHNService
             throw new \Exception($data['message'] ?? __('filament.shipping.unknown_error'));
         }
 
-        return $data['data'];
+        return $data['data'] ?? [];
+    }
+
+    /**
+     * Update order (đổi địa chỉ, phí ship)
+     */
+    public function updateOrder(string $orderCode, array $params): array
+    {
+        if (!$this->token) {
+            throw new \Exception(__('filament.shipping.token_required'));
+        }
+
+        $params['order_code'] = $orderCode;
+
+        $response = Http::withHeaders([
+            'Token' => $this->token,
+            'ShopId' => $this->shopId,
+            'Content-Type' => 'application/json',
+        ])->post('https://' . APIGHN::UPDATE_ORDER->value, $params);
+
+        if (!$response->successful()) {
+            Log::error('GHN Update Order Error', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+                'params' => $params
+            ]);
+
+            throw new \Exception(
+                $response->json('message') ?? __('filament.shipping.api_request_failed')
+            );
+        }
+
+        $data = $response->json();
+
+        if (($data['code'] ?? 0) != 200) {
+            throw new \Exception($data['message'] ?? __('filament.shipping.unknown_error'));
+        }
+
+        // API GHN trả về data: null khi update thành công
+        // Theo tài liệu: {"code": 200, "message": "Success", "data": null}
+        return $data['data'] ?? [];
+    }
+
+    /**
+     * Update COD amount (đổi số tiền COD)
+     */
+    public function updateCOD(string $orderCode, float $codAmount): array
+    {
+        if (!$this->token) {
+            throw new \Exception(__('filament.shipping.token_required'));
+        }
+
+        $response = Http::withHeaders([
+            'Token' => $this->token,
+            'ShopId' => $this->shopId,
+            'Content-Type' => 'application/json',
+        ])->post('https://' . APIGHN::UPDATE_COD->value, [
+            'order_code' => $orderCode,
+            'cod_amount' => $codAmount,
+        ]);
+
+        if (!$response->successful()) {
+            Log::error('GHN Update COD Error', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+                'order_code' => $orderCode,
+                'cod_amount' => $codAmount,
+            ]);
+
+            throw new \Exception(
+                $response->json('message') ?? __('filament.shipping.api_request_failed')
+            );
+        }
+
+        $data = $response->json();
+
+        if (($data['code'] ?? 0) != 200) {
+            throw new \Exception($data['message'] ?? __('filament.shipping.unknown_error'));
+        }
+
+        // API GHN trả về data: null khi update COD thành công
+        // Theo tài liệu: {"code": 200, "message": "Success", "data": null}
+        return $data['data'] ?? [];
+    }
+
+    /**
+     * tìm kiếm danh sách đơn hàng
+     */
+    public function searchOrders(array $params = []): array
+    {
+        if (!$this->token) {
+            throw new \Exception(__('filament.shipping.token_required'));
+        }
+
+        $endpoint = APIGHN::SEARCH_ORDERS;
+        $http = $this->request($endpoint);
+        
+        // API search có thể dùng GET hoặc POST, ưu tiên POST với body
+        $response = $http->post($endpoint->url(), $params);
+
+        if (!$response->successful()) {
+            Logging::error('GHN Search Orders Error', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+                'params' => $params,
+                'url' => $endpoint->url(),
+            ]);
+
+            throw new \Exception(
+                $response->json('message') ?? __('filament.shipping.api_request_failed')
+            );
+        }
+
+        $data = $response->json();
+
+        if (($data['code'] ?? 0) != 200) {
+            throw new \Exception($data['message'] ?? __('filament.shipping.unknown_error'));
+        }
+
+        return $data['data'] ?? [];
+    }
+
+    /**
+     * Get order detail (lấy chi tiết đơn hàng)
+     */
+    public function getOrderDetail(string $orderCode): array
+    {
+        if (!$this->token) {
+            throw new \Exception(__('filament.shipping.token_required'));
+        }
+
+        $headers = [
+            'Token' => $this->token,
+            'Content-Type' => 'application/json',
+        ];
+
+        if (APIGHN::GET_ORDER_INFO->requiresShopId()) {
+            $headers['ShopId'] = $this->shopId;
+        }
+
+        $url = APIGHN::GET_ORDER_INFO->url();
+        $method = APIGHN::GET_ORDER_INFO->method();
+        $params = ['order_code' => $orderCode];
+
+        try {
+            if ($method === 'GET') {
+                $response = Http::withHeaders($headers)->get($url, $params);
+            } else {
+                $response = Http::withHeaders($headers)->post($url, $params);
+            }
+
+            if (!$response->successful()) {
+                Logging::error('GHN Get Order Detail Error', [
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                    'url' => $url,
+                    'method' => $method,
+                    'order_code' => $orderCode,
+                ]);
+
+                throw new \Exception(
+                    $response->json('message') ?? __('filament.shipping.api_request_failed')
+                );
+            }
+
+            $data = $response->json();
+
+            if (($data['code'] ?? 0) != 200) {
+                throw new \Exception($data['message'] ?? __('filament.shipping.unknown_error'));
+            }
+
+            return $data['data'] ?? [];
+        } catch (Throwable $e) {
+            Logging::error('GHN Get Order Detail Exception', [
+                'url' => $url,
+                'method' => $method,
+                'order_code' => $orderCode,
+                'error' => $e->getMessage(),
+            ], $e);
+            throw $e;
+        }
+    }
+
+    /**
+     * Get cash log (lấy bảng đối soát)
+     */
+    public function getCashLog(array $params = []): array
+    {
+        if (!$this->token) {
+            throw new \Exception(__('filament.shipping.token_required'));
+        }
+        $endpoint = APIGHN::GET_CASH_LOG;
+
+        $http = $this->request($endpoint);
+        $response = $endpoint->isGetRequest()
+            ? $http->get($endpoint->url(), $params)
+            : $http->post($endpoint->url(), $params);
+
+        if (!$response->successful()) {
+            Logging::error('GHN Get Cash Log Error', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+                'params' => $params,
+                'url' => $endpoint->url(),
+                'method' => $endpoint->method(),
+            ]);
+
+            throw new \Exception(
+                $response->json('message') ?? __('filament.shipping.api_request_failed')
+            );
+        }
+
+        $data = $response->json();
+
+        if (($data['code'] ?? 0) != 200) {
+            throw new \Exception($data['message'] ?? __('filament.shipping.unknown_error'));
+        }
+
+        return $data['data'] ?? [];
     }
 
     public function testConnection(array $data)

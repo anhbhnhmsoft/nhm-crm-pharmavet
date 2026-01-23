@@ -664,3 +664,97 @@
         * Xuất kho thực tế (inventory ticket EXPORT được duyệt)
         * Hủy đơn hàng (order status = CANCELLED)
     - Công thức tồn khả dụng: quantity - pending_quantity
+
+# bảng exchange_rates
+
+    # note
+    - Bảng lưu trữ tỉ giá quy đổi theo ngày (cho đơn vị nước ngoài)
+    - Mỗi tổ chức có thể có nhiều tỉ giá cho các loại tiền tệ khác nhau
+    - Tỉ giá có thể nhập tay hoặc tự động từ API
+
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - organization_id: (int, foreign key -> organizations.id, not null) -- tổ chức sở hữu tỉ giá
+    - rate_date: (date, not null) -- ngày áp dụng tỉ giá
+    - from_currency: (varchar(3), default 'VND') -- đơn vị tiền tệ gốc (VND)
+    - to_currency: (varchar(3), not null) -- đơn vị tiền tệ đích (USD, EUR, ...)
+    - rate: (decimal(15, 6), not null) -- tỉ giá quy đổi
+    - source: (varchar(50), default 'manual') -- nguồn: manual (nhập tay), api (tự động từ API)
+    - note: (text, nullable) -- ghi chú
+    - created_by: (int, foreign key -> users.id, nullable) -- người tạo
+    - timestamps
+    - softDeletes
+    - unique [organization_id, rate_date, to_currency]
+    - index [organization_id, rate_date]
+
+# bảng reconciliations
+
+    # note
+    - Bảng đối soát với GHN (Giao Hàng Nhanh)
+    - Lưu trữ thông tin đối soát theo ngày: tiền COD, phí giao hàng, phí kho
+    - Hỗ trợ quy đổi tỉ giá cho đơn vị nước ngoài
+
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - organization_id: (int, foreign key -> organizations.id, not null) -- tổ chức
+    - reconciliation_date: (date, not null) -- ngày đối soát
+    - order_id: (int, foreign key -> orders.id, nullable) -- đơn hàng liên quan (nếu đối soát theo đơn)
+    - ghn_order_code: (varchar(100), nullable) -- mã đơn GHN
+    - cod_amount: (decimal(15, 2), default 0) -- tiền COD
+    - shipping_fee: (decimal(15, 2), default 0) -- phí giao hàng
+    - storage_fee: (decimal(15, 2), default 0) -- phí kho
+    - total_fee: (decimal(15, 2), default 0) -- tổng phí
+    - exchange_rate_id: (int, foreign key -> exchange_rates.id, nullable) -- tỉ giá (cho đơn vị nước ngoài)
+    - converted_amount: (decimal(15, 2), nullable) -- số tiền sau khi quy đổi theo tỉ giá
+    - status: (tinyint, default 1) -- 1: pending, 2: confirmed, 3: cancelled
+    - note: (text, nullable) -- ghi chú
+    - created_by: (int, foreign key -> users.id, nullable) -- người tạo
+    - confirmed_by: (int, foreign key -> users.id, nullable) -- người xác nhận
+    - confirmed_at: (timestamp, nullable) -- thời gian xác nhận
+    - timestamps
+    - softDeletes
+    - index [organization_id, reconciliation_date]
+    - index [order_id]
+    - index [ghn_order_code]
+
+# bảng expenses
+
+    # note
+    - Bảng lưu trữ các chi phí phát sinh
+    - Phân loại: lương, MKT, đối soát giao hàng, quản lý doanh nghiệp, văn phòng, chi tiêu khác, giá vốn
+    - Có thể liên kết với đơn hàng (nếu là chi phí giao hàng tự động) hoặc đối soát
+
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - organization_id: (int, foreign key -> organizations.id, not null) -- tổ chức
+    - expense_date: (date, not null) -- ngày phát sinh chi phí
+    - category: (tinyint, not null) -- loại chi phí: 1: salary, 2: marketing, 3: shipping, 4: management, 5: office, 6: other, 7: cost_of_goods
+    - description: (varchar(500), not null) -- mô tả chi phí
+    - amount: (decimal(15, 2), not null) -- số tiền
+    - order_id: (int, foreign key -> orders.id, nullable) -- đơn hàng liên quan (nếu là chi phí giao hàng tự động)
+    - reconciliation_id: (int, foreign key -> reconciliations.id, nullable) -- đối soát liên quan
+    - note: (text, nullable) -- ghi chú
+    - created_by: (int, foreign key -> users.id, nullable) -- người tạo
+    - timestamps
+    - softDeletes
+    - index [organization_id, expense_date]
+    - index [category]
+    - index [order_id]
+
+# bảng revenues
+
+    # note
+    - Bảng lưu trữ doanh thu khác (nhập tay)
+    - Doanh thu từ đơn hàng được tính tự động từ bảng orders
+
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - organization_id: (int, foreign key -> organizations.id, not null) -- tổ chức
+    - revenue_date: (date, not null) -- ngày phát sinh doanh thu
+    - description: (varchar(500), not null) -- mô tả doanh thu
+    - amount: (decimal(15, 2), not null) -- số tiền
+    - note: (text, nullable) -- ghi chú
+    - created_by: (int, foreign key -> users.id, nullable) -- người tạo
+    - timestamps
+    - softDeletes
+    - index [organization_id, revenue_date]
