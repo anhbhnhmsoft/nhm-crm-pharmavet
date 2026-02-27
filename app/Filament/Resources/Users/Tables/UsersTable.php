@@ -147,7 +147,7 @@ class UsersTable
                         ->modalHeading(__('common.modal.delete_title'))
                         ->modalDescription(__('common.modal.delete_confirm'))
                         ->modalSubmitActionLabel(__('common.action.confirm_delete'))
-                        ->visible(fn($record) => ! $record->trashed()),
+                        ->visible(fn($record) => !$record->trashed()),
 
                     RestoreAction::make()
                         ->label(__('common.action.restore'))

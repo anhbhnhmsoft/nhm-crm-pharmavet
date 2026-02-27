@@ -4,22 +4,26 @@ namespace App\Common\Constants\Accounting;
 
 enum ExpenseCategory: int
 {
-    case SALARY = 1; // Lương
-    case MARKETING = 2; // MKT
-    case SHIPPING = 3; // Đối soát giao hàng
-    case MANAGEMENT = 4; // Quản lý doanh nghiệp
-    case OFFICE = 5; // Văn phòng
-    case OTHER = 6; // Chi tiêu khác
-    case COST_OF_GOODS = 7; // Giá vốn
+    case SALES = 1;         // Bán hàng
+    case MARKETING = 2;     // MKT
+    case RECONCILIATION = 3; // Đối soát
+    case SHIPPING_AUTO = 4; // Giao hàng (auto)
+    case MANAGEMENT = 5;    // Quản lý
+    case OFFICE = 6;        // Văn phòng
+    case SPENDING = 7;      // Chi tiêu
+    case OTHER = 8;         // Khác
+    case COST_OF_GOODS = 9; // Giá vốn
 
     public static function getOptions(): array
     {
         return [
-            self::SALARY->value => __('accounting.expense_category.salary'),
+            self::SALES->value => __('accounting.expense_category.sales'),
             self::MARKETING->value => __('accounting.expense_category.marketing'),
-            self::SHIPPING->value => __('accounting.expense_category.shipping'),
+            self::RECONCILIATION->value => __('accounting.expense_category.reconciliation'),
+            self::SHIPPING_AUTO->value => __('accounting.expense_category.shipping_auto'),
             self::MANAGEMENT->value => __('accounting.expense_category.management'),
             self::OFFICE->value => __('accounting.expense_category.office'),
+            self::SPENDING->value => __('accounting.expense_category.spending'),
             self::OTHER->value => __('accounting.expense_category.other'),
             self::COST_OF_GOODS->value => __('accounting.expense_category.cost_of_goods'),
         ];
@@ -30,4 +34,3 @@ enum ExpenseCategory: int
         return self::getOptions()[$this->value] ?? '';
     }
 }
-

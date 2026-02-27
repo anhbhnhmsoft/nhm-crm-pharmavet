@@ -4,11 +4,11 @@ namespace App\Filament\Clusters\Accounting\Resources\Reconciliations\Pages;
 
 use App\Filament\Clusters\Accounting\Resources\Reconciliations\ReconciliationResource;
 use App\Repositories\ShippingConfigRepository;
+use App\Services\ReconciliationService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
-use App\Services\ReconciliationService;
 use Illuminate\Support\Facades\Auth;
 
 class ListReconciliations extends ListRecords
@@ -17,7 +17,6 @@ class ListReconciliations extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        // Kiểm tra xem có config GHN chưa
         $shippingConfigRepo = app(ShippingConfigRepository::class);
         $config = $shippingConfigRepo->query()
             ->where('organization_id', Auth::user()->organization_id)
@@ -56,16 +55,22 @@ class ListReconciliations extends ListRecords
                             ->title(__('accounting.reconciliation.sync_failed'))
                             ->body($result->getMessage())
                             ->send();
-                    } else {
+                    }else {
+                        $backfilledCount = $service->applyExchangeRateForDateRange(
+                            organizationId: Auth::user()->organization_id,
+                            fromDate: $data['from_date'],
+                            toDate: $data['to_date']
+                        );
+
                         Notification::make()
                             ->success()
                             ->title(__('accounting.reconciliation.synced', ['count' => ($result->getData()['created'] ?? 0) + ($result->getData()['updated'] ?? 0)]))
+                            ->body(__('accounting.reconciliation.exchange_rate_auto_attached', ['count' => $backfilledCount]))
                             ->send();
-                        
+
                         $this->dispatch('$refresh');
                     }
                 }),
         ];
     }
 }
-

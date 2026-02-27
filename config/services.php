@@ -3,16 +3,16 @@
 return [
 
     /*
-    |--------------------------------------------------------------------------
-    | Third Party Services
-    |--------------------------------------------------------------------------
-    |
-    | This file is for storing the credentials for third party services such
-    | as Mailgun, Postmark, AWS and more. This file provides the de facto
-    | location for this type of information, allowing packages to have
-    | a conventional file to locate the various service credentials.
-    |
-    */
+     |--------------------------------------------------------------------------
+     | Third Party Services
+     |--------------------------------------------------------------------------
+     |
+     | This file is for storing the credentials for third party services such
+     | as Mailgun, Postmark, AWS and more. This file provides the de facto
+     | location for this type of information, allowing packages to have
+     | a conventional file to locate the various service credentials.
+     |
+     */
 
     'postmark' => [
         'token' => env('POSTMARK_TOKEN'),
@@ -48,6 +48,11 @@ return [
         'sid' => env('STRINGEE_SID'),
         'secret' => env('STRINGEE_SECRET'),
         'from_number' => env('STRINGEE_FROM_NUMBER'),
+    ],
+
+    'exchangerate' => [
+        'api_key' => env('V6_API_KEY'),
+        'base_url' => env('URL_API_V6'),
     ],
 
 ];
