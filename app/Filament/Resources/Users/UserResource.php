@@ -45,7 +45,7 @@ class UserResource extends Resource
         return __('filament.user.label');
     }
 
-    public static  function canAccess(): bool
+    public static function canAccess(): bool
     {
         return Helper::checkPermission([
             UserRole::SUPER_ADMIN->value,
@@ -94,19 +94,23 @@ class UserResource extends Resource
 
         $currentUser = Auth::user();
 
-        if (Helper::checkPermission([
-            UserRole::SUPER_ADMIN->value,
-            UserRole::ADMIN->value,
-            UserRole::ACCOUNTING->value,
-        ], Auth::user()->role)) {
+        if (
+            Helper::checkPermission([
+                UserRole::SUPER_ADMIN->value,
+                UserRole::ADMIN->value,
+                UserRole::ACCOUNTING->value,
+            ], Auth::user()->role)
+        ) {
             $query->whereNotIn('role', [UserRole::SUPER_ADMIN->value])->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ]);
         }
 
-        if (Helper::checkPermission([
-            UserRole::SUPER_ADMIN->value,
-        ], Auth::user()->role)) {
+        if (
+            Helper::checkPermission([
+                UserRole::SUPER_ADMIN->value,
+            ], Auth::user()->role)
+        ) {
             $query->where('organization_id', $currentUser->organization_id)->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ]);

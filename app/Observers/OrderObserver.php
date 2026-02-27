@@ -13,7 +13,8 @@ class OrderObserver
 {
     public function __construct(
         protected ExpenseRepository $expenseRepository
-    ) {}
+    ) {
+    }
 
     public function updated(Order $order): void
     {
@@ -23,14 +24,14 @@ class OrderObserver
                 // Kiểm tra xem đã có expense cho đơn hàng này chưa
                 $existingExpense = $this->expenseRepository->query()
                     ->where('order_id', $order->id)
-                    ->where('category', ExpenseCategory::SHIPPING->value)
+                    ->where('category', ExpenseCategory::SHIPPING_AUTO->value)
                     ->first();
 
                 if (!$existingExpense && $order->shipping_fee > 0) {
                     $this->expenseRepository->create([
                         'organization_id' => $order->organization_id,
                         'expense_date' => $order->updated_at->toDateString(),
-                        'category' => ExpenseCategory::SHIPPING->value,
+                        'category' => ExpenseCategory::SHIPPING_AUTO->value,
                         'description' => __('accounting.expense.auto_shipping_fee', [
                             'order_code' => $order->code,
                         ]),

@@ -80,6 +80,7 @@ class TeamResource extends Resource
         $currentUser = Auth::user();
 
         if (Helper::checkPermission([
+            UserRole::SUPER_ADMIN->value,
             UserRole::ADMIN->value,
         ], Auth::user()->role)) {
             return $query->withoutGlobalScopes([

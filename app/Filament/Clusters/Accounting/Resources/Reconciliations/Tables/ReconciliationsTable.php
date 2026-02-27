@@ -69,11 +69,27 @@ class ReconciliationsTable
 
                 TextColumn::make('exchangeRate.rate')
                     ->label(__('accounting.reconciliation.exchange_rate'))
-                    ->formatStateUsing(fn ($state, $record) => $state ? number_format($state, 2) . ' ' . ($record->exchangeRate->to_currency ?? '') : '-'),
+                    ->formatStateUsing(function ($state, $record) {
+                        if (!$state || !$record->exchangeRate) {
+                            return '-';
+                        }
+
+                        $fromCurrency = $record->exchangeRate->from_currency ?? 'USD';
+                        $toCurrency = $record->exchangeRate->to_currency ?? 'VND';
+
+                        return '1 ' . $fromCurrency . ' = ' . number_format((float) $state, 2) . ' ' . $toCurrency;
+                    }),
 
                 TextColumn::make('converted_amount')
                     ->label(__('accounting.reconciliation.converted_amount'))
-                    ->money('VND')
+                    ->formatStateUsing(function ($state, $record) {
+                        if ($state === null) {
+                            return '-';
+                        }
+
+                        $currency = $record->exchangeRate->from_currency ?? 'USD';
+                        return number_format((float) $state, 2) . ' ' . $currency;
+                    })
                     ->toggleable(),
 
                 SelectColumn::make('status')

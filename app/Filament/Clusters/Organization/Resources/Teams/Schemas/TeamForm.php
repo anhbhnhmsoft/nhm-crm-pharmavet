@@ -106,6 +106,7 @@ class TeamForm
                     ->schema([
                         Select::make('member_ids')
                             ->label(__('filament.team.team_members'))
+                            ->live()
                             ->relationship(
                                 name: 'users',
                                 titleAttribute: 'name',
@@ -208,8 +209,11 @@ class TeamForm
                                 if ($record) {
                                     return $record->users()->count() . ' ' . __('filament.team.members');
                                 }
+
                                 $memberIds = $get('member_ids');
-                                return is_array($memberIds) ? count($memberIds) . ' ' . __('filament.team.members') : '0 ' . __('filament.team.members');
+                                $count = collect($memberIds)->filter()->count();
+
+                                return $count . ' ' . __('filament.team.members');
                             })
                             ->columnSpanFull(),
                     ])
