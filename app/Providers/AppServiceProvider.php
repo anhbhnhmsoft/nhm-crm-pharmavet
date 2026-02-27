@@ -36,6 +36,7 @@ use App\Services\Integrations\IntegrationService;
 use App\Services\LeadDistributionConfigService;
 use App\Services\OrganizationService;
 use App\Services\AccountingService;
+use App\Services\ExchangeRateService;
 use App\Services\ReconciliationService;
 use App\Services\ReportService;
 use App\Services\ProductService;
@@ -115,6 +116,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(CustomerService::class);
         $this->app->bind(LeadDistributionConfigService::class);
         $this->app->bind(AccountingService::class);
+        $this->app->bind(ExchangeRateService::class);
         $this->app->bind(ReconciliationService::class);
         $this->app->bind(ReportService::class);
     }

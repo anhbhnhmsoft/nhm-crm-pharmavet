@@ -2,7 +2,6 @@
 
 namespace App\Filament\Clusters\Organization\Resources\Teams\Pages;
 
-use App\Common\Constants\User\UserRole;
 use App\Filament\Clusters\Organization\Resources\Teams\TeamResource;
 use App\Services\UserService;
 use Filament\Resources\Pages\CreateRecord;
@@ -11,13 +10,6 @@ use Illuminate\Support\Facades\Auth;
 class CreateTeam extends CreateRecord
 {
     protected static string $resource = TeamResource::class;
-
-    public function mount(): void
-    {
-        parent::mount();
-
-        $user = Auth::user();
-    }
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
@@ -30,11 +22,11 @@ class CreateTeam extends CreateRecord
     {
         $memberIds = $this->data['member_ids'] ?? [];
         $userService = app(UserService::class);
-        $result = $userService->updateTeamFoMember(users: $memberIds,teamId: $this->record->id,ableRemove: false);
+        $result = $userService->updateTeamFoMember(users: $memberIds, teamId: $this->record->id, ableRemove: false);
+
         if ($result->isError()) {
             $errorMessage = $result->getMessage();
-            $this->addError('data.member_ids', $errorMessage) ;
-
+            $this->addError('data.member_ids', $errorMessage);
         }
     }
 
