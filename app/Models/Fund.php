@@ -14,15 +14,22 @@ class Fund extends Model
 
     protected $fillable = [
         'balance',
+        'is_locked',
         'organization_id'
     ];
 
     protected $casts = [
-      'balance' => 'decimal:2'
+        'balance' => 'decimal:2',
+        'is_locked' => 'boolean'
     ];
 
-    public function organization() : BelongsTo
+    public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class);
+    }
+
+    public function transactions()
+    {
+        return $this->hasMany(FundTransaction::class);
     }
 }

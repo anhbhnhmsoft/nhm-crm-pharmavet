@@ -14,25 +14,36 @@ class CreateUser extends CreateRecord
 
     public function mount(): void
     {
+        parent::mount();
+
         $user = Auth::user();
+        if ($user->isSuperAdmin()) {
+            return;
+        }
+
         /** @var OrganizationService $organizationService */
         $organizationService = app(OrganizationService::class);
         $result = $organizationService->checkScalability($user->organization_id);
         if ($result->isSuccess() && !$result->getData()['canDevelop']) {
             Notification::make()
                 ->title(__('filament.user.exceed_members_limit'))
-                ->danger();
+                ->danger()
+                ->send();
         } else if ($result->isError() && $result->getMessage()) {
             Notification::make()
                 ->title($result->getMessage())
-                ->danger();
+                ->danger()
+                ->send();
         }
-        return;
     }
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        $data['organization_id'] = Auth::user()->organization_id;
+        $user = Auth::user();
+
+        if (!$user->isSuperAdmin()) {
+            $data['organization_id'] = $user->organization_id;
+        }
 
         if (!empty($data['organization_id'])) {
             $service = app(OrganizationService::class);

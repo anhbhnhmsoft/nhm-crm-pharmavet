@@ -56,7 +56,7 @@ class Organization extends Model
         return $this->hasMany(Customer::class);
     }
 
-    public function fund () : HasOne
+    public function fund(): HasOne
     {
         return $this->hasOne(Fund::class);
     }

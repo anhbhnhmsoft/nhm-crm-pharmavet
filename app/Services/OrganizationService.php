@@ -103,7 +103,13 @@ class OrganizationService
         try {
             $fund = $this->fundRepository->query()->where('organization_id', $organizationId)->first();
 
-            throw new \Exception('Fund not found on OrganizationService@getFundStats');
+            if (!$fund) {
+                $fund = $this->fundRepository->create([
+                    'balance' => 0,
+                    'is_locked' => false,
+                    'organization_id' => $organizationId,
+                ]);
+            }
 
             $totalDeposit = $this->fundTransactionRepository->query()->where('fund_id', $fund->id)
                 ->where('type', FundTransactionType::DEPOSIT->value)
@@ -199,7 +205,7 @@ class OrganizationService
         try {
             $fund = \App\Models\Fund::where('organization_id', $organizationId)->first();
 
-            if(!$fund){
+            if (!$fund) {
                 throw new \Exception('Fund not found on OrganizationService@getFundBalanceChartData');
             }
 
@@ -228,10 +234,12 @@ class OrganizationService
                 $dayDeposits = $dayTransactions->where('type', 'deposit')->sum('amount');
 
                 $dayDeposits = $dayTransactions->where('type', 2)->sum('amount');
-                if ($dayDeposits == 0) $dayDeposits = $dayTransactions->where('type', 'deposit')->sum('amount'); // fallback
+                if ($dayDeposits == 0)
+                    $dayDeposits = $dayTransactions->where('type', 'deposit')->sum('amount'); // fallback
 
                 $dayWithdraws = $dayTransactions->where('type', 3)->sum('amount');
-                if ($dayWithdraws == 0) $dayWithdraws = $dayTransactions->where('type', 'withdraw')->sum('amount');
+                if ($dayWithdraws == 0)
+                    $dayWithdraws = $dayTransactions->where('type', 'withdraw')->sum('amount');
 
                 $depositData[] = $dayDeposits;
                 $withdrawData[] = $dayWithdraws;
