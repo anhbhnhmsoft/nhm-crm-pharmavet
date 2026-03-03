@@ -52,9 +52,9 @@ class MetaBusinessService
         $this->leadDistributionConfigRepository = $leadDistributionConfigRepository;
         if (class_exists(Api::class)) {
             Api::init(
-                (string) env('META_APP_ID', config('services.facebook.client_id')),
-                (string) env('META_APP_SECRET', config('services.facebook.client_secret')),
-                (string) env('META_ACCESS_TOKEN', '')
+                (string) config('services.facebook.app_id', config('services.facebook.client_id')),
+                (string) config('services.facebook.app_secret', config('services.facebook.client_secret')),
+                (string) config('services.facebook.access_token', '')
             );
             $this->api = Api::instance();
         }
@@ -75,7 +75,7 @@ class MetaBusinessService
      */
     protected function getRequiredScopes(): array
     {
-        $advanced = filter_var((string) env('META_REQUEST_ADVANCED_SCOPES', 'false'), FILTER_VALIDATE_BOOLEAN);
+        $advanced = filter_var((string) config('services.facebook.request_advanced_scopes', 'false'), FILTER_VALIDATE_BOOLEAN);
         if ($advanced) {
             return [
                 'pages_show_list',

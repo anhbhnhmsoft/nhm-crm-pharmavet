@@ -23,10 +23,25 @@ class Dashboard extends PagesDashboard
         $widget = [];
 
         $result = app(OrganizationService::class)->getOrganizationById(auth()->user()->organization_id);
-        if ($result->isSuccess() && $result->getData()->is_foreign) {
-            $widget[] = \App\Filament\Widgets\FundStatsWidget::class;
-            $widget[] = \App\Filament\Widgets\FundBalanceChartWidget::class;
+        if ($result->isSuccess()) {
+            // Date filter
             $widget[] = \App\Filament\Widgets\SelectGap::class;
+
+            // Fund widgets
+            if($result->getData()->is_foreign) {
+                $widget[] = \App\Filament\Widgets\FundStatsWidget::class;
+            }
+            $widget[] = \App\Filament\Widgets\FundBalanceChartWidget::class;
+
+            // Sales & Orders widgets
+            $widget[] = \App\Filament\Widgets\OrderStatsWidget::class;
+            $widget[] = \App\Filament\Widgets\OrderChartWidget::class;
+            $widget[] = \App\Filament\Widgets\TopProductsWidget::class;
+            $widget[] = \App\Filament\Widgets\OrderStatusChartWidget::class;
+
+            // Leads & Customers widgets
+            $widget[] = \App\Filament\Widgets\LeadStatsWidget::class;
+            $widget[] = \App\Filament\Widgets\CustomerGrowthChartWidget::class;
         }
         return $widget;
     }

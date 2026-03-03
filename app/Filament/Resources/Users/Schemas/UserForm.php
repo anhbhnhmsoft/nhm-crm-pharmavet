@@ -86,6 +86,7 @@ class UserForm
                             ->label(__('filament.user.role'))
                             ->options(UserRole::getOptions())
                             ->required()
+                            ->live()
                             ->validationMessages([
                                 'required' => __('common.error.required'),
                             ]),
@@ -110,6 +111,7 @@ class UserForm
                             ->searchable()
                             ->preload()
                             ->nullable()
+                            ->hidden(fn( $get) => (int) $get('role') === UserRole::ADMIN->value)
                             ->live(),
 
                         Toggle::make('disable')
