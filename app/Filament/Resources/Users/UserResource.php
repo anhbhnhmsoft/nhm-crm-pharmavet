@@ -94,28 +94,11 @@ class UserResource extends Resource
 
         $currentUser = Auth::user();
 
-        if (
-            Helper::checkPermission([
-                UserRole::SUPER_ADMIN->value,
-                UserRole::ADMIN->value,
-                UserRole::ACCOUNTING->value,
-            ], Auth::user()->role)
-        ) {
-            $query->whereNotIn('role', [UserRole::SUPER_ADMIN->value])->withoutGlobalScopes([
-                SoftDeletingScope::class,
-            ]);
+        if (!$currentUser->isSuperAdmin()) {
+            $query->where('organization_id', $currentUser->organization_id);
         }
 
-        if (
-            Helper::checkPermission([
-                UserRole::SUPER_ADMIN->value,
-            ], Auth::user()->role)
-        ) {
-            $query->where('organization_id', $currentUser->organization_id)->withoutGlobalScopes([
-                SoftDeletingScope::class,
-            ]);
-        }
-
+        // Hide SUPER_ADMIN users from the list as per original logic
         return $query->whereNotIn('role', [UserRole::SUPER_ADMIN->value])->withoutGlobalScopes([
             SoftDeletingScope::class,
         ]);

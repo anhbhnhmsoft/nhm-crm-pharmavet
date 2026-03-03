@@ -14,12 +14,15 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Auth;
 
+use Filament\Forms\Get;
+use Illuminate\Database\Eloquent\Builder;
+
 class UserForm
 {
     public static function configure(Schema $schema): Schema
     {
         $authUser = Auth::user();
-        $isSuperAdmin = $authUser->hasRole(UserRole::SUPER_ADMIN);
+        $isSuperAdmin = $authUser->isSuperAdmin();
 
         return $schema
             ->components([
@@ -31,7 +34,7 @@ class UserForm
                             ->maxLength(255)
                             ->validationMessages([
                                 'required' => __('common.error.required'),
-                                'max'      => __('common.error.max_length', ['max' => 255])
+                                'max' => __('common.error.max_length', ['max' => 255])
                             ]),
 
                         TextInput::make('username')
@@ -41,8 +44,8 @@ class UserForm
                             ->unique(ignoreRecord: true)
                             ->validationMessages([
                                 'required' => __('common.error.required'),
-                                'max'      => __('common.error.max_length', ['max' => 50]),
-                                'unique'   => __('common.error.unique')
+                                'max' => __('common.error.max_length', ['max' => 50]),
+                                'unique' => __('common.error.unique')
                             ]),
 
                         TextInput::make('email')
@@ -51,9 +54,9 @@ class UserForm
                             ->unique(ignoreRecord: true)
                             ->required()
                             ->validationMessages([
-                                'email'     => __('common.error.email'),
-                                'required'  => __('common.error.required'),
-                                'unique'    => __('common.error.unique')
+                                'email' => __('common.error.email'),
+                                'required' => __('common.error.required'),
+                                'unique' => __('common.error.unique')
                             ]),
                         TextInput::make('password')
                             ->label(__('filament.user.password'))
@@ -65,13 +68,19 @@ class UserForm
                             ->maxLength(255)
                             ->validationMessages([
                                 'required' => __('common.error.required'),
-                                'max'      => __('common.error.max_length', ['max' => 255])
+                                'max' => __('common.error.max_length', ['max' => 255])
                             ]),
                     ])
                     ->columns(2),
 
                 Section::make(__('filament.user.account_info'))
                     ->schema([
+                        Select::make('organization_id')
+                            ->label(__('filament.organization.label'))
+                            ->relationship('organization', 'name')
+                            ->visible($isSuperAdmin)
+                            ->live()
+                            ->required($isSuperAdmin),
 
                         Select::make('role')
                             ->label(__('filament.user.role'))
@@ -93,8 +102,10 @@ class UserForm
                             ->relationship(
                                 'teams',
                                 'name',
-                                fn($query) =>
-                                $query->where('organization_id', $authUser->organization_id)
+                                fn(Builder $query, callable $get) =>
+                                $isSuperAdmin
+                                ? $query->where('organization_id', $get('organization_id'))
+                                : $query->where('organization_id', $authUser->organization_id)
                             )
                             ->searchable()
                             ->preload()
@@ -118,8 +129,8 @@ class UserForm
                             ->required()
                             ->validationMessages([
                                 'required' => __('common.error.required'),
-                                'min'      => __('common.error.min_value', ['min' => 0]),
-                                'max'      => __('common.error.max_value', ['max' => 1000000000]),
+                                'min' => __('common.error.min_value', ['min' => 0]),
+                                'max' => __('common.error.max_value', ['max' => 1000000000]),
                             ]),
 
                         TextInput::make('phone')
@@ -128,8 +139,8 @@ class UserForm
                             ->maxLength(20)
                             ->numeric()
                             ->validationMessages([
-                                'max'      => __('common.error.max_length', ['max' => 20]),
-                                'numeric'  => __('common.error.numeric')
+                                'max' => __('common.error.max_length', ['max' => 20]),
+                                'numeric' => __('common.error.numeric')
                             ]),
                         TextInput::make('online_hours')
                             ->label(__('filament.user.online_hours'))
