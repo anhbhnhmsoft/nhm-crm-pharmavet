@@ -186,4 +186,43 @@ return [
         'customer_type_duplicate' => 'Sổ mới trùng',
         'customer_type_old' => 'Khách cũ',
     ],
+    'fund' => [
+        'label' => 'Quỹ',
+        'plural_label' => 'Quản lý quỹ',
+        'navigation_label' => 'Quỹ',
+        'balance' => 'Số dư hiện tại',
+        'is_locked' => 'Trạng thái khóa',
+        'lock_action' => 'Khóa quỹ',
+        'unlock_action' => 'Mở khóa quỹ',
+        'sections' => [
+            'basic' => 'Thông tin quỹ',
+            'transactions' => 'Lịch sử thu chi',
+        ],
+        'notifications' => [
+            'locked' => 'Quỹ đã được khóa',
+            'unlocked' => 'Quỹ đã được mở khóa',
+            'lock_failed' => 'Khóa quỹ thất bại',
+            'unlock_failed' => 'Mở khóa quỹ thất bại',
+            'locked_warning' => 'Quỹ đang khóa, không thể thực hiện giao dịch!',
+        ],
+    ],
+    'fund_transaction' => [
+        'label' => 'Giao dịch quỹ',
+        'type' => 'Loại giao dịch',
+        'amount' => 'Số tiền',
+        'balance_after' => 'Số dư sau GD',
+        'description' => 'Mô tả',
+        'status' => 'Trạng thái',
+        'transaction_code' => 'Mã giao dịch',
+        'created_at' => 'Thời gian',
+        'types' => [
+            'in' => 'Thu (Nhập)',
+            'out' => 'Chi (Xuất)',
+        ],
+        'statuses' => [
+            'pending' => 'Chờ xử lý',
+            'completed' => 'Hoàn thành',
+            'cancelled' => 'Đã hủy',
+        ],
+    ],
 ];
