@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Core\GenerateId\GenerateIdSnowflake;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class CallRecordOfTelesaleOperation extends Model
 {

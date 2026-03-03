@@ -3,10 +3,8 @@
 namespace App\Services;
 
 use App\Common\Constants\Order\APIGHN;
-use App\Common\Constants\CacheKey;
 use App\Core\ServiceReturn;
 use App\Core\Logging;
-use App\Core\Caching;
 use App\Repositories\ShippingConfigRepository;
 use Illuminate\Support\Facades\Http;
 use Throwable;
@@ -35,7 +33,7 @@ class GHNService
     /**
      * Initialize with organization ID
      */
-    public function __construct(?int $organizationId = null, protected ShippingConfigRepository $shippingConfigRepository)
+    public function __construct(protected ShippingConfigRepository $shippingConfigRepository, ?int $organizationId = null)
     {
         if ($organizationId) {
             $this->loadConfig($organizationId);
@@ -374,7 +372,7 @@ class GHNService
 
         $endpoint = APIGHN::SEARCH_ORDERS;
         $http = $this->request($endpoint);
-        
+
         // API search có thể dùng GET hoặc POST, ưu tiên POST với body
         $response = $http->post($endpoint->url(), $params);
 

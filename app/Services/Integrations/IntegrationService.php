@@ -3,7 +3,6 @@
 namespace App\Services\Integrations;
 
 use App\Core\ServiceReturn;
-use App\Models\Integration;
 use App\Repositories\IntegrationRepository;
 use Illuminate\Support\Facades\Log;
 use Throwable;
