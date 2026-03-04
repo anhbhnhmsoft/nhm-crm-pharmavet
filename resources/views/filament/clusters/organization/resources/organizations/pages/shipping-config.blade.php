@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+    @vite(['resources/css/app.css'])
     <form wire:submit="save">
         {{ $this->form }}
 
