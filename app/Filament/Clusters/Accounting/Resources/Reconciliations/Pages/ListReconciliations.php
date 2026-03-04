@@ -10,6 +10,9 @@ use Filament\Forms\Components\DatePicker;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Support\Facades\Auth;
+use Filament\Schemas\Components\Tabs\Tab;
+use Illuminate\Database\Eloquent\Builder;
+use App\Common\Constants\Accounting\ReconciliationStatus;
 
 class ListReconciliations extends ListRecords
 {
@@ -55,7 +58,7 @@ class ListReconciliations extends ListRecords
                             ->title(__('accounting.reconciliation.sync_failed'))
                             ->body($result->getMessage())
                             ->send();
-                    }else {
+                    } else {
                         $backfilledCount = $service->applyExchangeRateForDateRange(
                             organizationId: Auth::user()->organization_id,
                             fromDate: $data['from_date'],
@@ -71,6 +74,19 @@ class ListReconciliations extends ListRecords
                         $this->dispatch('$refresh');
                     }
                 }),
+        ];
+    }
+
+    public function getTabs(): array
+    {
+        return [
+            'all' => Tab::make('Tất cả'),
+            'pending' => Tab::make('Chờ xác nhận')
+                ->modifyQueryUsing(fn(Builder $query) => $query->where('status', ReconciliationStatus::PENDING->value)),
+            'confirmed' => Tab::make('Đã xác nhận')
+                ->modifyQueryUsing(fn(Builder $query) => $query->where('status', ReconciliationStatus::CONFIRMED->value)),
+            'cancelled' => Tab::make('Đã hủy')
+                ->modifyQueryUsing(fn(Builder $query) => $query->where('status', ReconciliationStatus::CANCELLED->value)),
         ];
     }
 }

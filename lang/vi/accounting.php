@@ -85,6 +85,7 @@ return [
         'confirmed' => 'Xác nhận đối soát thành công',
         'confirm_failed' => 'Xác nhận đối soát thất bại',
         'sync_from_ghn' => 'Đồng bộ từ GHN',
+        'sale' => 'Sale',
         'from_date' => 'Từ ngày',
         'to_date' => 'Đến ngày',
         'reconciliation_date' => 'Ngày đối soát',

@@ -9,6 +9,7 @@ use App\Common\Constants\Shipping\RequiredNote;
 use App\Core\Caching;
 use App\Filament\Clusters\Accounting\Resources\Reconciliations\ReconciliationResource;
 use App\Services\ReconciliationService;
+use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Forms\Components\Select;
@@ -20,8 +21,17 @@ use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\SelectColumn;
 use Filament\Tables\Columns\Summarizers\Sum;
+use Filament\Tables\Filters\Indicator;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\TernaryFilter;
+use Filament\Forms\Components\DatePicker;
+use Illuminate\Database\Eloquent\Builder;
+use App\Models\User;
+use App\Common\Constants\User\UserRole;
+use App\Models\Warehouse;
 use Filament\Tables\Table;
+use Filament\Tables\Enums\FiltersLayout;
 
 class ReconciliationsTable
 {
@@ -42,6 +52,12 @@ class ReconciliationsTable
                 TextColumn::make('order.code')
                     ->label(__('accounting.reconciliation.order_code'))
                     ->searchable(),
+
+                TextColumn::make('order.createdBy.name')
+                    ->label(__('accounting.reconciliation.sale'))
+                    ->searchable()
+                    ->sortable()
+                    ->toggleable(),
 
                 TextColumn::make('cod_amount')
                     ->label(__('accounting.reconciliation.cod_amount'))
@@ -104,10 +120,82 @@ class ReconciliationsTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                SelectFilter::make('status')
-                    ->label(__('accounting.reconciliation.status'))
-                    ->options(ReconciliationStatus::getOptions()),
-            ])
+                Filter::make('reconciliation_date_range')
+                    ->label('Khoảng ngày đối soát')
+                    ->form([
+                        DatePicker::make('from')
+                            ->label(__('accounting.reconciliation.from_date'))
+                            ->native(false)
+                            ->displayFormat('d/m/Y'),
+                        DatePicker::make('to')
+                            ->label(__('accounting.reconciliation.to_date'))
+                            ->native(false)
+                            ->displayFormat('d/m/Y'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when(
+                                $data['from'],
+                                fn(Builder $query, $date): Builder => $query->whereDate('reconciliation_date', '>=', $date),
+                            )
+                            ->when(
+                                $data['to'],
+                                fn(Builder $query, $date): Builder => $query->whereDate('reconciliation_date', '<=', $date),
+                            );
+                    })
+                    ->indicateUsing(function (array $data): array {
+                        $indicators = [];
+                        if ($data['from'] ?? null) {
+                            $indicators[] = Indicator::make('Từ ngày: ' . Carbon::parse($data['from'])->format('d/m/Y'))
+                                ->removeField('from');
+                        }
+                        if ($data['to'] ?? null) {
+                            $indicators[] = Indicator::make('Đến ngày: ' . Carbon::parse($data['to'])->format('d/m/Y'))
+                                ->removeField('to');
+                        }
+                        return $indicators;
+                    }),
+
+                SelectFilter::make('sale_id')
+                    ->label('Sale (Tạo đơn)')
+                    ->options(function () {
+                        return User::where('role', UserRole::SALE->value)->pluck('name', 'id');
+                    })
+                    ->searchable()
+                    ->query(function (Builder $query, array $data): Builder {
+                        if (!empty($data['value']) || $data['value'] === '0') {
+                            $query->whereHas('order', fn($q) => $q->where('created_by', $data['value']));
+                        }
+                        return $query;
+                    }),
+
+                SelectFilter::make('warehouse_id')
+                    ->label('Kho hàng')
+                    ->options(function () {
+                        return Warehouse::pluck('name', 'id');
+                    })
+                    ->searchable()
+                    ->query(function (Builder $query, array $data): Builder {
+                        if (!empty($data['value']) || $data['value'] === '0') {
+                            $query->whereHas('order', fn($q) => $q->where('warehouse_id', $data['value']));
+                        }
+                        return $query;
+                    }),
+
+                TernaryFilter::make('has_deposit')
+                    ->label('Đặt cọc')
+                    ->placeholder('Tất cả')
+                    ->trueLabel('Có đặt cọc')
+                    ->falseLabel('Không/Chưa cọc')
+                    ->queries(
+                        true: fn(Builder $query) => $query->whereHas('order', fn($q) => $q->where('deposit', '>', 0)),
+                        false: fn(Builder $query) => $query->whereHas('order', fn($q) => $q->where(function ($sub) {
+                            $sub->whereNull('deposit')->orWhere('deposit', '<=', 0);
+                        })),
+                        blank: fn(Builder $query) => $query,
+                    ),
+            ], layout: FiltersLayout::AboveContent)
+            ->filtersFormColumns(4)
             ->actions([
                 Action::make('view_detail')
                     ->label(__('accounting.reconciliation.view_detail'))
@@ -128,7 +216,7 @@ class ReconciliationsTable
                         $fee = $orderDetail['fee'] ?? [];
 
                         // Cache order detail để dùng khi submit (15 phút = 900 giây = 15 minutes)
-                        Caching::setCache(CacheKey::GHN_ORDER_DETAIL, $orderDetail, (string)$record->id, 15);
+                        Caching::setCache(CacheKey::GHN_ORDER_DETAIL, $orderDetail, (string) $record->id, 15);
 
                         $form->fill([
                             'order_code' => $orderDetail['order_code'] ?? '',
@@ -153,7 +241,7 @@ class ReconciliationsTable
                             'total_fee' => $orderDetail['total_fee'] ?? 0,
                         ]);
                     })
-                    ->extraModalFooterActions(fn ($record) => [
+                    ->extraModalFooterActions(fn($record) => [
                         Action::make('sync_from_ghn')
                             ->label(__('accounting.reconciliation.sync_from_ghn'))
                             ->icon('heroicon-o-arrow-path')
@@ -175,7 +263,7 @@ class ReconciliationsTable
                                 $fee = $orderDetail['fee'] ?? [];
 
                                 // Cache order detail (15 phút)
-                                Caching::setCache(CacheKey::GHN_ORDER_DETAIL, $orderDetail, (string)$record->id, 15);
+                                Caching::setCache(CacheKey::GHN_ORDER_DETAIL, $orderDetail, (string) $record->id, 15);
 
                                 Notification::make()
                                     ->success()
@@ -280,12 +368,12 @@ class ReconciliationsTable
                         Textarea::make('error')
                             ->label(__('accounting.reconciliation.error'))
                             ->disabled()
-                            ->visible(fn ($get) => !empty($get('error'))),
+                            ->visible(fn($get) => !empty($get('error'))),
                     ])
                     ->action(function ($record, array $data) {
                         $service = app(ReconciliationService::class);
 
-                        $orderDetail = Caching::getCache(CacheKey::GHN_ORDER_DETAIL, (string)$record->id);
+                        $orderDetail = Caching::getCache(CacheKey::GHN_ORDER_DETAIL, (string) $record->id);
 
                         $fields = [
                             'cod_amount',
@@ -347,7 +435,7 @@ class ReconciliationsTable
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
                     ->requiresConfirmation()
-                    ->visible(fn ($record) => $record->status === ReconciliationStatus::PENDING->value)
+                    ->visible(fn($record) => $record->status === ReconciliationStatus::PENDING->value)
                     ->action(function ($record) {
                         $service = app(ReconciliationService::class);
                         $result = $service->confirmReconciliation($record->id);

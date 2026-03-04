@@ -4,12 +4,13 @@ namespace App\Services;
 
 use App\Common\Constants\Accounting\ExpenseCategory;
 use App\Common\Constants\Order\OrderStatus;
+use App\Common\Constants\Customer\CustomerType;
 use App\Core\ServiceReturn;
 use App\Core\Logging;
 use App\Repositories\OrderRepository;
 use App\Repositories\ExpenseRepository;
 use App\Repositories\RevenueRepository;
-use Illuminate\Support\Facades\DB;
+use App\Repositories\CustomerRepository;
 use Throwable;
 
 class ReportService
@@ -18,6 +19,7 @@ class ReportService
         protected OrderRepository $orderRepository,
         protected ExpenseRepository $expenseRepository,
         protected RevenueRepository $revenueRepository,
+        protected CustomerRepository $customerRepository,
     ) {
     }
 
@@ -247,6 +249,58 @@ class ReportService
             return ServiceReturn::error('Could not generate marketing report');
         }
     }
+
+    /**
+     * Báo cáo Fanpage
+     */
+    public function getFanpageReport(int $organizationId, string $fromDate, string $toDate): ServiceReturn
+    {
+        try {
+            $completedStatus = OrderStatus::COMPLETED->value;
+            $shippingStatus = OrderStatus::SHIPPING->value;
+            $cancelledStatus = OrderStatus::CANCELLED->value;
+
+            $customers = $this->customerRepository->query()
+                ->where('organization_id', $organizationId)
+                ->whereBetween('created_at', [$fromDate . ' 00:00:00', $toDate . ' 23:59:59'])
+                ->get();
+
+            $fanpageData = $customers->groupBy('source_detail')->map(function ($pageCustomers) use ($completedStatus, $shippingStatus, $cancelledStatus) {
+                $pageName = $pageCustomers->first()->source_detail ?: 'Khác';
+                $marketerName = $pageCustomers->first()->source ?: 'Hệ thống'; // Sử dụng source hoặc tạo cơ chế map với created_by sau
+
+                $newCustomers = $pageCustomers->where('customer_type', CustomerType::NEW ->value)->count();
+                $totalLeads = $pageCustomers->whereNotNull('phone')->count();
+
+                $customerIds = $pageCustomers->pluck('id')->toArray();
+                $orders = $this->orderRepository->query()
+                    ->whereIn('customer_id', $customerIds)
+                    ->whereNotIn('status', [$cancelledStatus])
+                    ->get();
+
+                $totalOrders = $orders->count();
+                $revenue = $orders->sum(fn($o) => $o->total_amount - $o->deposit);
+
+                $conversionRate = $totalLeads > 0 ? round(($totalOrders / $totalLeads) * 100, 2) : 0;
+
+                return [
+                    'page_name' => $pageName,
+                    'mkt_name' => $marketerName,
+                    'new_customers' => $newCustomers,
+                    'total_leads' => $totalLeads,
+                    'total_orders' => $totalOrders,
+                    'conversion_rate' => $conversionRate,
+                    'revenue' => $revenue,
+                ];
+            })->values();
+
+            return ServiceReturn::success(data: $fanpageData);
+        } catch (Throwable $e) {
+            Logging::error('Get fanpage report error', ['error' => $e->getMessage()], $e);
+            return ServiceReturn::error('Could not generate fanpage report');
+        }
+    }
+
 
     /**
      * Báo cáo khách hàng - Mới vs Cũ
