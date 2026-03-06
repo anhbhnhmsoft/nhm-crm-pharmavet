@@ -40,7 +40,7 @@ class LeadStatsWidget extends BaseWidget
                 ->description($data['newLeads'] . ' ' . __('dashboard.lead_stats.new_leads'))
                 ->descriptionIcon('heroicon-m-user-group')
                 ->color('primary')
-                ->chart($data['leadsChart']),
+                ->chart($data['leadsChart']),   
 
             Stat::make(__('dashboard.lead_stats.new_leads'), $data['newLeads'])
                 ->description(__('dashboard.order_stats.in_period'))

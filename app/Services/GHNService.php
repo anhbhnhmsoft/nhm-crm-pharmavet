@@ -6,7 +6,9 @@ use App\Common\Constants\Order\APIGHN;
 use App\Core\ServiceReturn;
 use App\Core\Logging;
 use App\Repositories\ShippingConfigRepository;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class GHNService
@@ -79,7 +81,7 @@ class GHNService
      */
     public function getShops(): array
     {
-        if (!$this->token) {
+        if (!$this->token) {    
             throw new \Exception(__('filament.shipping.token_required'));
         }
 
@@ -87,7 +89,7 @@ class GHNService
 
         // Cache for 1 hour
         return Cache::remember($cacheKey, 3600, function () {
-            $response = Http::withHeaders([
+            $response = Http::withHeaders([  
                 'Token' => $this->token,
                 'Content-Type' => 'application/json',
             ])->get('https://' . APIGHN::GET_SHOP_ALL->value);
@@ -241,7 +243,7 @@ class GHNService
         }
 
         $data = $response->json();
-
+        
         if (($data['code'] ?? 0) != 200) {
             throw new \Exception($data['message'] ?? __('filament.shipping.unknown_error'));
         }
