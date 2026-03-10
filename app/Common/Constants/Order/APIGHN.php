@@ -5,39 +5,41 @@ namespace App\Common\Constants\Order;
 enum APIGHN: string
 {
     // Shop Management
-    case GET_SHOP_ALL = 'online-gateway.ghn.vn/shiip/public-api/v2/shop/all';
+    case GET_SHOP_ALL = '/shiip/public-api/v2/shop/all';
 
-        // Master Data
-    case GET_PROVINCE = 'online-gateway.ghn.vn/shiip/public-api/master-data/province';
-    case GET_DISTRICT = 'online-gateway.ghn.vn/shiip/public-api/master-data/district';
-    case GET_WARD = 'online-gateway.ghn.vn/shiip/public-api/master-data/ward';
+    // Master Data
+    case GET_PROVINCE = '/shiip/public-api/master-data/province';
+    case GET_DISTRICT = '/shiip/public-api/master-data/district';
+    case GET_WARD = '/shiip/public-api/master-data/ward';
 
-        // Shipping Services
-    case GET_SERVICE = 'online-gateway.ghn.vn/shiip/public-api/v2/shipping-order/available-services';
-    case CALCULATE_FEE = 'online-gateway.ghn.vn/shiip/public-api/v2/shipping-order/fee';
-    case CALCULATE_EXPECTED_DELIVERY = 'online-gateway.ghn.vn/shiip/public-api/v2/shipping-order/leadtime';
+    // Shipping Services
+    case GET_SERVICE = '/shiip/public-api/v2/shipping-order/available-services';
+    case CALCULATE_FEE = '/shiip/public-api/v2/shipping-order/fee';
+    case CALCULATE_EXPECTED_DELIVERY = '/shiip/public-api/v2/shipping-order/leadtime';
 
-        // Order Management
-    case CREATE_ORDER = 'online-gateway.ghn.vn/shiip/public-api/v2/shipping-order/create';
-    case UPDATE_ORDER = 'online-gateway.ghn.vn/shiip/public-api/v2/shipping-order/update';
-    case UPDATE_COD = 'online-gateway.ghn.vn/shiip/public-api/v2/shipping-order/updateCOD';
-    case CANCEL_ORDER = 'online-gateway.ghn.vn/shiip/public-api/v2/switch-status/cancel';
-    case GET_ORDER_INFO = 'online-gateway.ghn.vn/shiip/public-api/v2/shipping-order/detail';
-    case GET_ORDER_STATUS = 'online-gateway.ghn.vn/shiip/public-api/v2/shipping-order/detail-by-client-order-code';
-    case SEARCH_ORDERS = 'online-gateway.ghn.vn/shiip/public-api/v2/shipping-order/search';
+    // Order Management
+    case CREATE_ORDER = '/shiip/public-api/v2/shipping-order/create';
+    case UPDATE_ORDER = '/shiip/public-api/v2/shipping-order/update';
+    case UPDATE_COD = '/shiip/public-api/v2/shipping-order/updateCOD';
+    case CANCEL_ORDER = '/shiip/public-api/v2/switch-status/cancel';
+    case GET_ORDER_INFO = '/shiip/public-api/v2/shipping-order/detail';
+    case GET_ORDER_STATUS = '/shiip/public-api/v2/shipping-order/detail-by-client-order-code';
+    case SEARCH_ORDERS = '/shiip/public-api/v2/shipping-order/search';
 
-        // Finance
-    case GET_CASH_LOG = 'online-gateway.ghn.vn/shiip/public-api/v2/finance/cash-log';
+    // Finance
+    case GET_CASH_LOG = '/shiip/public-api/v2/finance/cash-log';
 
-        // Print
-    case PRINT_ORDER = 'online-gateway.ghn.vn/shiip/public-api/v2/a5/gen-token';
+    // Print
+    case PRINT_ORDER = '/shiip/public-api/v2/a5/gen-token';
 
     /**
      * Get full URL
      */
     public function url(): string
     {
-        return 'https://' . $this->value;
+        $baseUrl = rtrim(config('services.ghn.api_base_url', 'https://dev-online-gateway.ghn.vn'), '/');
+
+        return $baseUrl . $this->value;
     }
 
 

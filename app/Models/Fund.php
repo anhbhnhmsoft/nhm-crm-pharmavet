@@ -14,6 +14,7 @@ class Fund extends Model
 
     protected $fillable = [
         'balance',
+        'currency',
         'is_locked',
         'organization_id'
     ];

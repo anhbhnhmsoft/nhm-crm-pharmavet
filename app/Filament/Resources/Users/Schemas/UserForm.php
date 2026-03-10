@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Users\Schemas;
 
 use App\Common\Constants\User\UserRole;
 use App\Common\Constants\User\UserPosition;
+use App\Common\Constants\Team\TeamType;
 
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
@@ -103,10 +104,26 @@ class UserForm
                             ->relationship(
                                 'teams',
                                 'name',
-                                fn(Builder $query, callable $get) =>
-                                $isSuperAdmin
-                                ? $query->where('organization_id', $get('organization_id'))
-                                : $query->where('organization_id', $authUser->organization_id)
+                                function (Builder $query, callable $get) use ($authUser, $isSuperAdmin) {
+                                    $orgId = $isSuperAdmin ? $get('organization_id') : $authUser->organization_id;
+                                    $query->where('organization_id', $orgId);
+
+                                    $role = $get('role');
+                                    if ($role) {
+                                        $teamTypes = match ((int) $role) {
+                                            UserRole::SALE->value => [TeamType::SALE->value, TeamType::CSKH->value],
+                                            UserRole::MARKETING->value => [TeamType::MARKETING->value],
+                                            UserRole::WAREHOUSE->value => [TeamType::BILL_OF_LADING->value],
+                                            default => [],
+                                        };
+
+                                        if (!empty($teamTypes)) {
+                                            $query->whereIn('type', $teamTypes);
+                                        }
+                                    }
+
+                                    return $query;
+                                }
                             )
                             ->searchable()
                             ->preload()

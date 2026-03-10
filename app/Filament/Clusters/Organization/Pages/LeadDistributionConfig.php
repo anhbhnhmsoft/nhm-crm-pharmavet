@@ -80,7 +80,7 @@ class LeadDistributionConfig extends Page
         /** @var LeadDistributionConfig|null $config */
         $this->config = $result->getData();
 
-        if (! $this->config) {
+        if (!$this->config) {
             $this->form->fill([
                 'organization_id' => $this->organizationId,
                 'name' => '',
@@ -98,9 +98,9 @@ class LeadDistributionConfig extends Page
             'organization_id' => $this->config->organization_id,
             'rules' => $this->config->rules->map(fn($rule) => [
                 'id' => $rule->id,
-                'field' => $rule->field,
-                'operator' => $rule->operator,
-                'value' => $rule->value,
+                'customer_type' => $rule->customer_type,
+                'staff_type' => $rule->staff_type,
+                'distribution_method' => $rule->distribution_method,
             ])->toArray(),
             'staffSale' => $this->config->staffSale->map(fn($staff) => [
                 'staff_id' => $staff->id,
@@ -230,9 +230,10 @@ class LeadDistributionConfig extends Page
                                             ->label(__('filament.lead.staff.title'))
                                             ->options(function (Get $get) {
                                                 $teamId = $get('team_id');
-                                                if (!$teamId) return [];
+                                                if (!$teamId)
+                                                    return [];
 
-                                                $allItems =  $this->form->getRawState()['staffSale'] ?? [];
+                                                $allItems = $this->form->getRawState()['staffSale'] ?? [];
                                                 $selectedIds = collect($allItems)
                                                     ->pluck('staff_id')
                                                     ->filter()
@@ -306,9 +307,10 @@ class LeadDistributionConfig extends Page
                                             ->label(__('filament.lead.staff.title'))
                                             ->options(function ($state, Get $get) {
                                                 $teamId = $get('team_id');
-                                                if (!$teamId) return [];
+                                                if (!$teamId)
+                                                    return [];
 
-                                                $allItems =  $this->form->getRawState()['staffCSKH'] ?? [];
+                                                $allItems = $this->form->getRawState()['staffCSKH'] ?? [];
                                                 $selectedIds = collect($allItems)
                                                     ->pluck('staff_id')
                                                     ->filter()

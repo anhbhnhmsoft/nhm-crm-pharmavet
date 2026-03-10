@@ -59,4 +59,8 @@ return [
         'base_url' => env('URL_API_V6'),
     ],
 
+    'ghn' => [
+        'api_base_url' => env('GHN_API_BASE_URL', 'https://dev-online-gateway.ghn.vn'),
+    ],
+
 ];

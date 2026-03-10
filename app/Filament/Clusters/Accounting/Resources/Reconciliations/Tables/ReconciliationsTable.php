@@ -7,19 +7,15 @@ use App\Common\Constants\CacheKey;
 use App\Common\Constants\Order\GhnOrderStatus;
 use App\Common\Constants\Shipping\RequiredNote;
 use App\Core\Caching;
-use App\Filament\Clusters\Accounting\Resources\Reconciliations\ReconciliationResource;
 use App\Services\ReconciliationService;
 use Carbon\Carbon;
 use Filament\Actions\Action;
-use Filament\Actions\BulkActionGroup;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\Placeholder;
 use Filament\Schemas\Components\Section;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Columns\SelectColumn;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Filters\Indicator;
 use Filament\Tables\Filters\SelectFilter;
@@ -27,6 +23,7 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Forms\Components\DatePicker;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\HtmlString;
 use App\Models\User;
 use App\Common\Constants\User\UserRole;
 use App\Models\Warehouse;
@@ -39,85 +36,197 @@ class ReconciliationsTable
     {
         return $table
             ->columns([
-                TextColumn::make('reconciliation_date')
-                    ->label(__('accounting.reconciliation.reconciliation_date'))
-                    ->date()
-                    ->sortable(),
+                TextColumn::make('order.createdBy.name')
+                    ->label('Sale')
+                    ->html()
+                    ->formatStateUsing(function ($state, $record) {
+                        if (!$record->order || !$record->order->createdBy) {
+                            return '-';
+                        }
 
-                TextColumn::make('ghn_order_code')
-                    ->label(__('accounting.reconciliation.ghn_order_code'))
+                        $name = mb_strtoupper($record->order->createdBy->name);
+                        $username = strtolower($record->order->createdBy->username);
+
+                        return "<div class='text-sm font-medium text-gray-900 mb-0.5 text-center'>{$name}</div>
+                                <div class='text-xs text-gray-400 text-center'>({$username})</div>";
+                    })
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->alignCenter()
+                    ->size('sm'),
 
                 TextColumn::make('order.code')
-                    ->label(__('accounting.reconciliation.order_code'))
-                    ->searchable(),
+                    ->label(new HtmlString('<div class="text-center font-semibold">Ngày data về<br>Mã đơn<br>Ngày chốt đơn</div>'))
+                    ->html()
+                    ->formatStateUsing(function ($state, $record) {
+                        if (!$record->order) {
+                            return '-';
+                        }
 
-                TextColumn::make('order.createdBy.name')
-                    ->label(__('accounting.reconciliation.sale'))
+                        $dataDate = (string) ($record->order->customer?->created_at?->format('d/m/Y H:i:s') ?? '');
+                        $code = (string) ($record->order->code ?? '-');
+                        $orderDate = (string) ($record->order->created_at?->format('d/m/Y H:i') ?? '');
+
+                        return "
+                            <div class='text-xs text-gray-500 whitespace-nowrap mb-1 text-center'>{$dataDate}</div>
+                            <div class='text-sm font-bold text-primary-600 mb-1 text-center'>{$code}</div>
+                            <div class='text-xs text-gray-500 whitespace-nowrap text-center'>{$orderDate}</div>
+                        ";
+                    })
+                    ->copyable()
+                    ->copyableState(fn($record) => $record->order?->code)
                     ->searchable()
-                    ->sortable()
-                    ->toggleable(),
+                    ->alignCenter()
+                    ->size('sm'),
 
-                TextColumn::make('cod_amount')
-                    ->label(__('accounting.reconciliation.cod_amount'))
+                TextColumn::make('order.warehouse.name')
+                    ->label(new HtmlString('<div class="text-center font-semibold">Kho<br>PTGH<br>Mã giao vận</div>'))
+                    ->html()
+                    ->formatStateUsing(function ($state, $record) {
+                        $warehouse = $record->order?->warehouse?->name ?? '-';
+                        $provider = $record->order?->provider_shipping ?? ($record->order?->shipping_method ?? '-');
+                        $ghnCode = $record->ghn_order_code ?? $record->order?->ghn_order_code ?? '-';
+
+                        return "
+                            <div class='text-sm font-semibold text-gray-900 text-center'>{$warehouse}</div>
+                            <div class='text-xs text-emerald-600 font-medium text-center'>{$provider}</div>
+                            <div class='text-xs text-primary-600 font-semibold text-center'>{$ghnCode}</div>
+                        ";
+                    })
+                    ->alignCenter()
+                    ->size('sm'),
+
+                TextColumn::make('note')
+                    ->label(new HtmlString('<div class="text-center font-semibold">Ngày cập nhật care đơn<br>Care đơn<br>Ghi chú kế toán</div>'))
+                    ->html()
+                    ->formatStateUsing(function ($state, $record) {
+                        $updated = $record->updated_at?->format('d/m/Y H:i') ?? '-';
+                        $care = $record->order?->updatedBy?->name ?? '-';
+                        $note = !empty($record->note) ? e($record->note) : '-';
+
+                        return "
+                            <div class='text-xs text-gray-500 text-center'>{$updated}</div>
+                            <div class='text-sm text-gray-900 text-center'>{$care}</div>
+                            <div class='text-xs text-gray-500 text-center line-clamp-2'>{$note}</div>
+                        ";
+                    })
+                    ->alignCenter()
+                    ->size('sm'),
+
+                TextColumn::make('order.ghn_status')
+                    ->label(new HtmlString('<div class="text-center font-semibold">Ngày cập nhật<br>Trạng thái giao hàng<br>Ngày đăng đơn</div>'))
+                    ->html()
+                    ->formatStateUsing(function ($state, $record) {
+                        $updated = $record->updated_at?->format('d/m/Y H:i') ?? '-';
+                        $status = $record->order?->ghn_status;
+                        $label = GhnOrderStatus::getLabel($status);
+                        $posted = $record->order?->ghn_posted_at ? Carbon::parse($record->order->ghn_posted_at)->format('d/m/Y H:i') : ($record->order?->created_at?->format('d/m/Y H:i') ?? '-');
+
+                        return "
+                            <div class='text-xs text-gray-500 text-center'>{$updated}</div>
+                            <div class='text-sm font-semibold text-center text-primary-600'>{$label}</div>
+                            <div class='text-xs text-gray-500 text-center'>{$posted}</div>
+                        ";
+                    })
+                    ->alignCenter()
+                    ->size('sm'),
+
+                TextColumn::make('order.items')
+                    ->label(new HtmlString('<div class="text-center font-semibold">Sản phẩm - Số lượng - Đơn giá</div>'))
+                    ->html()
+                    ->formatStateUsing(function ($state, $record) {
+                        $items = $record->order?->items;
+
+                        if (!$items || $items->isEmpty()) {
+                            return '-';
+                        }
+
+                        return $items->take(3)->map(function ($item) {
+                            $name = e($item->product?->name ?? 'SP');
+                            $qty = number_format((float) $item->quantity, 0, ',', '.');
+                            $price = number_format((float) $item->price, 0, ',', '.');
+
+                            return "<div class='text-xs mb-1'><span class='font-medium'>{$name}</span> x{$qty} <span class='text-gray-500'>{$price}</span></div>";
+                        })->implode('');
+                    })
+                    ->alignLeft(),
+
+                TextColumn::make('order.total_amount')
+                    ->label('Thành tiền')
                     ->money('VND')
-                    ->sortable(),
+                    ->alignEnd(),
+
+                TextColumn::make('order.discount')
+                    ->label('CK')
+                    ->money('VND')
+                    ->alignEnd(),
 
                 TextColumn::make('shipping_fee')
-                    ->label(__('accounting.reconciliation.shipping_fee'))
+                    ->label('Phí VC thu của khách')
                     ->money('VND')
-                    ->sortable(),
-
-                TextColumn::make('storage_fee')
-                    ->label(__('accounting.reconciliation.storage_fee'))
-                    ->money('VND')
-                    ->sortable(),
+                    ->alignEnd(),
 
                 TextColumn::make('total_fee')
-                    ->label(__('accounting.reconciliation.total_fee'))
+                    ->label('Tổng tiền')
                     ->money('VND')
-                    ->sortable()
+                    ->alignEnd()
                     ->summarize([
-                        Sum::make()
-                            ->money('VND'),
+                        Sum::make()->money('VND'),
                     ]),
 
-                TextColumn::make('exchangeRate.rate')
-                    ->label(__('accounting.reconciliation.exchange_rate'))
+                TextColumn::make('order.deposit')
+                    ->label('Đặt cọc')
+                    ->money('VND')
+                    ->alignEnd(),
+
+                TextColumn::make('order.amount_recived_from_customer')
+                    ->label('Tiền thu của khách')
+                    ->money('VND')
+                    ->alignEnd(),
+
+                TextColumn::make('shipping_fee')
+                    ->label('Giá dịch vụ VC')
+                    ->money('VND')
+                    ->alignEnd(),
+
+                TextColumn::make('order.amout_support_fee')
+                    ->label('Phí VC hỗ trợ khách')
+                    ->money('VND')
+                    ->alignEnd(),
+
+                TextColumn::make('order.customer.username')
+                    ->label(new HtmlString('<div class="text-center font-semibold">Họ tên<br>Số điện thoại</div>'))
+                    ->html()
                     ->formatStateUsing(function ($state, $record) {
-                        if (!$state || !$record->exchangeRate) {
-                            return '-';
-                        }
+                        $name = e($record->order?->customer?->username ?? '-');
+                        $phone = e($record->order?->customer?->phone ?? '');
 
-                        $fromCurrency = $record->exchangeRate->from_currency ?? 'USD';
-                        $toCurrency = $record->exchangeRate->to_currency ?? 'VND';
+                        return "
+                            <div class='text-sm font-semibold text-center'>{$name}</div>
+                            <div class='text-xs text-primary-600 text-center'>{$phone}</div>
+                        ";
+                    })
+                    ->alignCenter()
+                    ->size('sm'),
 
-                        return '1 ' . $fromCurrency . ' = ' . number_format((float) $state, 2) . ' ' . $toCurrency;
+                TextColumn::make('order.shipping_address')
+                    ->label(new HtmlString('<div class="text-center font-semibold">Địa chỉ<br>Ghi chú giao hàng</div>'))
+                    ->html()
+                    ->formatStateUsing(function ($state, $record) {
+                        $address = e($record->order?->shipping_address ?? '-');
+                        $note = e($record->order?->note ?? '-');
+
+                        return "
+                            <div class='text-sm text-gray-900'>{$address}</div>
+                            <div class='text-xs text-gray-500'>{$note}</div>
+                        ";
                     }),
 
-                TextColumn::make('converted_amount')
-                    ->label(__('accounting.reconciliation.converted_amount'))
-                    ->formatStateUsing(function ($state, $record) {
-                        if ($state === null) {
-                            return '-';
-                        }
-
-                        $currency = $record->exchangeRate->from_currency ?? 'USD';
-                        return number_format((float) $state, 2) . ' ' . $currency;
-                    })
-                    ->toggleable(),
-
-                SelectColumn::make('status')
-                    ->label(__('accounting.reconciliation.status'))
-                    ->options(ReconciliationStatus::getOptions())
-                    ->selectablePlaceholder(false)
-                    ->disabled(),
-
-                TextColumn::make('confirmed_at')
-                    ->label(__('accounting.reconciliation.confirmed_at'))
-                    ->dateTime()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('status')
+                    ->label('Trạng thái đối soát')
+                    ->formatStateUsing(fn($state) => ReconciliationStatus::getOptions()[$state] ?? '-')
+                    ->alignCenter()
+                    ->size('sm'),
             ])
             ->filters([
                 Filter::make('reconciliation_date_range')

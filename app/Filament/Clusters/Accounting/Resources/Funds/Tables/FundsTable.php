@@ -22,7 +22,7 @@ class FundsTable
                     ->sortable(),
                 TextColumn::make('balance')
                     ->label(__('accounting.fund.balance'))
-                    ->money('VND')
+                    ->formatStateUsing(fn ($state, Fund $record) => number_format((float) $state, 2) . ' ' . ($record->currency ?? 'VND'))
                     ->sortable()
                     ->color(fn($state) => $state < 0 ? 'danger' : 'success'),
                 IconColumn::make('is_locked')

@@ -92,7 +92,7 @@ class GHNService
             $response = Http::withHeaders([  
                 'Token' => $this->token,
                 'Content-Type' => 'application/json',
-            ])->get('https://' . APIGHN::GET_SHOP_ALL->value);
+            ])->get(APIGHN::GET_SHOP_ALL->url());
 
             if (!$response->successful()) {
                 Log::error('GHN API Error', [
@@ -195,7 +195,7 @@ class GHNService
             'Token' => $this->token,
             'ShopId' => $this->shopId,
             'Content-Type' => 'application/json',
-        ])->post('https://' . APIGHN::CALCULATE_FEE->value, $params);
+        ])->post(APIGHN::CALCULATE_FEE->url(), $params);
 
         if (!$response->successful()) {
             Log::error('GHN Calculate Fee Error', [
@@ -228,7 +228,7 @@ class GHNService
             'Token' => $this->token,
             'ShopId' => $this->shopId,
             'Content-Type' => 'application/json',
-        ])->post('https://' . APIGHN::CREATE_ORDER->value, $params);
+        ])->post(APIGHN::CREATE_ORDER->url(), $params);
 
         if (!$response->successful()) {
             Log::error('GHN Create Order Error', [
@@ -261,7 +261,7 @@ class GHNService
             'Token' => $this->token,
             'ShopId' => $this->shopId,
             'Content-Type' => 'application/json',
-        ])->post('https://' . APIGHN::CANCEL_ORDER->value, [
+        ])->post(APIGHN::CANCEL_ORDER->url(), [
             'order_codes' => [$orderCode]
         ]);
 
@@ -296,7 +296,7 @@ class GHNService
             'Token' => $this->token,
             'ShopId' => $this->shopId,
             'Content-Type' => 'application/json',
-        ])->post('https://' . APIGHN::UPDATE_ORDER->value, $params);
+        ])->post(APIGHN::UPDATE_ORDER->url(), $params);
 
         if (!$response->successful()) {
             Log::error('GHN Update Order Error', [
@@ -334,7 +334,7 @@ class GHNService
             'Token' => $this->token,
             'ShopId' => $this->shopId,
             'Content-Type' => 'application/json',
-        ])->post('https://' . APIGHN::UPDATE_COD->value, [
+        ])->post(APIGHN::UPDATE_COD->url(), [
             'order_code' => $orderCode,
             'cod_amount' => $codAmount,
         ]);
@@ -509,7 +509,7 @@ class GHNService
             $response = Http::withHeaders([
                 'Token' => $token,
                 'Content-Type' => 'application/json',
-            ])->get('https://' . APIGHN::GET_SHOP_ALL->value);
+            ])->get(APIGHN::GET_SHOP_ALL->url());
 
             if (!$response->successful()) {
                 throw new \Exception(

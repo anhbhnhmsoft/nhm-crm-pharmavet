@@ -2,15 +2,11 @@
 
 namespace App\Services;
 
-use App\Common\Constants\Customer\CustomerType;
-use App\Common\Constants\Team\TeamType;
 use App\Core\ServiceReturn;
 use App\Repositories\LeadDistributionConfigRepository;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
-use App\Common\Constants\Customer\DistributionMethod;
 use App\Models\LeadDistributionConfig;
-use Hamcrest\Text\IsEmptyString;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
@@ -41,43 +37,6 @@ class LeadDistributionConfigService
                     );
 
                 if ($config->rules->isEmpty()) {
-                    $defaultRules = [
-                        [
-                            'customer_type' => CustomerType::NEW->value,
-                            'staff_type' => TeamType::SALE->value,
-                            'distribution_method' => DistributionMethod::BY_DEFINITION->value,
-                        ],
-                        [
-                            'customer_type' => CustomerType::NEW_DUPLICATE->value,
-                            'staff_type' => TeamType::SALE->value,
-                            'distribution_method' => DistributionMethod::BY_DEFINITION->value,
-                        ],
-                        [
-                            'customer_type' => CustomerType::OLD_CUSTOMER->value,
-                            'staff_type' => TeamType::SALE->value,
-                            'distribution_method' => DistributionMethod::BY_DEFINITION->value,
-                        ],
-                        [
-                            'customer_type' => CustomerType::NEW->value,
-                            'staff_type' => TeamType::BILL_OF_LADING->value,
-                            'distribution_method' => DistributionMethod::BY_DEFINITION->value,
-                        ],
-                        [
-                            'customer_type' => CustomerType::NEW_DUPLICATE->value,
-                            'staff_type' => TeamType::BILL_OF_LADING->value,
-                            'distribution_method' => DistributionMethod::BY_DEFINITION->value,
-                        ],
-                        [
-                            'customer_type' => CustomerType::OLD_CUSTOMER->value,
-                            'staff_type' => TeamType::BILL_OF_LADING->value,
-                            'distribution_method' => DistributionMethod::BY_DEFINITION->value,
-                        ],
-                    ];
-
-                    foreach ($defaultRules as $ruleData) {
-                        $config->rules()->create($ruleData);
-                    }
-
                     $config->load('rules');
                 }
 
@@ -106,7 +65,12 @@ class LeadDistributionConfigService
 
                     foreach ($data['rules'] as $ruleData) {
                         $config->rules()->updateOrCreate(
-                            ['id' => $ruleData['id'] ?? null],
+                            [
+                                'config_id' => $config->id,
+                                'customer_type' => $ruleData['customer_type'] ?? null,
+                                'staff_type' => $ruleData['staff_type'] ?? null,
+                                'distribution_method' => $ruleData['distribution_method'] ?? null,
+                            ],
                             [
                                 'customer_type' => $ruleData['customer_type'] ?? null,
                                 'staff_type' => $ruleData['staff_type'] ?? null,
