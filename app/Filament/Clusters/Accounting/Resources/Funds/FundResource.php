@@ -47,8 +47,15 @@ class FundResource extends Resource
     {
         $user = Auth::user();
 
+        if (!$user) {
+            return false;
+        }
+
+        if ($user->role === UserRole::SUPER_ADMIN->value) {
+            return true;
+        }
+
         return Helper::checkPermission([
-            UserRole::SUPER_ADMIN->value,
             UserRole::ADMIN->value,
             UserRole::ACCOUNTING->value,
         ], $user->role) && ($user->organization?->is_foreign ?? false);
@@ -85,7 +92,16 @@ class FundResource extends Resource
                 SoftDeletingScope::class,
             ]);
 
-        $organizationId = Auth::user()->organization_id;
-        return $query->where('organization_id', $organizationId);
+        $user = Auth::user();
+
+        if (!$user) {
+            return $query->whereKey(-1); // không có user => không trả dữ liệu
+        }
+
+        if ($user->role === UserRole::SUPER_ADMIN->value) {
+            return $query;
+        }
+
+        return $query->where('organization_id', $user->organization_id);
     }
 }

@@ -68,7 +68,7 @@ class UserService
 
             if (!empty($filters['keyword'])) {
                 $keyword = trim($filters['keyword']);
-                $query->where(function ($q) use ($keyword) {
+                $query->where(function (Builder $q) use ($keyword) {
                     $q->where('name', 'like', '%' . $keyword . '%')
                         ->orWhere('username', 'like', '%' . $keyword . '%')
                         ->orWhere('email', 'like', '%' . $keyword . '%');

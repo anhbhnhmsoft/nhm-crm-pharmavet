@@ -16,7 +16,8 @@ class OrderService
 {
     public function __construct(
         protected OrderRepository $orderRepository
-    ) {}
+    ) {
+    }
 
     public function postOrder(Order $order, array $data): ServiceReturn
     {
@@ -164,7 +165,7 @@ class OrderService
                 return [
                     'name' => $item->product->name,
                     'quantity' => $item->quantity,
-                    'price' => (int)$item->price,
+                    'price' => (int) $item->price,
                     'weight' => $item->product->weight ?? 200,
                 ];
             })->toArray();
@@ -182,7 +183,7 @@ class OrderService
                 'to_address' => $order->shipping_address ?? $order->customer->address,
                 'to_ward_code' => $this->getWardCode($order),
                 'to_district_id' => $this->getDistrictCode($order),
-                'cod_amount' => (int)($order->total_amount - $order->deposit),
+                'cod_amount' => (int) ($order->total_amount - $order->deposit),
                 'items' => $items,
                 'service_type_id' => $order->ghn_service_type_id ?? 2, // 2: Standard
                 'weight' => $totalWeight,
@@ -260,10 +261,10 @@ class OrderService
                 'coupon' => null, // Add coupon if needed
                 'to_ward_code' => $this->getWardCode($order),
                 'to_district_id' => $this->getDistrictCode($order),
-                'weight' => (int)$totalWeight,
-                'length' => (int)($data['length'] ?? $order->length ?? 0),
-                'width' => (int)($data['width'] ?? $order->width ?? 0),
-                'height' => (int)($data['height'] ?? $order->height ?? 0),
+                'weight' => (int) $totalWeight,
+                'length' => (int) ($data['length'] ?? $order->length ?? 0),
+                'width' => (int) ($data['width'] ?? $order->width ?? 0),
+                'height' => (int) ($data['height'] ?? $order->height ?? 0),
             ];
 
             // Remove null values
@@ -330,7 +331,7 @@ class OrderService
             $order->update([
                 'status' => OrderStatus::CONFIRMED->value,
                 'code' => $newCode,
-                'ghn_status' => GhnOrderStatus::CANCELLED->value,
+                'ghn_status' => GhnOrderStatus::CANCEL->value,
                 'ghn_cancelled_at' => now(),
                 'ghn_response' => json_encode(array_merge(
                     json_decode($order->ghn_response ?? '{}', true),
@@ -368,7 +369,7 @@ class OrderService
         }
 
         $district = \App\Models\District::find($order->district_id);
-        return $district ? (int)$district->code : null;
+        return $district ? (int) $district->code : null;
     }
 
     protected function generateRefreshedCode(string $currentCode): string
@@ -376,7 +377,7 @@ class OrderService
         // Check if code already has -R suffix
         if (preg_match('/-R(\d*)$/', $currentCode, $matches)) {
             // Increment the number after -R
-            $number = isset($matches[1]) && $matches[1] !== '' ? (int)$matches[1] : 1;
+            $number = isset($matches[1]) && $matches[1] !== '' ? (int) $matches[1] : 1;
             return preg_replace('/-R\d*$/', '-R' . ($number + 1), $currentCode);
         }
 

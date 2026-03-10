@@ -44,7 +44,7 @@ class TeamForm
                             })
                             ->validationMessages([
                                 'required' => __('common.error.required'),
-                                'min'      => __('common.error.min_length', ['min' => 3]),
+                                'min' => __('common.error.min_length', ['min' => 3]),
                                 'max' => __('common.error.max_length', ['max' => 255])
                             ]),
 
@@ -64,9 +64,9 @@ class TeamForm
                             })
                             ->validationMessages([
                                 'required' => __('common.error.required'),
-                                'min'      => __('common.error.min_length', ['min' => 3]),
-                                'max'      => __('common.error.max_length', ['max' => 255]),
-                                'unique'   => __('common.error.unique'),
+                                'min' => __('common.error.min_length', ['min' => 3]),
+                                'max' => __('common.error.max_length', ['max' => 255]),
+                                'unique' => __('common.error.unique'),
                             ]),
 
                         Select::make('organization_id')
@@ -111,82 +111,64 @@ class TeamForm
                                 name: 'users',
                                 titleAttribute: 'name',
                                 modifyQueryUsing: function (Builder $query, Get $get) use ($authUser, $isSuperAdmin) {
-                                    if ($isSuperAdmin) {
-                                        return $query
-                                            ->whereNotNull('organization_id')
-                                            ->where('disable', false)
-                                        ;
+                                    $orgId = $isSuperAdmin ? $get('organization_id') : $authUser->organization_id;
+
+                                    if (!$orgId) {
+                                        return $query->whereRaw('1=0');
                                     }
+
+                                    $query->where('organization_id', $orgId)
+                                        ->where('disable', false)
+                                        ->whereNotIn('role', [UserRole::SUPER_ADMIN->value, UserRole::ADMIN->value]);
+
+                                    if ($isSuperAdmin) {
+                                        return $query;
+                                    }
+
                                     switch ($get('type')) {
                                         case TeamType::SALE->value:
-                                            return $query
-                                                ->where('organization_id', $authUser->organization_id)
-                                                ->where('role', UserRole::SALE->value)
-                                                ->whereNotIn('role', [UserRole::SUPER_ADMIN->value, UserRole::ADMIN->value])
-                                                ->where('disable', false);
+                                            return $query->where('role', UserRole::SALE->value);
                                         case TeamType::CSKH->value:
-                                            return $query
-                                                ->where('organization_id', $authUser->organization_id)
-                                                ->where('role', UserRole::SALE->value)
-                                                ->whereNotIn('role', [UserRole::SUPER_ADMIN->value, UserRole::ADMIN->value])
-                                                ->where('disable', false);
+                                            return $query->where('role', UserRole::SALE->value);
                                         case TeamType::MARKETING->value:
-                                            return $query
-                                                ->where('organization_id', $authUser->organization_id)
-                                                ->where('role', UserRole::MARKETING->value)
-                                                ->whereNotIn('role', [UserRole::SUPER_ADMIN->value, UserRole::ADMIN->value])
-                                                ->where('disable', false);
+                                            return $query->where('role', UserRole::MARKETING->value);
                                         case TeamType::BILL_OF_LADING->value:
-                                            return $query
-                                                ->where('organization_id', $authUser->organization_id)
-                                                ->where('role', UserRole::WAREHOUSE->value)
-                                                ->whereNotIn('role', [UserRole::SUPER_ADMIN->value, UserRole::ADMIN->value])
-                                                ->where('disable', false);
+                                            return $query->where('role', UserRole::WAREHOUSE->value);
                                         default:
-                                            return $query
-                                                ->where('organization_id', $authUser->organization_id)
-                                                ->where('role', $get('type'))
-                                                ->whereNotIn('role', [UserRole::SUPER_ADMIN->value, UserRole::ADMIN->value])
-                                                ->where('disable', false);
+                                            return $query;
                                     }
                                 }
                             )
                             ->multiple()
                             ->searchable()
                             ->preload()
-                            ->getSearchResultsUsing(function (string $search, Get $get) use ($userService) {
-                                $result = null;
+                            ->getSearchResultsUsing(function (string $search, Get $get) use ($authUser, $isSuperAdmin, $userService) {
+                                $orgId = $isSuperAdmin ? $get('organization_id') : $authUser->organization_id;
+                                if (!$orgId)
+                                    return [];
+
+                                $params = [
+                                    'keyword' => $search,
+                                    'organization_id' => $orgId,
+                                    'disable' => false,
+                                ];
+
                                 switch ($get('type')) {
                                     case TeamType::SALE->value:
-                                        $result = $userService->getListUser([
-                                            'keyword' => $search,
-                                            'role' => UserRole::SALE->value
-                                        ]);
+                                        $params['role'] = UserRole::SALE->value;
                                         break;
                                     case TeamType::CSKH->value:
-                                        $result = $userService->getListUser([
-                                            'keyword' => $search,
-                                            'role' => UserRole::SALE->value
-                                        ]);
+                                        $params['role'] = UserRole::SALE->value;
                                         break;
                                     case TeamType::MARKETING->value:
-                                        $result = $userService->getListUser([
-                                            'keyword' => $search,
-                                            'role' => UserRole::MARKETING->value
-                                        ]);
+                                        $params['role'] = UserRole::MARKETING->value;
                                         break;
                                     case TeamType::BILL_OF_LADING->value:
-                                        $result = $userService->getListUser([
-                                            'keyword' => $search,
-                                            'role' => UserRole::WAREHOUSE->value
-                                        ]);
-                                        break;
-                                    default:
-                                        $result = $userService->getListUser([
-                                            'keyword' => $search
-                                        ]);
+                                        $params['role'] = UserRole::WAREHOUSE->value;
                                         break;
                                 }
+
+                                $result = $userService->getListUser($params);
 
                                 if ($result && $result->isSuccess()) {
                                     return $result->getData()

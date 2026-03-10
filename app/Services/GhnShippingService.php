@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Common\Constants\Order\APIGHN;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -18,7 +19,7 @@ class GhnShippingService
             $response = Http::withHeaders([
                 'Token' => $apiToken,
                 'Content-Type' => 'application/json',
-            ])->get('https://online-gateway.ghn.vn/shiip/public-api/v2/shop/all');
+            ])->get(APIGHN::GET_SHOP_ALL->url());
 
             if ($response->successful()) {
                 $data = $response->json();
