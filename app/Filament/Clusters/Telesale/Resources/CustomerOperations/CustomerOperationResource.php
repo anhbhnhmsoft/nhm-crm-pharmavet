@@ -69,7 +69,20 @@ class CustomerOperationResource extends Resource
                 SoftDeletingScope::class,
             ]);
 
-        $userId = Auth::user()->id;
+        $user = Auth::user();
+
+        // Xem hết
+        if ($user->role === UserRole::SUPER_ADMIN->value) {
+            return $query;
+        }
+
+        // Xem vừa
+        if ($user->role === UserRole::ADMIN->value) {
+            return $query->where('organization_id', $user->organization_id);
+        }
+
+        // Xem ít
+        $userId = $user->id;
         return $query->where(function (Builder $subQuery) use ($userId) {
             $subQuery->where('assigned_staff_id', $userId)
                 ->orWhereHas('assignedStaff', function (Builder $relQuery) use ($userId) {

@@ -8,6 +8,7 @@ use App\Services\CustomerService;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\Model;
+use App\Common\Constants\User\UserRole;
 
 class CreateTelesaleOperation extends CreateRecord
 {
@@ -15,7 +16,9 @@ class CreateTelesaleOperation extends CreateRecord
 
     protected function handleRecordCreation(array $data): Model
     {
-        $data['organization_id'] = Auth::user()->organization_id;
+        if (Auth::user()->role !== UserRole::SUPER_ADMIN->value || !isset($data['organization_id'])) {
+            $data['organization_id'] = Auth::user()->organization_id;
+        }
         /**
          * @var CustomerService $customerService
          */

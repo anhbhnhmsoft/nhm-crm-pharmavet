@@ -69,10 +69,12 @@ class TelesaleOperationResource extends Resource
                 SoftDeletingScope::class,
             ]);
 
+        if (Auth::user()->role === UserRole::SUPER_ADMIN->value) {
+            return $query;
+        }
+
         $organizationId = Auth::user()->organization_id;
-        return $query->where(function (Builder $subQuery) use ($organizationId) {
-            $subQuery->where('organization_id', $organizationId);
-        });
+        return $query->where('organization_id', $organizationId);
     }
 
     public static function canAccess(): bool

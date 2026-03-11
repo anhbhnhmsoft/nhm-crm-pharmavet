@@ -3,6 +3,7 @@
 namespace App\Filament\Clusters\Telesale\Resources\TelesaleOperations\Tables;
 
 use App\Common\Constants\Marketing\IntegrationType;
+use App\Common\Constants\User\UserRole;
 use App\Models\Customer;
 use App\Models\User;
 use Filament\Actions\BulkActionGroup;
@@ -33,6 +34,12 @@ class TelesaleOperationsTable
                     ->sortable()
                     ->size('sm')
                     ->weight('bold'),
+                TextColumn::make('organization.name')
+                    ->label(__('telesale.form.organization'))
+                    ->visible(fn() => Auth::user()->role === UserRole::SUPER_ADMIN->value)
+                    ->searchable()
+                    ->sortable()
+                    ->size('sm'),
 
                 TextColumn::make('username')
                     ->label(__('telesale.table.customer_name'))
@@ -134,7 +141,7 @@ class TelesaleOperationsTable
                         ->modalHeading(__('common.modal.delete_title'))
                         ->modalDescription(__('common.modal.delete_confirm'))
                         ->modalSubmitActionLabel(__('common.action.confirm_delete'))
-                        ->visible(fn($record) => ! $record->trashed()),
+                        ->visible(fn($record) => !$record->trashed()),
 
                     RestoreAction::make()
                         ->label(__('common.action.restore'))

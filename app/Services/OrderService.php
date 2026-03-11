@@ -10,6 +10,7 @@ use App\Repositories\OrderRepository;
 use App\Models\ShippingConfig;
 use App\Models\ShippingConfigForWarehouse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class OrderService
 {
@@ -80,9 +81,9 @@ class OrderService
 
     public function finalizeOrder(array $data): ServiceReturn
     {
+        Log::info('OrderService: finalizeOrder triggered', ['data_keys' => array_keys($data)]);
         DB::beginTransaction();
         try {
-
             $existingOrder = $this->orderRepository->query()->where('customer_id', $data['customer_id'])
                 ->latest()
                 ->first();
@@ -101,8 +102,8 @@ class OrderService
 
             // Create or Update Order
             $orderData = [
-                'organization_id' => $existingOrder->organization_id,
-                'customer_id' => $existingOrder->customer_id,
+                'organization_id' => $existingOrder?->organization_id ?? $data['organization_id'],
+                'customer_id' => $existingOrder?->customer_id ?? $data['customer_id'],
                 'status' => $data['status_action'],
                 'total_amount' => $totalAmount,
                 'discount' => $totalDiscount, // Saving total discount
@@ -139,13 +140,12 @@ class OrderService
                 ]);
             }
 
+            DB::commit();
             return ServiceReturn::success();
         } catch (\Exception $e) {
             DB::rollBack();
             return ServiceReturn::error($e->getMessage());
         }
-
-        DB::commit();
     }
 
     public function processPostOrder(Order $order): void

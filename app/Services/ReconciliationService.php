@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Common\Constants\Accounting\ReconciliationStatus;
+use App\Common\Constants\Order\GhnOrderStatus;
 use App\Core\Logging;
 use App\Core\ServiceReturn;
 use App\Models\Organization;
@@ -24,7 +25,8 @@ class ReconciliationService
         protected ExchangeRateRepository $exchangeRateRepository,
         protected ShippingConfigRepository $shippingConfigRepository,
         protected GHNService $ghnService,
-    ) {}
+    ) {
+    }
 
     /**
      * Đồng bộ đối soát từ GHN.
@@ -62,23 +64,33 @@ class ReconciliationService
 
                 if (isset($orders['orders']) && is_array($orders['orders'])) {
                     $orderList = $orders['orders'];
-                }elseif (isset($orders['data']) && is_array($orders['data'])) {
+                } elseif (isset($orders['data']) && is_array($orders['data'])) {
                     $orderList = $orders['data'];
-                }elseif (is_array($orders) && !empty($orders) && (isset($orders[0]) || array_is_list($orders))) {
+                } elseif (is_array($orders) && !empty($orders) && (isset($orders[0]) || array_is_list($orders))) {
                     $orderList = $orders;
-                }else {
+                } else {
                     $orderList = [];
                 }
 
                 foreach ($orderList as $orderData) {
                     $ghnOrderCode = $orderData['order_code'] ?? null;
+                    $clientOrderCode = $orderData['client_order_code'] ?? null;
                     if (!$ghnOrderCode) {
                         continue;
                     }
 
                     $order = $this->orderRepository->query()
-                        ->where('ghn_order_code', $ghnOrderCode)
+                        ->where(function ($q) use ($ghnOrderCode, $clientOrderCode) {
+                            $q->where('ghn_order_code', $ghnOrderCode);
+                            if ($clientOrderCode) {
+                                $q->orWhere('code', $clientOrderCode);
+                            }
+                        })
                         ->first();
+
+                    if ($order && empty($order->ghn_order_code)) {
+                        $order->update(['ghn_order_code' => $ghnOrderCode]);
+                    }
 
                     $reconciliation = $this->reconciliationRepository->query()
                         ->where('organization_id', $organizationId)
@@ -88,11 +100,33 @@ class ReconciliationService
                     try {
                         $orderDetail = $this->ghnService->getOrderDetail($ghnOrderCode);
 
-                        $fee = $orderDetail['fee'] ?? [];
+                        $socData = null;
+                        foreach (($orders['soc'] ?? []) as $s) {
+                            if (($s['order_code'] ?? '') === $ghnOrderCode) {
+                                $socData = $s;
+                                break;
+                            }
+                        }
+
+                        $fee = $orderDetail['fee'] ?? $socData['detail'] ?? [];
                         $codAmount = $orderDetail['cod_amount'] ?? $orderData['cod_amount'] ?? 0;
-                        $shippingFee = $fee['main_service'] ?? $orderData['total_fee'] ?? 0;
+
+                        // GTB (Giao thất bại thu tiền) nằm ở cod_failed_amount trong API
+                        $gtbAmount = $orderDetail['cod_failed_amount'] ?? $orderData['cod_failed_amount'] ?? 0;
+
+                        // $codAmount += $gtbAmount; 
+
+                        $mainService = $fee['main_service'] ?? $orderData['total_fee'] ?? 0;
+                        $codFailedFee = $fee['cod_failed_fee'] ?? 0;
+
+                        $shippingFee = $mainService + $codFailedFee;
                         $storageFee = $fee['station_do'] ?? 0;
-                        $totalFee = ($fee['main_service'] ?? 0) + ($fee['cod_fee'] ?? 0) + ($fee['station_do'] ?? 0) + ($fee['insurance'] ?? 0);
+
+                        if ($shippingFee == 0 && isset($socData['payment'][0]['value'])) {
+                            $shippingFee = (float) $socData['payment'][0]['value'];
+                        }
+
+                        $totalFee = $codAmount + $shippingFee;
 
                         $reconciliationData = [
                             'organization_id' => $organizationId,
@@ -103,6 +137,19 @@ class ReconciliationService
                             'shipping_fee' => $shippingFee,
                             'storage_fee' => $storageFee,
                             'total_fee' => $totalFee,
+                            'ghn_to_name' => $orderDetail['to_name'] ?? $orderData['to_name'] ?? null,
+                            'ghn_to_phone' => $orderDetail['to_phone'] ?? $orderData['to_phone'] ?? null,
+                            'ghn_to_address' => $orderDetail['to_address'] ?? $orderData['to_address'] ?? null,
+                            'ghn_status_label' => GhnOrderStatus::getLabel($orderDetail['status'] ?? $orderData['status'] ?? ''),
+                            'ghn_created_at' => isset($orderDetail['created_date']) ? Carbon::parse($orderDetail['created_date']) : (isset($orderData['created_date']) ? Carbon::parse($orderData['created_date']) : null),
+                            'ghn_updated_at' => isset($orderDetail['updated_date']) ? Carbon::parse($orderDetail['updated_date']) : null,
+                            'ghn_items' => $orderDetail['items'] ?? null,
+                            'ghn_payment_type_id' => $orderDetail['payment_type_id'] ?? null,
+                            'ghn_weight' => $orderDetail['weight'] ?? null,
+                            'ghn_content' => $orderDetail['content'] ?? null,
+                            'ghn_required_note' => $orderDetail['required_note'] ?? null,
+                            'ghn_employee_note' => $orderDetail['employee_note'] ?? $orderData['employee_note'] ?? null,
+                            'ghn_cod_failed_amount' => $gtbAmount,
                         ];
 
                         $reconciliationData = $this->attachExchangeRateData($organizationId, $reconciliationData, $isForeignOrganization);
@@ -117,17 +164,16 @@ class ReconciliationService
 
                             $reconciliation->update($reconciliationData);
                             $updated++;
-                        }else {
+                        } else {
                             $reconciliationData['status'] = ReconciliationStatus::PENDING->value;
                             $reconciliationData['created_by'] = Auth::id();
                             $this->reconciliationRepository->create($reconciliationData);
                             $created++;
                         }
-                    }catch (Throwable $e) {
+                    } catch (Throwable $e) {
                         Logging::error('Failed to get order detail for reconciliation', [
                             'ghn_order_code' => $ghnOrderCode,
-                            'error' => $e->getMessage(),
-                        ]);
+                        ], $e);
 
                         $fallbackData = [
                             'organization_id' => $organizationId,
@@ -140,6 +186,13 @@ class ReconciliationService
                             'total_fee' => $orderData['total_fee'] ?? 0,
                             'status' => ReconciliationStatus::PENDING->value,
                             'created_by' => Auth::id(),
+                            'ghn_to_name' => $orderData['to_name'] ?? null,
+                            'ghn_to_phone' => $orderData['to_phone'] ?? null,
+                            'ghn_to_address' => $orderData['to_address'] ?? null,
+                            'ghn_status_label' => GhnOrderStatus::getLabel($orderData['status'] ?? ''),
+                            'ghn_created_at' => isset($orderData['created_date']) ? Carbon::parse($orderData['created_date']) : null,
+                            'ghn_items' => $orderData['items'] ?? null,
+                            'ghn_content' => $orderData['content'] ?? null,
                         ];
 
                         $fallbackData = $this->attachExchangeRateData($organizationId, $fallbackData, $isForeignOrganization);
@@ -152,7 +205,7 @@ class ReconciliationService
                                 $reconciliation->update($fallbackData);
                                 $updated++;
                             }
-                        }else {
+                        } else {
                             $this->reconciliationRepository->create($fallbackData);
                             $created++;
                         }
@@ -162,14 +215,23 @@ class ReconciliationService
                 $offset += $limit;
                 $total = $orders['total'] ?? count($orderList);
                 $hasMore = count($orderList) >= $limit && ($offset < $total);
-            }while ($hasMore);
+            } while ($hasMore);
+
+            Logging::web('GHN reconciliation sync completed', [
+                'organization_id' => $organizationId,
+                'created' => $created,
+                'updated' => $updated,
+            ]);
 
             return ServiceReturn::success(
                 data: ['created' => $created, 'updated' => $updated],
                 message: __('accounting.reconciliation.synced', ['count' => $created + $updated])
             );
-        }catch (Throwable $e) {
-            Logging::error('Sync reconciliation from GHN error', ['error' => $e->getMessage()], $e);
+        } catch (Throwable $e) {
+            Logging::error('Sync reconciliation from GHN error', [
+                'organization_id' => $organizationId,
+                'error' => $e->getMessage()
+            ], $e);
             return ServiceReturn::error(__('accounting.reconciliation.sync_failed'));
         }
     }
@@ -203,7 +265,7 @@ class ReconciliationService
                 data: $orderDetail,
                 message: __('accounting.reconciliation.detail_loaded')
             );
-        }catch (Throwable $e) {
+        } catch (Throwable $e) {
             Logging::error('Get order detail from GHN error', [
                 'reconciliation_id' => $reconciliationId,
                 'error' => $e->getMessage(),
@@ -236,17 +298,41 @@ class ReconciliationService
             $this->ghnService->setToken($config->api_token)->setShopId($config->default_store_id);
             $orderDetail = $this->ghnService->getOrderDetail($reconciliation->ghn_order_code);
 
+            // Tìm thêm thông tin phí từ search nếu detail không có
             $fee = $orderDetail['fee'] ?? [];
+            if (empty($fee)) {
+                $searchResult = $this->ghnService->searchOrders(['order_code' => $reconciliation->ghn_order_code]);
+                $socData = null;
+                foreach (($searchResult['soc'] ?? []) as $s) {
+                    if (($s['order_code'] ?? '') === $reconciliation->ghn_order_code) {
+                        $socData = $s;
+                        break;
+                    }
+                }
+                $fee = $socData['detail'] ?? [];
+            }
+
             $codAmount = $orderDetail['cod_amount'] ?? $reconciliation->cod_amount;
-            $shippingFee = $fee['main_service'] ?? $reconciliation->shipping_fee;
+
+            $mainService = $fee['main_service'] ?? $reconciliation->shipping_fee;
+            $codFailedFee = $fee['cod_failed_fee'] ?? 0;
+
+            $shippingFee = $mainService + $codFailedFee;
             $storageFee = $fee['station_do'] ?? $reconciliation->storage_fee;
-            $totalFee = ($fee['main_service'] ?? 0) + ($fee['cod_fee'] ?? 0) + ($fee['station_do'] ?? 0) + ($fee['insurance'] ?? 0);
+
+            if ($shippingFee == 0 && isset($socData['payment'][0]['value'])) {
+                $shippingFee = (float) $socData['payment'][0]['value'];
+            }
+
+            $totalFee = $codAmount + $shippingFee;
 
             $updateData = [
                 'cod_amount' => $codAmount,
                 'shipping_fee' => $shippingFee,
                 'storage_fee' => $storageFee,
                 'total_fee' => $totalFee,
+                'ghn_cod_failed_amount' => $orderDetail['cod_failed_amount'] ?? $reconciliation->ghn_cod_failed_amount,
+                'ghn_employee_note' => $orderDetail['employee_note'] ?? $reconciliation->ghn_employee_note,
                 'reconciliation_date' => $this->normalizeDate($orderDetail['created_date'] ?? $reconciliation->reconciliation_date),
             ];
 
@@ -262,7 +348,7 @@ class ReconciliationService
                 data: $reconciliation->fresh(),
                 message: __('accounting.reconciliation.detail_synced')
             );
-        }catch (Throwable $e) {
+        } catch (Throwable $e) {
             Logging::error('Sync order detail from GHN error', [
                 'reconciliation_id' => $reconciliationId,
                 'error' => $e->getMessage(),
@@ -352,7 +438,7 @@ class ReconciliationService
                 data: ['reconciliation' => $reconciliation->fresh(), 'updated_fields' => $updatedFields],
                 message: __('accounting.reconciliation.order_updated')
             );
-        }catch (Throwable $e) {
+        } catch (Throwable $e) {
             Logging::error('Update order on GHN error', [
                 'reconciliation_id' => $reconciliationId,
                 'update_data' => $updateData,
@@ -381,7 +467,7 @@ class ReconciliationService
             ]);
 
             return ServiceReturn::success(data: $reconciliation, message: __('accounting.reconciliation.confirmed'));
-        }catch (Throwable $e) {
+        } catch (Throwable $e) {
             Logging::error('Confirm reconciliation error', ['error' => $e->getMessage()], $e);
             return ServiceReturn::error(__('accounting.reconciliation.confirm_failed'));
         }
@@ -415,13 +501,17 @@ class ReconciliationService
 
                     $changes = [];
 
-                    if (array_key_exists('exchange_rate_id', $payload)
-                        && (int) $reconciliation->exchange_rate_id !== (int) ($payload['exchange_rate_id'] ?? 0)) {
+                    if (
+                        array_key_exists('exchange_rate_id', $payload)
+                        && (int) $reconciliation->exchange_rate_id !== (int) ($payload['exchange_rate_id'] ?? 0)
+                    ) {
                         $changes['exchange_rate_id'] = $payload['exchange_rate_id'];
                     }
 
-                    if (array_key_exists('converted_amount', $payload)
-                        && (float) $reconciliation->converted_amount !== (float) ($payload['converted_amount'] ?? 0)) {
+                    if (
+                        array_key_exists('converted_amount', $payload)
+                        && (float) $reconciliation->converted_amount !== (float) ($payload['converted_amount'] ?? 0)
+                    ) {
                         $changes['converted_amount'] = $payload['converted_amount'];
                     }
 
@@ -519,7 +609,7 @@ class ReconciliationService
                 }
 
                 return (float) $rate;
-            }catch (Throwable $e) {
+            } catch (Throwable $e) {
                 Logging::error('ExchangeRate API exception in reconciliation', [
                     'error' => $e->getMessage(),
                 ]);
@@ -532,7 +622,7 @@ class ReconciliationService
     {
         try {
             return Carbon::parse($date ?? now())->toDateString();
-        }catch (Throwable) {
+        } catch (Throwable) {
             return now()->toDateString();
         }
     }

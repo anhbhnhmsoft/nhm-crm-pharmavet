@@ -15,6 +15,10 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use App\Models\Organization;
+use App\Models\Product;
+use App\Common\Constants\User\UserRole;
+use Illuminate\Support\Facades\Auth;
 
 class TelesaleOperationForm
 {
@@ -77,9 +81,36 @@ class TelesaleOperationForm
                                         ->placeholder(__('telesale.form.address_placeholder')),
                                     Textarea::make('note_temp')
                                         ->label(__('telesale.form.note_temp')),
+                                    Select::make('organization_id')
+                                        ->label(__('telesale.form.organization'))
+                                        ->options(Organization::all()->pluck('name', 'id'))
+                                        ->searchable()
+                                        ->live()
+                                        ->visible(fn() => Auth::user()->role === UserRole::SUPER_ADMIN->value)
+                                        ->default(Auth::user()->organization_id)
+                                        ->afterStateUpdated(fn(Set $set) => $set('product_id', null))
+                                        ->required(),
+
                                     Select::make('product_id')
                                         ->label(__('telesale.form.product'))
-                                        ->relationship(name: 'product', titleAttribute: 'name', modifyQueryUsing: fn($query) => $query->where('is_business_product', true)),
+                                        ->options(function (Get $get) {
+                                            $user = Auth::user();
+                                            $orgId = $user->role === UserRole::SUPER_ADMIN->value
+                                                ? $get('organization_id')
+                                                : $user->organization_id;
+
+                                            if (!$orgId) {
+                                                return [];
+                                            }
+
+                                            return Product::where('organization_id', $orgId)
+                                                ->where('is_business_product', true)
+                                                ->pluck('name', 'id');
+                                        })
+                                        ->required()
+                                        ->validationMessages([
+                                            'required' => __('common.error.required'),
+                                        ]),
                                 ]),
                             ])
                             ->collapsible()
@@ -136,8 +167,8 @@ class TelesaleOperationForm
                                     ->options(fn($get) => Ward::where('district_id', $get('district_id'))->pluck('name', 'id'))
                                     ->searchable()
                                     ->required()->validationMessages([
-                                        'required' => __('common.error.required'),
-                                    ]),
+                                            'required' => __('common.error.required'),
+                                        ]),
                             ]),
                     ])
                     ->columnSpanFull(),

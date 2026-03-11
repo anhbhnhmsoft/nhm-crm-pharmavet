@@ -4,7 +4,7 @@ return [
     'navigation' => [
         'unit_administration' => 'Quản trị đơn vị',
         'unit_marketing' => 'Marketing',
-        'unit_telesale'  => 'Sale tác nghiệp',
+        'unit_telesale' => 'Sale tác nghiệp',
         'unit_warehouse' => 'Kho',
         'unit_accounting' => 'Kế toán',
     ],
@@ -15,7 +15,7 @@ return [
         'remember_me' => 'Ghi nhớ đăng nhập',
         "error" => [
             'invalid_credentials' => 'Tên đăng nhập, mã tổ chức hoặc mật khẩu không đúng.',
-            'activity_timeout'    => 'Bạn đã không hoạt động quá 15 phút và đã bị đăng xuất tự động.'
+            'activity_timeout' => 'Bạn đã không hoạt động quá 15 phút và đã bị đăng xuất tự động.'
         ]
     ],
     'organization' => [
@@ -25,7 +25,7 @@ return [
             'product_field' => 'Sản phẩm chính',
             'quantity_members' => 'Số lượng thành viên',
             'list_member' => 'Danh sách thành viên',
-            'is_foreign'  => 'Doanh nghiệp nước ngoài'
+            'is_foreign' => 'Doanh nghiệp nước ngoài'
         ],
         'form' => [
             'general_info' => 'Thông tin chung',
@@ -110,6 +110,8 @@ return [
         'total_members' => 'Tổng số thành viên'
     ],
     'product' => [
+        'organization' => 'Tổ chức',
+        'organization_info' => 'Thông tin tổ chức',
         'label' => 'Sản phẩm',
         'created_success' => 'Thêm sản phẩm thành công.',
         'updated_success' => 'Cập nhật sản phẩm thành công.',
@@ -208,12 +210,12 @@ return [
 
     ],
     'vat' => [
-        'no'            => 'Không chịu thuế',
-        'inclusive'     => 'giá đã bao gồm vat',
-        'exclusive'     => 'giá chưa bao gồm vat',
-        'standard'      => 'thuế xuất tiêu chuẩn 10%',
-        'reduced'       => 'giảm 5%',
-        'zero_rate'     => 'giảm 0%',
+        'no' => 'Không chịu thuế',
+        'inclusive' => 'giá đã bao gồm vat',
+        'exclusive' => 'giá chưa bao gồm vat',
+        'standard' => 'thuế xuất tiêu chuẩn 10%',
+        'reduced' => 'giảm 5%',
+        'zero_rate' => 'giảm 0%',
         'eight_percent' => 'giảm 8%',
         'desc' => [
             'no' => 'Sản phẩm không chịu thuế VAT (hàng xuất khẩu, sách giáo khoa...)',
