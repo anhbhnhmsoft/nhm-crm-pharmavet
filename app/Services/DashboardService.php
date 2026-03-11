@@ -4,22 +4,31 @@ namespace App\Services;
 
 use App\Common\Constants\Customer\CustomerType;
 use App\Common\Constants\Order\OrderStatus;
-use App\Models\Customer;
-use App\Models\Order;
-use App\Models\OrderItem;
-use Illuminate\Support\Facades\DB;
+use App\Repositories\CustomerRepository;
+use App\Repositories\OrderItemRepository;
+use App\Repositories\OrderRepository;
+use App\Repositories\ProductRepository;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class DashboardService
 {
+
+    public function __construct(
+        protected OrderRepository $orderRepository,
+        protected OrderItemRepository $orderItemRepository,
+        protected ProductRepository $productRepository,
+        protected CustomerRepository $customerRepository,
+    ) {
+    }
+
     /**
      * Get order statistics for the dashboard
      */
     public function getOrderStats(int $organizationId, string $startDate, string $endDate): array
     {
         try {
-            $baseQuery = Order::where('organization_id', $organizationId);
+            $baseQuery = $this->orderRepository->query()->where('organization_id', $organizationId);
             $filteredQuery = (clone $baseQuery)->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59']);
 
             $totalRevenue = (clone $filteredQuery)
@@ -45,7 +54,7 @@ class DashboardService
                 ->count();
 
             // Mini-charts: last 7 data points by day
-            $revenueChart = Order::where('organization_id', $organizationId)
+            $revenueChart = $this->orderRepository->query()->where('organization_id', $organizationId)
                 ->where('status', OrderStatus::COMPLETED->value)
                 ->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
                 ->selectRaw('DATE(created_at) as date, SUM(total_amount) as total')
@@ -57,7 +66,7 @@ class DashboardService
                 ->pluck('total')
                 ->toArray();
 
-            $ordersChart = Order::where('organization_id', $organizationId)
+            $ordersChart = $this->orderRepository->query()->where('organization_id', $organizationId)
                 ->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
                 ->selectRaw('DATE(created_at) as date, COUNT(*) as total')
                 ->groupBy('date')
@@ -99,7 +108,7 @@ class DashboardService
     public function getRevenueChartData(int $organizationId, string $startDate, string $endDate): array
     {
         try {
-            $revenueData = Order::where('organization_id', $organizationId)
+            $revenueData = $this->orderRepository->query()->where('organization_id', $organizationId)
                 ->where('status', OrderStatus::COMPLETED->value)
                 ->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
                 ->selectRaw('DATE(created_at) as date, SUM(total_amount) as total_revenue')
@@ -107,7 +116,7 @@ class DashboardService
                 ->orderBy('date', 'asc')
                 ->get();
 
-            $orderCountData = Order::where('organization_id', $organizationId)
+            $orderCountData = $this->orderRepository->query()->where('organization_id', $organizationId)
                 ->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
                 ->whereNotIn('status', [OrderStatus::CANCELLED->value])
                 ->selectRaw('DATE(created_at) as date, COUNT(*) as total_orders')
@@ -152,7 +161,7 @@ class DashboardService
     public function getTopProducts(int $organizationId, string $startDate, string $endDate, int $limit = 10): array
     {
         try {
-            $products = OrderItem::query()
+            $products = $this->orderItemRepository->query()
                 ->join('orders', 'order_items.order_id', '=', 'orders.id')
                 ->join('products', 'order_items.product_id', '=', 'products.id')
                 ->where('orders.organization_id', $organizationId)
@@ -181,7 +190,7 @@ class DashboardService
     public function getOrderStatusDistribution(int $organizationId, string $startDate, string $endDate): array
     {
         try {
-            $distribution = Order::where('organization_id', $organizationId)
+            $distribution = $this->orderRepository->query()->where('organization_id', $organizationId)
                 ->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
                 ->selectRaw('status, COUNT(*) as count')
                 ->groupBy('status')
@@ -223,7 +232,7 @@ class DashboardService
     public function getLeadStats(int $organizationId, string $startDate, string $endDate): array
     {
         try {
-            $baseQuery = Customer::where('organization_id', $organizationId);
+            $baseQuery = $this->customerRepository->query()->where('organization_id', $organizationId);
             $filteredQuery = (clone $baseQuery)->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59']);
 
             $totalLeads = (clone $filteredQuery)->count();
@@ -254,7 +263,7 @@ class DashboardService
             $conversionRate = $totalLeads > 0 ? round(($leadsWithOrder / $totalLeads) * 100, 1) : 0;
 
             // Mini-charts
-            $leadsChart = Customer::where('organization_id', $organizationId)
+            $leadsChart = $this->customerRepository->query()->where('organization_id', $organizationId)
                 ->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
                 ->selectRaw('DATE(created_at) as date, COUNT(*) as total')
                 ->groupBy('date')
@@ -296,7 +305,7 @@ class DashboardService
     public function getCustomerGrowthData(int $organizationId, string $startDate, string $endDate): array
     {
         try {
-            $newData = Customer::where('organization_id', $organizationId)
+            $newData = $this->customerRepository->query()->where('organization_id', $organizationId)
                 ->where('customer_type', CustomerType::NEW->value)
                 ->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
                 ->selectRaw('DATE(created_at) as date, COUNT(*) as total')
@@ -304,7 +313,7 @@ class DashboardService
                 ->orderBy('date', 'asc')
                 ->get();
 
-            $duplicateData = Customer::where('organization_id', $organizationId)
+            $duplicateData = $this->customerRepository->query()->where('organization_id', $organizationId)
                 ->where('customer_type', CustomerType::NEW_DUPLICATE->value)
                 ->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
                 ->selectRaw('DATE(created_at) as date, COUNT(*) as total')
@@ -312,7 +321,7 @@ class DashboardService
                 ->orderBy('date', 'asc')
                 ->get();
 
-            $oldData = Customer::where('organization_id', $organizationId)
+            $oldData = $this->customerRepository->query()->where('organization_id', $organizationId)
                 ->where('customer_type', CustomerType::OLD_CUSTOMER->value)
                 ->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
                 ->selectRaw('DATE(created_at) as date, COUNT(*) as total')

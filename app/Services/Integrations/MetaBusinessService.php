@@ -31,25 +31,15 @@ class MetaBusinessService
 
     protected ?Api $api = null;
 
-    protected CustomerRepository $customerRepository;
-    protected IntegrationRepository $integrationRepository;
-    protected IntegrationTokenRepository $integrationTokenRepository;
-    protected IntegrationEntityRepository $integrationEntityRepository;
-    protected LeadDistributionConfigRepository   $leadDistributionConfigRepository;
 
     public function __construct(
-        CustomerRepository $customerRepository,
-        IntegrationRepository $integrationRepository,
-        IntegrationTokenRepository $integrationTokenRepository,
-        IntegrationEntityRepository $integrationEntityRepository,
-        LeadDistributionConfigRepository $leadDistributionConfigRepository,
+        protected CustomerRepository $customerRepository,
+        protected IntegrationRepository $integrationRepository,
+        protected IntegrationTokenRepository $integrationTokenRepository,
+        protected IntegrationEntityRepository $integrationEntityRepository,
+        protected LeadDistributionConfigRepository $leadDistributionConfigRepository,
         protected LeadDistributionService $leadDistributionService
     ) {
-        $this->customerRepository = $customerRepository;
-        $this->integrationRepository = $integrationRepository;
-        $this->integrationTokenRepository = $integrationTokenRepository;
-        $this->integrationEntityRepository = $integrationEntityRepository;
-        $this->leadDistributionConfigRepository = $leadDistributionConfigRepository;
         if (class_exists(Api::class)) {
             Api::init(
                 (string) config('services.facebook.app_id', config('services.facebook.client_id')),
@@ -352,7 +342,7 @@ class MetaBusinessService
                     'id' => $data['id'] ?? null,
                     'form_id' => $data['form_id'] ?? null,
                     'created_time' => $data['created_time'] ?? null,
-                    'fields' => $fields,
+                    'fields' => $fields,a
                 ]);
             }
 

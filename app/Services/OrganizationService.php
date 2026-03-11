@@ -203,7 +203,7 @@ class OrganizationService
     public function getFundBalanceChartData(int $organizationId, string $startDate, string $endDate): array
     {
         try {
-            $fund = \App\Models\Fund::where('organization_id', $organizationId)->first();
+            $fund = $this->fundTransactionRepository->query()->where('organization_id', $organizationId)->first();
 
             if (!$fund) {
                 throw new \Exception('Fund not found on OrganizationService@getFundBalanceChartData');

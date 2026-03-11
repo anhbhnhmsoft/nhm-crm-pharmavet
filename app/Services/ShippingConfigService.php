@@ -9,12 +9,7 @@ use Throwable;
 
 class ShippingConfigService
 {
-
-    protected ShippingConfigRepository $shippingConfigRepository;
-    public function __construct(ShippingConfigRepository $shippingConfigRepository)
-    {
-        $this->shippingConfigRepository = $shippingConfigRepository;
-    }
+    public function __construct(protected ShippingConfigRepository $shippingConfigRepository) {}
 
     public function getShippConfig($organizationId)
     {

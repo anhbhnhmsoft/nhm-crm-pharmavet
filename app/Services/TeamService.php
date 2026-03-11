@@ -8,12 +8,7 @@ use Throwable;
 
 class TeamService
 {
-    protected TeamRepository $teamRepository;
-
-    public function __construct(TeamRepository $teamRepository)
-    {
-        $this->teamRepository = $teamRepository;
-    }
+    public function __construct(protected TeamRepository $teamRepository) {}
 
     public function getListTeam($filters)
     {

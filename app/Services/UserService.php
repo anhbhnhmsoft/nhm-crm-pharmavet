@@ -4,19 +4,13 @@ namespace App\Services;
 
 use App\Core\ServiceReturn;
 use App\Repositories\UserRepository;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
 class UserService
 {
-    protected UserRepository $userRepository;
-
-    public function __construct(UserRepository $userRepository)
-    {
-        $this->userRepository = $userRepository;
-    }
+    public function __construct(protected UserRepository $userRepository) {}
 
     public function find($id)
     {
