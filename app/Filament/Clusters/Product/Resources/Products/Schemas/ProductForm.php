@@ -8,6 +8,8 @@ use App\Utils\Helper;
 use App\Common\Constants\Product\TypeVAT;
 use App\Common\Constants\Organization\ProductField;
 use App\Common\Constants\Team\TeamType;
+use App\Models\Organization;
+use App\Common\Constants\User\UserRole;
 use Filament\Schemas\Schema;
 use Filament\Actions\Action;
 use Illuminate\Support\Facades\Auth;
@@ -21,6 +23,7 @@ use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\FileUpload;
 use Filament\Resources\Pages\CreateRecord;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 
 class ProductForm
 {
@@ -44,6 +47,24 @@ class ProductForm
             ->schema([
                 Grid::make(2)
                     ->schema([
+                        Select::make('organization_id')
+                            ->label(__('filament.product.organization'))
+                            ->options(Organization::all()->pluck('name', 'id'))
+                            ->searchable()
+                            ->live()
+                            ->visible(fn() => Auth::user()->role === UserRole::SUPER_ADMIN->value)
+                            ->default(Auth::user()->organization_id)
+                            ->afterStateUpdated(function (Set $set) {
+                                $set('sale_team_id', null);
+                                $set('marketing_team_id', null);
+                                $set('cskh_team_id', null);
+                                $set('saleUsers', []);
+                                $set('marketingUsers', []);
+                                $set('cskhUsers', []);
+                            })
+                            ->required()
+                            ->columnSpanFull(),
+
                         TextInput::make('name')
                             ->label(__('filament.product.name'))
                             ->required()
@@ -240,7 +261,7 @@ class ProductForm
                             ->live()
                             ->afterStateUpdated(function ($state, callable $set, Get $get) {
                                 $type = TypeVAT::tryFrom((int) $state);
-                                if (! $type) {
+                                if (!$type) {
                                     return;
                                 }
 
@@ -275,7 +296,7 @@ class ProductForm
                                 $vatRate = (float) ($get('vat_rate') ?? 0);
                                 $salePrice = (float) ($get('sale_price') ?? 0);
 
-                                if (! $type || $salePrice <= 0) {
+                                if (!$type || $salePrice <= 0) {
                                     return '';
                                 }
 
@@ -286,14 +307,14 @@ class ProductForm
 
                                     TypeVAT::INCLUSIVE => __('filament.product.vat_inclusive_info', [
                                         'price' => number_format($result['base_price'], 0),
-                                        'vat'   => number_format($result['vat_amount'], 0),
+                                        'vat' => number_format($result['vat_amount'], 0),
                                     ]),
 
                                     TypeVAT::EXCLUSIVE,
                                     TypeVAT::STANDARD,
                                     TypeVAT::REDUCED,
                                     TypeVAT::EIGHT_PERCENT => __('filament.product.vat_exclusive_info', [
-                                        'vat'   => number_format($result['vat_amount'], 0),
+                                        'vat' => number_format($result['vat_amount'], 0),
                                         'total' => number_format($result['final_price'], 0),
                                     ]),
 
@@ -302,9 +323,9 @@ class ProductForm
                             })
                             ->validationMessages([
                                 'required' => __('common.error.required'),
-                                'numeric'  => __('common.error.numeric'),
-                                'min'      => __('common.error.min_value', ['min' => 0]),
-                                'max'      => __('common.error.max_value', ['max' => 100]),
+                                'numeric' => __('common.error.numeric'),
+                                'min' => __('common.error.min_value', ['min' => 0]),
+                                'max' => __('common.error.max_value', ['max' => 100]),
                             ]),
                     ]),
             ]);
@@ -454,8 +475,8 @@ class ProductForm
         return Select::make($name)
             ->label($label)
             ->options(
-                fn() => Team::where('type', $teamType->value)
-                    ->where('organization_id', Auth::user()->organization_id)
+                fn(Get $get) => Team::where('type', $teamType->value)
+                    ->where('organization_id', $get('organization_id') ?? Auth::user()->organization_id)
                     ->pluck('name', 'id')
             )
             ->searchable()

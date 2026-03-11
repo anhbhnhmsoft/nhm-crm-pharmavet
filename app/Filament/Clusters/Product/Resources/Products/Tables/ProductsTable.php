@@ -24,6 +24,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Maatwebsite\Excel\Facades\Excel;
@@ -34,6 +35,12 @@ class ProductsTable
     {
         return $table
             ->columns([
+                TextColumn::make('organization.name')
+                    ->label(__('filament.product.organization'))
+                    ->visible(fn() => Auth::user()->role === \App\Common\Constants\User\UserRole::SUPER_ADMIN->value)
+                    ->searchable()
+                    ->sortable()
+                    ->size('sm'),
                 TextColumn::make('name')
                     ->label(__('common.table.name'))
                     ->searchable(),
@@ -110,7 +117,7 @@ class ProductsTable
                         ->modalHeading(__('common.modal.delete_title'))
                         ->modalDescription(__('common.modal.delete_confirm'))
                         ->modalSubmitActionLabel(__('common.action.confirm_delete'))
-                        ->visible(fn($record) => ! $record->trashed()),
+                        ->visible(fn($record) => !$record->trashed()),
 
                     RestoreAction::make()
                         ->label(__('common.action.restore'))

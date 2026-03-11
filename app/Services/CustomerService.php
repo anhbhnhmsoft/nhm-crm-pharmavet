@@ -27,7 +27,8 @@ class CustomerService
         protected LeadDistributionConfigRepository $leadDistributionConfigRepository,
         protected UserAssignedStaffRepository $userAssignedStaffRepository,
         protected UserRepository $userRepository
-    ) {}
+    ) {
+    }
 
     public function createCustomerFromTelesaleOperation($data): ServiceReturn
     {
@@ -91,7 +92,7 @@ class CustomerService
                 'note_temp' => $data['note_temp'],
                 'product_id' => $data['product_id'],
                 'organization_id' => $data['organization_id'],
-                'customer_type' => CustomerType::NEW->value,
+                'customer_type' => CustomerType::NEW ->value,
                 'interaction_status' => InteractionStatus::FIRST_CALL->value,
                 'source' => IntegrationType::MANUAL_DATA->value,
             ]);
@@ -116,10 +117,8 @@ class CustomerService
 
             // Lấy cấu hình phân bổ
             $config = $this->leadDistributionConfigRepository->query()->with(['rules', 'staffSale', 'staffCSKH'])
-                ->where(function ($q) use ($customer) {
-                    $q->where('organization_id', $customer->organization_id)
-                        ->orWhere('product_id', $customer->product_id);
-                })
+                ->where('organization_id', $customer->organization_id)
+                ->where('product_id', $customer->product_id)
                 ->first();
 
             if (!$config) {
@@ -329,38 +328,44 @@ class CustomerService
     private function assignStaffToCustomer(int $customerId, $staff, string $method, ?int $staffType = null)
     {
         try {
-            // KHÔNG dùng transaction ở đây vì đã có transaction ở parent method
-
-            // Kiểm tra đã tồn tại chưa
+            // Check if user_assigned_staff record already exists
             $exists = $this->userAssignedStaffRepository->query()
                 ->where('customer_id', $customerId)
                 ->where('staff_id', $staff->id)
                 ->exists();
 
-            if ($exists) {
-                Log::info("Assignment already exists", [
+            if (!$exists) {
+                // Tạo assignment mới
+                $this->userAssignedStaffRepository->create([
+                    'customer_id' => $customerId,
+                    'staff_id' => $staff->id,
+                ]);
+
+                Log::info("Created new user_assigned_staff assignment", [
                     'customer_id' => $customerId,
                     'staff_id' => $staff->id
                 ]);
-                return;
+            } else {
+                Log::info("Assignment already exists in user_assigned_staff", [
+                    'customer_id' => $customerId,
+                    'staff_id' => $staff->id
+                ]);
             }
 
-            // Tạo assignment mới
-            $this->userAssignedStaffRepository->create([
-                'customer_id' => $customerId,
-                'staff_id' => $staff->id,
-            ]);
-
-            // Nếu là SALE staff, cập nhật assigned_staff_id cho customer chính
+            // Luôn đảm bảo assigned_staff_id được cập nhật cho loại SALE
             if ($staffType && $staffType == TeamType::SALE->value) {
-                $this->customerRepository->update($customerId, [
-                    'assigned_staff_id' => $staff->id
-                ]);
+                $customer = $this->customerRepository->find($customerId);
 
-                Log::info("Updated customer assigned_staff_id", [
-                    'customer_id' => $customerId,
-                    'assigned_staff_id' => $staff->id
-                ]);
+                if ($customer && $customer->assigned_staff_id != $staff->id) {
+                    $this->customerRepository->updateById($customerId, [
+                        'assigned_staff_id' => $staff->id
+                    ]);
+
+                    Log::info("Updated customer assigned_staff_id", [
+                        'customer_id' => $customerId,
+                        'assigned_staff_id' => $staff->id
+                    ]);
+                }
             }
 
             Log::info("Successfully assigned customer to staff", [

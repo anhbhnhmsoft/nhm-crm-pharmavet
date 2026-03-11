@@ -700,6 +700,19 @@
     - reconciliation_date: (date, not null) -- ngày đối soát
     - order_id: (int, foreign key -> orders.id, nullable) -- đơn hàng liên quan (nếu đối soát theo đơn)
     - ghn_order_code: (varchar(100), nullable) -- mã đơn GHN
+    - ghn_to_name: (varchar(255), nullable) -- tên người nhận từ GHN
+    - ghn_to_phone: (varchar(20), nullable) -- số điện thoại người nhận từ GHN
+    - ghn_to_address: (text, nullable) -- địa chỉ người nhận từ GHN
+    - ghn_status_label: (varchar(255), nullable) -- tên trạng thái từ GHN
+    - ghn_created_at: (timestamp, nullable) -- ngày tạo đơn trên GHN
+    - ghn_updated_at: (timestamp, nullable) -- ngày cập nhật mới nhất từ GHN
+    - ghn_items: (json, nullable) -- danh sách sản phẩm từ GHN
+    - ghn_payment_type_id: (int, nullable) -- loại thanh toán GHN
+    - ghn_weight: (int, nullable) -- khối lượng theo GHN
+    - ghn_content: (text, nullable) -- nội dung đơn hàng theo GHN
+    - ghn_required_note: (varchar(255), nullable) -- yêu cầu khi giao hàng theo GHN
+    - ghn_employee_note: (text, nullable) -- ghi chú của nhân viên GHN
+    - ghn_cod_failed_amount: (decimal(15, 2), default 0) -- phí GTB (Giao thất bại thu tiền)
     - cod_amount: (decimal(15, 2), default 0) -- tiền COD
     - shipping_fee: (decimal(15, 2), default 0) -- phí giao hàng
     - storage_fee: (decimal(15, 2), default 0) -- phí kho

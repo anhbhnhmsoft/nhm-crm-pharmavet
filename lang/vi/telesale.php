@@ -25,6 +25,7 @@ return [
         'unblacklist' => 'Xóa khỏi danh sách đen',
         'customer_type' => 'Phân loại data',
         'interaction_status' => 'Trạng thái tương tác',
+        'organization' => 'Tổ chức',
     ],
 
     // Form sections
@@ -48,6 +49,7 @@ return [
         'birthday' => 'Ngày sinh',
         'address' => 'Địa chỉ',
         'address_placeholder' => 'Nhập địa chỉ...',
+        'organization' => 'Tổ chức',
 
         // Operation result fields
         'status_label' => 'Trạng thái',

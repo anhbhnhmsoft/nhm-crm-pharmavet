@@ -81,7 +81,7 @@ class GHNService
      */
     public function getShops(): array
     {
-        if (!$this->token) {    
+        if (!$this->token) {
             throw new \Exception(__('filament.shipping.token_required'));
         }
 
@@ -89,7 +89,7 @@ class GHNService
 
         // Cache for 1 hour
         return Cache::remember($cacheKey, 3600, function () {
-            $response = Http::withHeaders([  
+            $response = Http::withHeaders([
                 'Token' => $this->token,
                 'Content-Type' => 'application/json',
             ])->get(APIGHN::GET_SHOP_ALL->url());
@@ -243,7 +243,7 @@ class GHNService
         }
 
         $data = $response->json();
-        
+
         if (($data['code'] ?? 0) != 200) {
             throw new \Exception($data['message'] ?? __('filament.shipping.unknown_error'));
         }
@@ -262,8 +262,8 @@ class GHNService
             'ShopId' => $this->shopId,
             'Content-Type' => 'application/json',
         ])->post(APIGHN::CANCEL_ORDER->url(), [
-            'order_codes' => [$orderCode]
-        ]);
+                    'order_codes' => [$orderCode]
+                ]);
 
         if (!$response->successful()) {
             Log::error('GHN Cancel Order Error', [
@@ -335,9 +335,9 @@ class GHNService
             'ShopId' => $this->shopId,
             'Content-Type' => 'application/json',
         ])->post(APIGHN::UPDATE_COD->url(), [
-            'order_code' => $orderCode,
-            'cod_amount' => $codAmount,
-        ]);
+                    'order_code' => $orderCode,
+                    'cod_amount' => $codAmount,
+                ]);
 
         if (!$response->successful()) {
             Log::error('GHN Update COD Error', [

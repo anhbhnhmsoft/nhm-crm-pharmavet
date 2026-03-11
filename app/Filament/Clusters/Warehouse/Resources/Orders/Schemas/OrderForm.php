@@ -20,6 +20,7 @@ class OrderForm
     public static function configure(Schema $schema): Schema
     {
         return $schema
+            ->columns(1)
             ->schema([
                 Section::make(__('order.form.section.basic_info'))
                     ->schema([

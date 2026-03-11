@@ -15,6 +15,7 @@ use App\Models\Product;
 use App\Models\Province;
 use App\Models\Ward;
 use App\Services\OrderService;
+use App\Common\Constants\User\UserRole;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
@@ -50,8 +51,8 @@ class CustomerOperationsTable
             ->recordClasses(
                 fn($record) =>
                 $record->orders()->where('status', OrderStatus::PENDING->value)->exists()
-                    ? 'bg-red-50 dark:bg-red-900/10'
-                    : null
+                ? 'bg-red-50 dark:bg-red-900/10'
+                : null
             )
             ->columns([
                 TextColumn::make('id')
@@ -60,6 +61,12 @@ class CustomerOperationsTable
                     ->sortable()
                     ->size('sm')
                     ->weight('bold'),
+                TextColumn::make('organization.name')
+                    ->label(__('telesale.table.organization'))
+                    ->visible(fn() => Auth::user()->role === UserRole::SUPER_ADMIN->value)
+                    ->searchable()
+                    ->sortable()
+                    ->size('sm'),
 
                 TextColumn::make('username')
                     ->label(__('telesale.table.customer_name'))
@@ -219,17 +226,17 @@ class CustomerOperationsTable
                                                         ->required()
                                                         ->live()
                                                         ->afterStateUpdated(function ($state, $get, $set) {
-                                                            $product = Product::find($state);
-                                                            if ($product) {
-                                                                $set('price', $product->sale_price ?? 0);
-                                                            }
-                                                        })
+                                        $product = Product::find($state);
+                                        if ($product) {
+                                            $set('price', $product->sale_price ?? 0);
+                                        }
+                                    })
                                                         ->required()
                                                         ->live()
-                                                        ->afterStateUpdated(function ($state, $get,  $set) {
-                                                            $set('quantity', 1);
-                                                            $set('total', $get('price') * $get('quantity'));
-                                                        })
+                                                        ->afterStateUpdated(function ($state, $get, $set) {
+                                        $set('quantity', 1);
+                                        $set('total', $get('price') * $get('quantity'));
+                                    })
                                                         ->validationMessages([
                                                             'required' => __('common.error.required')
                                                         ]),
@@ -238,10 +245,10 @@ class CustomerOperationsTable
                                                         ->numeric()
                                                         ->default(1)
                                                         ->required()
-                                                        ->live()
-                                                        ->afterStateUpdated(function ($state, $get,  $set) {
-                                                            $set('total', $state * $get('price'));
-                                                        })
+                                                        ->live(onBlur: true)
+                                                        ->afterStateUpdated(function ($state, $get, $set) {
+                                        $set('total', $state * $get('price'));
+                                    })
                                                         ->required()
                                                         ->validationMessages([
                                                             'required' => __('common.error.required')
@@ -267,60 +274,72 @@ class CustomerOperationsTable
                                                 ])
                                                 ->columns(4)
                                                 ->live(debounce: 500)
-                                                ->afterStateUpdated(function ($get,  $set) {
-                                                    $items = $get('items');
-                                                    $total = collect($items)->sum(function ($item) {
-                                                        if ($item['price'] == null || $item['quantity'] == null || $item['price'] == 0 || is_int($item['quantity']) == false) {
-                                                            return 0;
-                                                        }
-                                                        return ($item['quantity'] ?? 0) * ($item['price'] ?? 0);
-                                                    });
-                                                    $set('total_amount_temp', $total);
-                                                }),
+                                                ->afterStateUpdated(function ($get, $set) {
+                                    $items = $get('items');
+                                    $total = collect($items)->sum(function ($item) {
+                                        if ($item['price'] == null || $item['quantity'] == null || $item['price'] == 0 || is_int($item['quantity']) == false) {
+                                            return 0;
+                                        }
+                                        return ($item['quantity'] ?? 0) * ($item['price'] ?? 0);
+                                    });
+                                    $set('total_amount_temp', $total);
+                                }),
 
                                             Grid::make(3)->schema([
                                                 TextInput::make('discount')
                                                     ->label(__('warehouse.order.form.discount'))
                                                     ->numeric()
                                                     ->default(0)
-                                                    ->live()
+                                                    ->live(onBlur: true)
                                                     ->afterStateUpdated(function (Get $get, Set $set) {
-                                                        $productTotal = $get('total_amount_temp') ?? 0;
-                                                        $ck1 = $get('ck1') ?? 0;
-                                                        $ck2 = $get('ck2') ?? 0;
-                                                        $orderDiscount = $get('discount') ?? 0;
-                                                        $productDiscount = $productTotal * ($ck1 + $ck2) / 100;
-                                                        $totalDiscount = $productDiscount + $orderDiscount;
-                                                        $set('total_discount_display', number_format($totalDiscount) . ' VNĐ');
-                                                    }),
+                                    $productTotal = $get('total_amount_temp') ?? 0;
+                                    $ck1 = $get('ck1') ?? 0;
+                                    $ck2 = $get('ck2') ?? 0;
+                                    $orderDiscount = $get('discount') ?? 0;
+                                    $productDiscount = $productTotal * ($ck1 + $ck2) / 100;
+                                    $totalDiscount = $productDiscount + $orderDiscount;
+                                    $set('total_discount_display', number_format($totalDiscount) . ' VNĐ');
+                                }),
                                                 TextInput::make('ck1')
                                                     ->label('CK1 (%)')
                                                     ->numeric()
+                                                    ->minValue(0)
+                                                    ->maxValue(100)
                                                     ->default(0)
-                                                    ->live()
+                                                    ->live(onBlur: true)
                                                     ->afterStateUpdated(function (Get $get, Set $set) {
-                                                        $productTotal = $get('total_amount_temp') ?? 0;
-                                                        $ck1 = $get('ck1') ?? 0;
-                                                        $ck2 = $get('ck2') ?? 0;
-                                                        $orderDiscount = $get('discount') ?? 0;
-                                                        $productDiscount = $productTotal * ($ck1 + $ck2) / 100;
-                                                        $totalDiscount = $productDiscount + $orderDiscount;
-                                                        $set('total_discount_display', number_format($totalDiscount) . ' VNĐ');
-                                                    }),
+                                    $productTotal = $get('total_amount_temp') ?? 0;
+                                    $ck1 = $get('ck1') ?? 0;
+                                    $ck2 = $get('ck2') ?? 0;
+                                    $orderDiscount = $get('discount') ?? 0;
+                                    $productDiscount = $productTotal * ($ck1 + $ck2) / 100;
+                                    $totalDiscount = $productDiscount + $orderDiscount;
+                                    $set('total_discount_display', number_format($totalDiscount) . ' VNĐ');
+                                })
+                                                    ->validationMessages([
+                                                        'min' => __('common.error.min_value', ['min' => 0]),
+                                                        'max' => __('common.error.max_value', ['max' => 100]),
+                                                    ]),
                                                 TextInput::make('ck2')
                                                     ->label('CK2 (%)')
                                                     ->numeric()
+                                                    ->minValue(0)
+                                                    ->maxValue(100)
                                                     ->default(0)
-                                                    ->live()
+                                                    ->live(onBlur: true)
                                                     ->afterStateUpdated(function (Get $get, Set $set) {
-                                                        $productTotal = $get('total_amount_temp') ?? 0;
-                                                        $ck1 = $get('ck1') ?? 0;
-                                                        $ck2 = $get('ck2') ?? 0;
-                                                        $orderDiscount = $get('discount') ?? 0;
-                                                        $productDiscount = $productTotal * ($ck1 + $ck2) / 100;
-                                                        $totalDiscount = $productDiscount + $orderDiscount;
-                                                        $set('total_discount_display', number_format($totalDiscount) . ' VNĐ');
-                                                    }),
+                                    $productTotal = $get('total_amount_temp') ?? 0;
+                                    $ck1 = $get('ck1') ?? 0;
+                                    $ck2 = $get('ck2') ?? 0;
+                                    $orderDiscount = $get('discount') ?? 0;
+                                    $productDiscount = $productTotal * ($ck1 + $ck2) / 100;
+                                    $totalDiscount = $productDiscount + $orderDiscount;
+                                    $set('total_discount_display', number_format($totalDiscount) . ' VNĐ');
+                                })
+                                                    ->validationMessages([
+                                                        'min' => __('common.error.min_value', ['min' => 0]),
+                                                        'max' => __('common.error.max_value', ['max' => 100]),
+                                                    ]),
                                             ]),
 
                                             TextInput::make('total_discount_display')
@@ -333,7 +352,7 @@ class CustomerOperationsTable
                                                 TextInput::make('cod_fee')
                                                     ->label(__('warehouse.order.form.cod_fee'))
                                                     ->numeric()
-                                                    ->live()
+                                                    ->live(onBlur: true)
                                                     ->afterStateUpdated(fn($state, Set $set) => $set('cod_amount', round($state))),
                                                 TextInput::make('cod_amount')->label(__('warehouse.order.form.cod_amount'))->numeric(),
                                             ]),
@@ -374,13 +393,25 @@ class CustomerOperationsTable
                                 }),
                         ])
                         ->action(function (array $data, $record) {
+                            Log::info('finalize_order: Action triggered', [
+                                'customer_id' => $record->id,
+                                'user_id' => Auth::id(),
+                                'data_keys' => array_keys($data)
+                            ]);
+
                             $data['customer_id'] = $record->id;
+                            $data['organization_id'] = $record->organization_id;
                             $data['created_by'] = Auth::id();
                             $data['updated_by'] = Auth::id();
 
                             /** @var OrderService $orderService */
                             $orderService = app(OrderService::class);
-                            $result = $orderService->finalizeOrder($data, $record);
+                            $result = $orderService->finalizeOrder($data);
+
+                            Log::info('finalize_order: Service result', [
+                                'is_success' => $result->isSuccess(),
+                                'message' => $result->getMessage()
+                            ]);
 
                             if ($result->isSuccess()) {
                                 Notification::make()->title(__('common.success.update_success'))->success()->send();
@@ -495,11 +526,11 @@ class CustomerOperationsTable
                                     ->minutesStep(15)
                                     ->required(
                                         fn($get) =>
-                                        ReasonInteraction::requiresScheduling((int)$get('reason'))
+                                        ReasonInteraction::requiresScheduling((int) $get('reason'))
                                     )
                                     ->visible(
                                         fn($get) =>
-                                        ReasonInteraction::requiresScheduling((int)$get('reason'))
+                                        ReasonInteraction::requiresScheduling((int) $get('reason'))
                                     )
                                     ->helperText(__('telesale.helper.schedule_callback'))
                                     ->validationMessages([
@@ -580,8 +611,8 @@ class CustomerOperationsTable
                                     ->displayFormat('d/m/Y H:i')
                                     ->seconds(false)
                                     ->minutesStep(15)
-                                    ->required(fn($get) => ReasonInteraction::requiresScheduling((int)$get('reason')))
-                                    ->visible(fn($get) => ReasonInteraction::requiresScheduling((int)$get('reason')))
+                                    ->required(fn($get) => ReasonInteraction::requiresScheduling((int) $get('reason')))
+                                    ->visible(fn($get) => ReasonInteraction::requiresScheduling((int) $get('reason')))
                                     ->helperText(__('telesale.helper.schedule_callback'))
                                     ->validationMessages(['required' => __('common.error.required')]),
                             ])
@@ -641,8 +672,8 @@ class CustomerOperationsTable
                                     ->displayFormat('d/m/Y H:i')
                                     ->seconds(false)
                                     ->minutesStep(15)
-                                    ->required(fn($get) => ReasonInteraction::requiresScheduling((int)$get('reason')))
-                                    ->visible(fn($get) => ReasonInteraction::requiresScheduling((int)$get('reason')))
+                                    ->required(fn($get) => ReasonInteraction::requiresScheduling((int) $get('reason')))
+                                    ->visible(fn($get) => ReasonInteraction::requiresScheduling((int) $get('reason')))
                                     ->helperText(__('telesale.helper.schedule_callback'))
                                     ->validationMessages(['required' => __('common.error.required')]),
                             ])
@@ -702,8 +733,8 @@ class CustomerOperationsTable
                                     ->displayFormat('d/m/Y H:i')
                                     ->seconds(false)
                                     ->minutesStep(15)
-                                    ->required(fn($get) => ReasonInteraction::requiresScheduling((int)$get('reason')))
-                                    ->visible(fn($get) => ReasonInteraction::requiresScheduling((int)$get('reason')))
+                                    ->required(fn($get) => ReasonInteraction::requiresScheduling((int) $get('reason')))
+                                    ->visible(fn($get) => ReasonInteraction::requiresScheduling((int) $get('reason')))
                                     ->helperText(__('telesale.helper.schedule_callback'))
                                     ->validationMessages(['required' => __('common.error.required')]),
                             ])
@@ -763,8 +794,8 @@ class CustomerOperationsTable
                                     ->displayFormat('d/m/Y H:i')
                                     ->seconds(false)
                                     ->minutesStep(15)
-                                    ->required(fn($get) => ReasonInteraction::requiresScheduling((int)$get('reason')))
-                                    ->visible(fn($get) => ReasonInteraction::requiresScheduling((int)$get('reason')))
+                                    ->required(fn($get) => ReasonInteraction::requiresScheduling((int) $get('reason')))
+                                    ->visible(fn($get) => ReasonInteraction::requiresScheduling((int) $get('reason')))
                                     ->helperText(__('telesale.helper.schedule_callback'))
                                     ->validationMessages(['required' => __('common.error.required')]),
                             ])
@@ -824,8 +855,8 @@ class CustomerOperationsTable
                                     ->displayFormat('d/m/Y H:i')
                                     ->seconds(false)
                                     ->minutesStep(15)
-                                    ->required(fn($get) => ReasonInteraction::requiresScheduling((int)$get('reason')))
-                                    ->visible(fn($get) => ReasonInteraction::requiresScheduling((int)$get('reason')))
+                                    ->required(fn($get) => ReasonInteraction::requiresScheduling((int) $get('reason')))
+                                    ->visible(fn($get) => ReasonInteraction::requiresScheduling((int) $get('reason')))
                                     ->helperText(__('telesale.helper.schedule_callback'))
                                     ->validationMessages(['required' => __('common.error.required')]),
                             ])
@@ -885,8 +916,8 @@ class CustomerOperationsTable
                                     ->displayFormat('d/m/Y H:i')
                                     ->seconds(false)
                                     ->minutesStep(15)
-                                    ->required(fn($get) => ReasonInteraction::requiresScheduling((int)$get('reason')))
-                                    ->visible(fn($get) => ReasonInteraction::requiresScheduling((int)$get('reason')))
+                                    ->required(fn($get) => ReasonInteraction::requiresScheduling((int) $get('reason')))
+                                    ->visible(fn($get) => ReasonInteraction::requiresScheduling((int) $get('reason')))
                                     ->helperText(__('telesale.helper.schedule_callback'))
                                     ->validationMessages(['required' => __('common.error.required')]),
                             ])
@@ -946,8 +977,8 @@ class CustomerOperationsTable
                                     ->displayFormat('d/m/Y H:i')
                                     ->seconds(false)
                                     ->minutesStep(15)
-                                    ->required(fn($get) => ReasonInteraction::requiresScheduling((int)$get('reason')))
-                                    ->visible(fn($get) => ReasonInteraction::requiresScheduling((int)$get('reason')))
+                                    ->required(fn($get) => ReasonInteraction::requiresScheduling((int) $get('reason')))
+                                    ->visible(fn($get) => ReasonInteraction::requiresScheduling((int) $get('reason')))
                                     ->helperText(__('telesale.helper.schedule_callback'))
                                     ->validationMessages(['required' => __('common.error.required')]),
                             ])
@@ -1007,8 +1038,8 @@ class CustomerOperationsTable
                                     ->displayFormat('d/m/Y H:i')
                                     ->seconds(false)
                                     ->minutesStep(15)
-                                    ->required(fn($get) => ReasonInteraction::requiresScheduling((int)$get('reason')))
-                                    ->visible(fn($get) => ReasonInteraction::requiresScheduling((int)$get('reason')))
+                                    ->required(fn($get) => ReasonInteraction::requiresScheduling((int) $get('reason')))
+                                    ->visible(fn($get) => ReasonInteraction::requiresScheduling((int) $get('reason')))
                                     ->helperText(__('telesale.helper.schedule_callback'))
                                     ->validationMessages(['required' => __('common.error.required')]),
                             ])
@@ -1045,7 +1076,7 @@ class CustomerOperationsTable
                         ->modalHeading(__('common.modal.delete_title'))
                         ->modalDescription(__('common.modal.delete_confirm'))
                         ->modalSubmitActionLabel(__('common.action.confirm_delete'))
-                        ->visible(fn($record) => ! $record->trashed()),
+                        ->visible(fn($record) => !$record->trashed()),
 
                     RestoreAction::make()
                         ->label(__('common.action.restore'))
