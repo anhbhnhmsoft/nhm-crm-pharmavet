@@ -4,10 +4,11 @@ namespace App\Services;
 
 use App\Common\Constants\Team\TeamType;
 use Illuminate\Support\Facades\DB;
-use App\Models\Product;
+use App\Repositories\ProductRepository;
 
 class ProductService
 {
+    public function __construct(protected ProductRepository $productRepository) {}
     /**
      * Đồng bộ user assignments qua pivot table
      */
@@ -68,9 +69,9 @@ class ProductService
     /**
      * Load relationships khi edit
      */
-    public static function mutateFormDataBeforeFill(array $data): array
+    public function mutateFormDataBeforeFill(array $data): array
     {
-        $productId = Product::with(['userAssignments'])->find($data['id']);
+        $productId = $this->productRepository->query()->with(['userAssignments'])->find($data['id']);
 
         if ($productId) {
             // Load sales users

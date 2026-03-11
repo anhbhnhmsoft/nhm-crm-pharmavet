@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Common\Constants\Order\GhnOrderStatus;
 use App\Common\Constants\Order\OrderStatus;
-use App\Common\Constants\Shipping\RequiredNote;
 use App\Core\ServiceReturn;
 use App\Models\Order;
 use App\Repositories\OrderRepository;
@@ -15,9 +14,9 @@ use Illuminate\Support\Facades\DB;
 class OrderService
 {
     public function __construct(
-        protected OrderRepository $orderRepository
-    ) {
-    }
+        protected OrderRepository $orderRepository,
+        protected GHNService $ghnService
+    ) {}
 
     public function postOrder(Order $order, array $data): ServiceReturn
     {
@@ -156,9 +155,7 @@ class OrderService
             // Get shipping config
             $config = $this->getShippingConfig($order);
 
-            // Initialize GHN Service
-            $ghnService = app(\App\Services\GHNService::class);
-            $ghnService->setToken($config['token'])->setShopId($config['shop_id']);
+            $this->ghnService->setToken($config['token'])->setShopId($config['shop_id']);
 
             // Prepare order items
             $items = $order->items->map(function ($item) {
@@ -199,7 +196,7 @@ class OrderService
             $params = array_filter($params, fn($value) => !is_null($value));
 
             // Call GHN API
-            $result = $ghnService->createOrder($params);
+            $result = $this->ghnService->createOrder($params);
 
             // Update order with GHN response
             $order->update([
@@ -242,9 +239,7 @@ class OrderService
             // Get shipping config
             $config = $this->getShippingConfig($order);
 
-            // Initialize GHN Service
-            $ghnService = app(\App\Services\GHNService::class);
-            $ghnService->setToken($config['token'])->setShopId($config['shop_id']);
+            $this->ghnService->setToken($config['token'])->setShopId($config['shop_id']);
 
             // Calculate total weight
             $totalWeight = $data['weight'] ?? ($order->weight ?? 0);
@@ -270,7 +265,7 @@ class OrderService
             // Remove null values
             $params = array_filter($params, fn($value) => !is_null($value));
 
-            $result = $ghnService->calculateFee($params);
+            $result = $this->ghnService->calculateFee($params);
 
             return ServiceReturn::success($result);
         } catch (\Exception $e) {

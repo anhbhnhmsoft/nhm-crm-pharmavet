@@ -25,6 +25,7 @@ use App\Repositories\RevenueRepository;
 use App\Repositories\ProductAttributeRepository;
 use App\Repositories\ProductRepository;
 use App\Repositories\ProductUserAssignmentRepository;
+use App\Repositories\ShippingConfigForWareHouseRepository;
 use App\Repositories\ShippingConfigRepository;
 use App\Repositories\TeamRepository;
 use App\Repositories\UserAssignedStaffRepository;
@@ -42,6 +43,18 @@ use App\Services\ReportService;
 use App\Services\ProductService;
 use App\Services\TeamService;
 use App\Services\UserService;
+use App\Repositories\InventoryTicketDetailRepository;
+use App\Repositories\ProductWarehouseRepository;
+use App\Repositories\WarehouseRepository;
+use App\Services\DashboardService;
+use App\Services\FundService;
+use App\Services\GHNService;
+use App\Services\GhnShippingService;
+use App\Services\Integrations\MetaBusinessService;
+use App\Services\LeadDistributionService;
+use App\Services\OrderService;
+use App\Services\ShippingConfigService;
+use App\Services\WarehouseService;
 use Filament\Support\Assets\Js;
 use Filament\Support\Facades\FilamentAsset;
 use Illuminate\Support\Facades\URL;
@@ -101,7 +114,10 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ReconciliationRepository::class);
         $this->app->bind(ExpenseRepository::class);
         $this->app->bind(RevenueRepository::class);
-
+        $this->app->bind(ShippingConfigForWareHouseRepository::class);
+        $this->app->bind(InventoryTicketDetailRepository::class);
+        $this->app->bind(ProductWarehouseRepository::class);
+        $this->app->bind(WarehouseRepository::class);
     }
 
     private function registerApplicationService(): void
@@ -119,6 +135,15 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ExchangeRateService::class);
         $this->app->bind(ReconciliationService::class);
         $this->app->bind(ReportService::class);
+        $this->app->bind(DashboardService::class);
+        $this->app->bind(FundService::class);
+        $this->app->bind(GHNService::class);
+        $this->app->bind(GhnShippingService::class);
+        $this->app->bind(MetaBusinessService::class);
+        $this->app->bind(LeadDistributionService::class);
+        $this->app->bind(OrderService::class);
+        $this->app->bind(ShippingConfigService::class);
+        $this->app->bind(WarehouseService::class);
     }
 
     private function registerObserver(): void

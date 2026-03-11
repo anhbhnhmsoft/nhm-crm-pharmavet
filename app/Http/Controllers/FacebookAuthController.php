@@ -14,17 +14,14 @@ use App\Services\Integrations\IntegrationService;
 
 class FacebookAuthController extends Controller
 {
-    protected MetaBusinessService $metaService;
-    protected IntegrationService $integrationService;
+
 
     /**
      * @param MetaBusinessService $metaService
      * @param IntegrationService $integrationService
      */
-    public function __construct(MetaBusinessService $metaService, IntegrationService $integrationService)
+    public function __construct(protected MetaBusinessService $metaService, protected IntegrationService $integrationService)
     {
-        $this->metaService = $metaService;
-        $this->integrationService = $integrationService;
     }
 
     /**
@@ -75,7 +72,7 @@ class FacebookAuthController extends Controller
 
         $integration = $result->getData();
 
-        // Handle OAuth callback
+        // Handle OAuth callback    
         $success = $this->metaService->handleCallback($integration);
 
         session()->forget(['integration_id', 'is_popup']);

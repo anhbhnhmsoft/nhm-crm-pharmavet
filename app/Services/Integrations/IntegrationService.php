@@ -9,13 +9,8 @@ use Throwable;
 
 class IntegrationService
 {
-    protected IntegrationRepository $integrationRepository;
-    /**
-     * @param IntegrationRepository $integrationRepository
-     */
-    public function __construct(IntegrationRepository $integrationRepository)
+    public function __construct(protected IntegrationRepository $integrationRepository)
     {
-        $this->integrationRepository = $integrationRepository;
     }
 
     /**
