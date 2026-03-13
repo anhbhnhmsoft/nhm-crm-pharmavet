@@ -164,25 +164,108 @@ class GHNService
         }
     }
 
+    /**
+     * Get list of provinces from GHN
+     *
+     * @return array
+     */
     public function getProvinces(): array
     {
-        // TODO: Implement province API
-        // https://online-gateway.ghn.vn/shiip/public-api/master-data/province
-        return [];
+        if (!$this->token) {
+            return [];
+        }
+
+        $cacheKey = "ghn_provinces";
+
+        return Cache::remember($cacheKey, 86400, function () {
+            $response = Http::withHeaders([
+                'Token' => $this->token,
+                'Content-Type' => 'application/json',
+            ])->get(APIGHN::GET_PROVINCE->url());
+
+            if (!$response->successful()) {
+                Logging::error('GHN Get Provinces Error', [
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+                return [];
+            }
+
+            $data = $response->json();
+            return $data['data'] ?? [];
+        });
     }
 
+    /**
+     * Get list of districts by province ID from GHN
+     *
+     * @param int $provinceId
+     * @return array
+     */
     public function getDistricts(int $provinceId): array
     {
-        // TODO: Implement district API
-        // https://online-gateway.ghn.vn/shiip/public-api/master-data/district
-        return [];
+        if (!$this->token || !$provinceId) {
+            return [];
+        }
+
+        $cacheKey = "ghn_districts_{$provinceId}";
+
+        return Cache::remember($cacheKey, 86400, function () use ($provinceId) {
+            $response = Http::withHeaders([
+                'Token' => $this->token,
+                'Content-Type' => 'application/json',
+            ])->get(APIGHN::GET_DISTRICT->url(), [
+                        'province_id' => $provinceId
+                    ]);
+
+            if (!$response->successful()) {
+                Logging::error('GHN Get Districts Error', [
+                    'province_id' => $provinceId,
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+                return [];
+            }
+
+            $data = $response->json();
+            return $data['data'] ?? [];
+        });
     }
 
+    /**
+     * Get list of wards by district ID from GHN
+     *
+     * @param int $districtId
+     * @return array
+     */
     public function getWards(int $districtId): array
     {
-        // TODO: Implement ward API
-        // https://online-gateway.ghn.vn/shiip/public-api/master-data/ward
-        return [];
+        if (!$this->token || !$districtId) {
+            return [];
+        }
+
+        $cacheKey = "ghn_wards_{$districtId}";
+
+        return Cache::remember($cacheKey, 86400, function () use ($districtId) {
+            $response = Http::withHeaders([
+                'Token' => $this->token,
+                'Content-Type' => 'application/json',
+            ])->get(APIGHN::GET_WARD->url(), [
+                        'district_id' => $districtId
+                    ]);
+
+            if (!$response->successful()) {
+                Logging::error('GHN Get Wards Error', [
+                    'district_id' => $districtId,
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+                return [];
+            }
+
+            $data = $response->json();
+            return $data['data'] ?? [];
+        });
     }
 
     public function calculateFee(array $params): array

@@ -133,45 +133,7 @@ class TelesaleOperationForm
                         'md' => 6,
                         'default' => 3,
                     ]),
-                Group::make()
-                    ->schema([
-                        Section::make(__('telesale.form.shipping_info'))
-                            ->schema([
-                                Select::make('province_id')
-                                    ->label(__('warehouse.order.form.province'))
-                                    ->options(Province::all()->pluck('name', 'id'))
-                                    ->searchable()
-                                    ->live()
-                                    ->afterStateUpdated(function ($state, callable $set) {
-                                        $set('district_id', null);
-                                        $set('ward_id', null);
-                                    })
-                                    ->required()
-                                    ->validationMessages([
-                                        'required' => __('common.error.required'),
-                                    ]),
-                                Select::make('district_id')
-                                    ->label(__('warehouse.order.form.district'))
-                                    ->options(fn($get) => District::where('province_id', $get('province_id'))->pluck('name', 'id'))
-                                    ->searchable()
-                                    ->live()
-                                    ->afterStateUpdated(function ($state, callable $set) {
-                                        $set('ward_id', null);
-                                    })
-                                    ->required()
-                                    ->validationMessages([
-                                        'required' => __('common.error.required'),
-                                    ]),
-                                Select::make('ward_id')
-                                    ->label(__('warehouse.order.form.ward'))
-                                    ->options(fn($get) => Ward::where('district_id', $get('district_id'))->pluck('name', 'id'))
-                                    ->searchable()
-                                    ->required()->validationMessages([
-                                            'required' => __('common.error.required'),
-                                        ]),
-                            ]),
-                    ])
-                    ->columnSpanFull(),
+
 
                 // Group::make()
                 //     ->schema([

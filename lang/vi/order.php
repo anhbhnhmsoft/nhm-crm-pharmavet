@@ -92,6 +92,13 @@ return [
         'shipping_fee' => 'Phí vận chuyển',
         'deposit' => 'Đã đặt cọc',
         'not_posted' => 'Chưa đăng đơn',
+        'organization' => 'Tổ chức',
+    ],
+    'filter' => [
+        'organization' => 'Tổ chức',
+        'status' => 'Trạng thái',
+        'warehouse' => 'Kho',
+        'ghn_status' => 'Trạng thái vận đơn',
     ],
     'notification' => [
         'post_order_queued' => 'Đăng đơn đã được thêm vào hàng đợi',

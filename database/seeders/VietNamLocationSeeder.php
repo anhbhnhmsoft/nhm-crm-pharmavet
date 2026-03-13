@@ -48,13 +48,13 @@ class VietNamLocationSeeder extends Seeder
 
             // Insert và lấy ID
             $id = DB::table('provinces')->insertGetId([
-                'code'          => $provinceCode,
-                'name'          => $province['name'],
-                'code_name'     => $province['codename'] ?? '',
+                'code' => $provinceCode,
+                'name' => $province['name'],
+                'code_name' => $province['codename'] ?? '',
                 'division_type' => $province['division_type'] ?? 'Tỉnh',
-                'metadata'      => json_encode($province),
-                'created_at'    => now(),
-                'updated_at'    => now(),
+                'metadata' => json_encode($province),
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
 
             $provinceMap[$provinceCode] = $id;
@@ -90,15 +90,15 @@ class VietNamLocationSeeder extends Seeder
 
             // Insert và lấy ID
             $id = DB::table('districts')->insertGetId([
-                'code'          => $districtCode,
-                'name'          => $district['name'],
-                'code_name'     => $district['codename'] ?? '',
+                'code' => $districtCode,
+                'name' => $district['name'],
+                'code_name' => $district['codename'] ?? '',
                 'division_type' => $district['division_type'] ?? 'Quận',
-                'province_id'   => $provinceId,
+                'province_id' => $provinceId,
                 'province_code' => $provinceCode,
-                'metadata'      => json_encode($district),
-                'created_at'    => now(),
-                'updated_at'    => now(),
+                'metadata' => json_encode($district),
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
 
             $districtMap[$districtCode] = $id;
@@ -133,15 +133,15 @@ class VietNamLocationSeeder extends Seeder
             }
 
             DB::table('wards')->insert([
-                'code'          => $wardCode,
-                'name'          => $ward['name'],
-                'code_name'     => $ward['codename'] ?? '',
+                'code' => $wardCode,
+                'name' => $ward['name'],
+                'code_name' => $ward['codename'] ?? '',
                 'division_type' => $ward['division_type'] ?? 'Phường',
-                'district_id'   => $districtId,
+                'district_id' => $districtId,
                 'district_code' => $districtCode,
-                'metadata'      => json_encode($ward),
-                'created_at'    => now(),
-                'updated_at'    => now(),
+                'metadata' => json_encode($ward),
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
             $wardCount++;
         }

@@ -56,6 +56,13 @@ class Order extends Model
         'shipping_provider_code',
         'amount_recived_from_customer',
         'amout_support_fee',
+        'ghn_cod_failed_amount',
+        'ghn_content',
+        'ghn_pick_station_id',
+        'ghn_deliver_station_id',
+        'ghn_province_id',
+        'ghn_district_id',
+        'ghn_ward_code',
     ];
 
     protected $casts = [
