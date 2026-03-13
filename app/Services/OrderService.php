@@ -5,10 +5,11 @@ namespace App\Services;
 use App\Common\Constants\Order\GhnOrderStatus;
 use App\Common\Constants\Order\OrderStatus;
 use App\Core\ServiceReturn;
+use App\Jobs\ProcessGHNOrderJob;
 use App\Models\Order;
-use App\Repositories\OrderRepository;
 use App\Models\ShippingConfig;
 use App\Models\ShippingConfigForWarehouse;
+use App\Repositories\OrderRepository;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -117,6 +118,20 @@ class OrderService
                 'ck1' => $ck1,
                 'ck2' => $ck2,
                 'required_note' => $data['required_note'] ?? null,
+                'weight' => $data['weight'] ?? null,
+                'length' => $data['length'] ?? null,
+                'width' => $data['width'] ?? null,
+                'height' => $data['height'] ?? null,
+                'insurance_value' => $data['insurance_value'] ?? 0,
+                'ghn_payment_type_id' => $data['ghn_payment_type_id'] ?? null,
+                'ghn_service_type_id' => $data['ghn_service_type_id'] ?? null,
+                'ghn_content' => $data['ghn_content'] ?? null,
+                'ghn_cod_failed_amount' => $data['ghn_cod_failed_amount'] ?? 0,
+                'ghn_pick_station_id' => $data['ghn_pick_station_id'] ?? null,
+                'ghn_deliver_station_id' => $data['ghn_deliver_station_id'] ?? null,
+                'ghn_province_id' => $data['ghn_province_id'] ?? null,
+                'ghn_district_id' => $data['ghn_district_id'] ?? null,
+                'ghn_ward_code' => $data['ghn_ward_code'] ?? null,
                 'updated_by' => $data['updated_by'],
             ];
 
@@ -125,7 +140,7 @@ class OrderService
                 $existingOrder->items()->delete();
                 $order = $existingOrder;
             } else {
-                $orderData['code'] = 'ORD-' . time(); // Simple code generation
+                $orderData['code'] = $data['code'] ?? ('ORD-' . time());
                 $orderData['created_by'] = $data['created_by'];
                 $order = $this->orderRepository->create($orderData);
             }
@@ -138,6 +153,11 @@ class OrderService
                     'price' => $item['price'],
                     'total' => ($item['quantity'] * $item['price']),
                 ]);
+            }
+
+            // Auto-post to GHN if confirmed
+            if ($order->status == OrderStatus::CONFIRMED->value) {
+                ProcessGHNOrderJob::dispatch($order, 'post')->onQueue('post_ghn_order');
             }
 
             DB::commit();
@@ -161,9 +181,13 @@ class OrderService
             $items = $order->items->map(function ($item) {
                 return [
                     'name' => $item->product->name,
+                    'code' => $item->product->sku ?? $item->product->barcode,
                     'quantity' => $item->quantity,
                     'price' => (int) $item->price,
-                    'weight' => $item->product->weight ?? 200,
+                    'weight' => (int) ($item->product->weight ?? 200),
+                    'length' => (int) ($item->product->length ?? 10),
+                    'width' => (int) ($item->product->width ?? 10),
+                    'height' => (int) ($item->product->height ?? 5),
                 ];
             })->toArray();
 
@@ -183,13 +207,17 @@ class OrderService
                 'cod_amount' => (int) ($order->total_amount - $order->deposit),
                 'items' => $items,
                 'service_type_id' => $order->ghn_service_type_id ?? 2, // 2: Standard
-                'weight' => $totalWeight,
-                'length' => $order->length,
-                'width' => $order->width,
-                'height' => $order->height,
-                'insurance_value' => $order->insurance_value,
+                'weight' => (int) min(20000, ($order->weight ?? $totalWeight)),
+                'length' => (int) min(200, ($order->length ?? 10)),
+                'width' => (int) min(200, ($order->width ?? 10)),
+                'height' => (int) min(200, ($order->height ?? 5)),
+                'insurance_value' => (int) $order->insurance_value,
                 'coupon' => $order->coupon,
                 'client_order_code' => $order->code,
+                'content' => $order->ghn_content ?? $order->note,
+                'cod_failed_amount' => (int) $order->ghn_cod_failed_amount,
+                'pick_station_id' => $order->ghn_pick_station_id,
+                'deliver_station_id' => $order->ghn_deliver_station_id,
             ];
 
             // Remove null values
@@ -349,22 +377,38 @@ class OrderService
 
     protected function getWardCode(Order $order): ?string
     {
+        if ($order->ghn_ward_code) {
+            return trim($order->ghn_ward_code);
+        }
+
         if (!$order->ward_id) {
             return null;
         }
 
         $ward = \App\Models\Ward::find($order->ward_id);
-        return $ward?->code;
+        if (!$ward)
+            return null;
+
+        // Ưu tiên dùng ghn_code (từ GHN API), fallback về code nội bộ
+        return $ward->ghn_code ? trim($ward->ghn_code) : trim($ward->code);
     }
 
     protected function getDistrictCode(Order $order): ?int
     {
+        if ($order->ghn_district_id) {
+            return (int) $order->ghn_district_id;
+        }
+
         if (!$order->district_id) {
             return null;
         }
 
         $district = \App\Models\District::find($order->district_id);
-        return $district ? (int) $district->code : null;
+        if (!$district)
+            return null;
+
+        // Ưu tiên dùng ghn_id (từ GHN API), fallback về code nội bộ
+        return $district->ghn_id ? (int) $district->ghn_id : (int) $district->code;
     }
 
     protected function generateRefreshedCode(string $currentCode): string

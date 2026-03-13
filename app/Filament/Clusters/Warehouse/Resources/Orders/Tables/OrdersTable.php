@@ -38,6 +38,12 @@ class OrdersTable
                     ->copyable()
                     ->tooltip(__('order.table.click_to_copy')),
 
+                TextColumn::make('organization.name')
+                    ->label(__('order.table.organization'))
+                    ->searchable()
+                    ->sortable()
+                    ->toggleable(),
+
                 TextColumn::make('customer.username')
                     ->label(__('order.table.customer'))
                     ->searchable()
@@ -130,6 +136,12 @@ class OrdersTable
                     ->label(__('order.filter.ghn_status'))
                     ->options(GhnOrderStatus::toOptions())
                     ->multiple(),
+
+                SelectFilter::make('organization_id')
+                    ->label(__('order.filter.organization'))
+                    ->relationship('organization', 'name')
+                    ->searchable()
+                    ->preload(),
             ])
             ->recordActions([
                 ActionGroup::make([

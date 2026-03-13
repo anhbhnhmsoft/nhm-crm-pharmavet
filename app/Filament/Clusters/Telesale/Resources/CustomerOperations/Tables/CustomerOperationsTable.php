@@ -14,8 +14,11 @@ use App\Models\Order;
 use App\Models\Product;
 use App\Models\Province;
 use App\Models\Ward;
+use App\Models\Organization;
 use App\Services\OrderService;
 use App\Common\Constants\User\UserRole;
+use App\Common\Constants\Order\PaymentType;
+use App\Common\Constants\Order\ServiceType;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
@@ -32,6 +35,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\Placeholder;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Tables\Columns\TextColumn;
@@ -141,6 +145,21 @@ class CustomerOperationsTable
                                     ];
                                 })->toArray();
                                 $data['status_action'] = $order->status;
+                                $data['weight'] = $order->weight;
+                                $data['length'] = $order->length;
+                                $data['width'] = $order->width;
+                                $data['height'] = $order->height;
+                                $data['ghn_payment_type_id'] = $order->ghn_payment_type_id;
+                                $data['ghn_service_type_id'] = $order->ghn_service_type_id;
+                                $data['ghn_content'] = $order->ghn_content;
+                                $data['insurance_value'] = $order->insurance_value;
+                                $data['ghn_cod_failed_amount'] = $order->ghn_cod_failed_amount;
+                                $data['ghn_pick_station_id'] = $order->ghn_pick_station_id;
+                                $data['ghn_deliver_station_id'] = $order->ghn_deliver_station_id;
+                                $data['ghn_province_id'] = $order->ghn_province_id;
+                                $data['ghn_district_id'] = $order->ghn_district_id;
+                                $data['ghn_ward_code'] = $order->ghn_ward_code;
+                                $data['client_order_code'] = $order->code;
                                 // Map customer info from order if needed, or keep current
                                 $form->fill($data);
                             } else {
@@ -151,6 +170,8 @@ class CustomerOperationsTable
                                     'province_id' => $record->province_id,
                                     'district_id' => $record->district_id,
                                     'ward_id' => $record->ward_id,
+                                    'organization_id' => $record->organization_id,
+                                    'client_order_code' => 'ORD-' . time(),
                                     'status_action' => OrderStatus::CONFIRMED->value,
                                 ]);
                             }
@@ -166,40 +187,124 @@ class CustomerOperationsTable
                                             TextInput::make('phone')->label(__('warehouse.order.form.phone'))->formatStateUsing(fn($record) => $record->phone)->disabled(),
                                             Select::make('province_id')
                                                 ->label(__('warehouse.order.form.province'))
-                                                ->formatStateUsing(fn($record) => $record->province_id)
                                                 ->options(Province::all()->pluck('name', 'id'))
                                                 ->searchable()
                                                 ->live()
-                                                ->afterStateUpdated(fn($state, $get, $set) => $set('district_id', null))
-                                                ->required()
-                                                ->validationMessages([
-                                                    'required' => __('common.error.required')
-                                                ]),
+                                                ->hidden(fn(Get $get) => $get('shipping_method') === ProviderShipping::GHN->value)
+                                                ->afterStateUpdated(fn(Set $set) => $set('district_id', null))
+                                                ->required(fn(Get $get) => $get('shipping_method') !== ProviderShipping::GHN->value),
                                             Select::make('district_id')
                                                 ->label(__('warehouse.order.form.district'))
-                                                ->formatStateUsing(fn($record) => $record->district_id)
                                                 ->options(fn($get) => District::where('province_id', $get('province_id'))->pluck('name', 'id'))
                                                 ->searchable()
                                                 ->live()
-                                                ->afterStateUpdated(fn($state, $get, $set) => $set('ward_id', null))
-                                                ->required()
-                                                ->validationMessages([
-                                                    'required' => __('common.error.required')
-                                                ]),
+                                                ->hidden(fn(Get $get) => $get('shipping_method') === ProviderShipping::GHN->value)
+                                                ->afterStateUpdated(fn(Set $set) => $set('ward_id', null))
+                                                ->required(fn(Get $get) => $get('shipping_method') !== ProviderShipping::GHN->value),
                                             Select::make('ward_id')
                                                 ->label(__('warehouse.order.form.ward'))
-                                                ->formatStateUsing(fn($record) => $record->ward_id)
                                                 ->options(fn($get) => Ward::where('district_id', $get('district_id'))->pluck('name', 'id'))
                                                 ->searchable()
-                                                ->required()
-                                                ->validationMessages([
-                                                    'required' => __('common.error.required')
-                                                ]),
+                                                ->hidden(fn(Get $get) => $get('shipping_method') === ProviderShipping::GHN->value)
+                                                ->required(fn(Get $get) => $get('shipping_method') !== ProviderShipping::GHN->value),
+                                            Select::make('ghn_province_id')
+                                                ->label(__('warehouse.order.form.province') . ' (GHN)')
+                                                ->options(function (Get $get) {
+                                    $orgId = $get('organization_id');
+                                    if (!$orgId)
+                                        return [];
+                                    try {
+                                        $ghn = new \App\Services\GHNService(app(\App\Repositories\ShippingConfigRepository::class), (int) $orgId);
+                                        $provinces = $ghn->getProvinces();
+                                        return collect($provinces)->pluck('ProvinceName', 'ProvinceID');
+                                    } catch (\Exception $e) {
+                                        return [];
+                                    }
+                                })
+                                                ->searchable()
+                                                ->live()
+                                                ->visible(fn(Get $get) => $get('shipping_method') === ProviderShipping::GHN->value)
+                                                ->afterStateUpdated(function (Set $set) {
+                                    $set('ghn_district_id', null);
+                                    $set('ghn_ward_code', null);
+                                })
+                                                ->required(fn(Get $get) => $get('shipping_method') === ProviderShipping::GHN->value),
+                                            Select::make('ghn_district_id')
+                                                ->label(__('warehouse.order.form.district') . ' (GHN)')
+                                                ->options(function (Get $get) {
+                                    $orgId = $get('organization_id');
+                                    $provinceId = $get('ghn_province_id');
+                                    if (!$orgId || !$provinceId)
+                                        return [];
+                                    try {
+                                        $ghn = new \App\Services\GHNService(app(\App\Repositories\ShippingConfigRepository::class), (int) $orgId);
+                                        $districts = $ghn->getDistricts((int) $provinceId);
+                                        return collect($districts)->pluck('DistrictName', 'DistrictID');
+                                    } catch (\Exception $e) {
+                                        return [];
+                                    }
+                                })
+                                                ->searchable()
+                                                ->live()
+                                                ->visible(fn(Get $get) => $get('shipping_method') === ProviderShipping::GHN->value)
+                                                ->afterStateUpdated(fn(Set $set) => $set('ghn_ward_code', null))
+                                                ->required(fn(Get $get) => $get('shipping_method') === ProviderShipping::GHN->value),
+                                            Select::make('ghn_ward_code')
+                                                ->label(__('warehouse.order.form.ward') . ' (GHN)')
+                                                ->options(function (Get $get) {
+                                    $orgId = $get('organization_id');
+                                    $districtId = $get('ghn_district_id');
+                                    if (!$orgId || !$districtId)
+                                        return [];
+                                    try {
+                                        $ghn = new \App\Services\GHNService(app(\App\Repositories\ShippingConfigRepository::class), (int) $orgId);
+                                        $wards = $ghn->getWards((int) $districtId);
+                                        return collect($wards)->pluck('WardName', 'WardCode');
+                                    } catch (\Exception $e) {
+                                        return [];
+                                    }
+                                })
+                                                ->searchable()
+                                                ->visible(fn(Get $get) => $get('shipping_method') === ProviderShipping::GHN->value)
+                                                ->required(fn(Get $get) => $get('shipping_method') === ProviderShipping::GHN->value),
+
                                             TextInput::make('address')->label(__('warehouse.order.form.address'))->formatStateUsing(fn($record) => $record->address),
                                         ]),
                                     Section::make(__('warehouse.order.form.info'))
                                         ->columnSpan(2)
                                         ->schema([
+                                            Select::make('organization_id')
+                                                ->label(__('telesale.table.organization'))
+                                                ->options(Organization::all()->pluck('name', 'id'))
+                                                ->searchable()
+                                                ->live()
+                                                ->required()
+                                                ->afterStateUpdated(fn(Set $set) => $set('items', [])),
+                                            TextInput::make('client_order_code')
+                                                ->label(__('warehouse.order.form.client_order_code'))
+                                                ->placeholder('ORD-XXXXXXX')
+                                                ->required()
+                                                ->rules(function ($record) {
+                                    return [
+                                        function (string $attribute, $value, $fail) use ($record) {
+                                            $query = Order::where('code', $value);
+
+                                            // Find if this customer already has an order we should ignore
+                                            $existingOrder = Order::where('customer_id', $record->id)
+                                                ->whereIn('status', [OrderStatus::PENDING->value, OrderStatus::CONFIRMED->value])
+                                                ->latest()
+                                                ->first();
+
+                                            if ($existingOrder) {
+                                                $query->where('id', '<>', $existingOrder->id);
+                                            }
+
+                                            if ($query->exists()) {
+                                                $fail(__('validation.unique', ['attribute' => __('warehouse.order.form.client_order_code')]));
+                                            }
+                                        },
+                                    ];
+                                }),
                                             Select::make('shipping_method')
                                                 ->label(__('warehouse.order.form.shipping_method'))
                                                 ->options(ProviderShipping::getOptions())
@@ -216,12 +321,16 @@ class CustomerOperationsTable
                                                     'required' => __('common.error.required')
                                                 ]),
 
+                                            Placeholder::make('logistics_helper')
+                                                ->label('')
+                                                ->content(fn() => new \Illuminate\Support\HtmlString('<div class="text-xs text-gray-500 italic">* Trọng lượng và kích thước sẽ tự động tính toán dựa trên sản phẩm đã chọn.</div>')),
+
                                             Repeater::make('items')
                                                 ->label(__('warehouse.order.form.product'))
                                                 ->schema([
                                                     Select::make('product_id')
                                                         ->label(__('warehouse.order.form.product'))
-                                                        ->options(Product::all()->pluck('name', 'id'))
+                                                        ->options(fn(Get $get) => Product::where('organization_id', $get('../../organization_id'))->pluck('name', 'id'))
                                                         ->searchable()
                                                         ->required()
                                                         ->live()
@@ -229,13 +338,32 @@ class CustomerOperationsTable
                                         $product = Product::find($state);
                                         if ($product) {
                                             $set('price', $product->sale_price ?? 0);
+                                            $set('quantity', 1);
+                                            $set('total', $product->sale_price ?? 0);
+
+                                            // Update logistics immediately for this item
+                                            $items = $get('../../items') ?? [];
+                                            $totalWeight = 0;
+                                            $maxLength = 0;
+                                            $maxWidth = 0;
+                                            $totalHeight = 0;
+
+                                            foreach ($items as $item) {
+                                                $p = Product::find($item['product_id']);
+                                                if ($p) {
+                                                    $qty = $item['quantity'] ?? 1;
+                                                    $totalWeight += ($p->weight ?? 200) * $qty;
+                                                    $maxLength = max($maxLength, $p->length ?? 10);
+                                                    $maxWidth = max($maxWidth, $p->width ?? 10);
+                                                    $totalHeight += ($p->height ?? 5) * $qty;
+                                                }
+                                            }
+
+                                            $set('../../weight', $totalWeight);
+                                            $set('../../length', $maxLength);
+                                            $set('../../width', $maxWidth);
+                                            $set('../../height', $totalHeight);
                                         }
-                                    })
-                                                        ->required()
-                                                        ->live()
-                                                        ->afterStateUpdated(function ($state, $get, $set) {
-                                        $set('quantity', 1);
-                                        $set('total', $get('price') * $get('quantity'));
                                     })
                                                         ->validationMessages([
                                                             'required' => __('common.error.required')
@@ -248,6 +376,29 @@ class CustomerOperationsTable
                                                         ->live(onBlur: true)
                                                         ->afterStateUpdated(function ($state, $get, $set) {
                                         $set('total', $state * $get('price'));
+
+                                        // Update logistics
+                                        $items = $get('../../items') ?? [];
+                                        $totalWeight = 0;
+                                        $maxLength = 0;
+                                        $maxWidth = 0;
+                                        $totalHeight = 0;
+
+                                        foreach ($items as $item) {
+                                            $product = Product::find($item['product_id']);
+                                            if ($product) {
+                                                $qty = $item['quantity'] ?? 1;
+                                                $totalWeight += ($product->weight ?? 200) * $qty;
+                                                $maxLength = max($maxLength, $product->length ?? 10);
+                                                $maxWidth = max($maxWidth, $product->width ?? 10);
+                                                $totalHeight += ($product->height ?? 5) * $qty;
+                                            }
+                                        }
+
+                                        $set('../../weight', $totalWeight);
+                                        $set('../../length', $maxLength);
+                                        $set('../../width', $maxWidth);
+                                        $set('../../height', $totalHeight);
                                     })
                                                         ->required()
                                                         ->validationMessages([
@@ -286,6 +437,7 @@ class CustomerOperationsTable
                                 }),
 
                                             Grid::make(3)->schema([
+                                                // TextInput::make('shipping_fee')->label(__('warehouse.order.form.shipping_fee'))->numeric()->default(0),
                                                 TextInput::make('discount')
                                                     ->label(__('warehouse.order.form.discount'))
                                                     ->numeric()
@@ -359,6 +511,43 @@ class CustomerOperationsTable
 
                                             TextInput::make('deposit')->label(__('warehouse.order.form.deposit'))->numeric()->default(0),
 
+                                            Section::make(__('Logistics GHN'))
+                                                ->schema([
+                                                    Grid::make(4)->schema([
+                                                        TextInput::make('weight')->label(__('warehouse.order.form.weight'))->numeric()->suffix('g')->required()->minValue(1)->maxValue(20000),
+                                                        TextInput::make('length')->label(__('warehouse.order.form.length'))->numeric()->suffix('cm')->required()->minValue(1)->maxValue(200),
+                                                        TextInput::make('width')->label(__('warehouse.order.form.width'))->numeric()->suffix('cm')->required()->minValue(1)->maxValue(200),
+                                                        TextInput::make('height')->label(__('warehouse.order.form.height'))->numeric()->suffix('cm')->required()->minValue(1)->maxValue(200),
+                                                    ]),
+                                                    Grid::make(3)->schema([
+                                                        Select::make('ghn_payment_type_id')
+                                                            ->label(__('warehouse.order.form.ghn_payment_type_id'))
+                                                            ->options(PaymentType::toOptions())
+                                                            ->default(PaymentType::BUYER_PAYS_COD->value)
+                                                            ->required(),
+                                                        Select::make('ghn_service_type_id')
+                                                            ->label(__('warehouse.order.form.ghn_service_type_id'))
+                                                            ->options(ServiceType::toOptions())
+                                                            ->default(ServiceType::LIGHT->value)
+                                                            ->required(),
+                                                        TextInput::make('insurance_value')
+                                                            ->label(__('warehouse.order.form.insurance_value'))
+                                                            ->numeric()
+                                                            ->default(0),
+                                                        TextInput::make('ghn_cod_failed_amount')
+                                                            ->label(__('warehouse.order.form.ghn_cod_failed_amount'))
+                                                            ->numeric()
+                                                            ->default(0),
+                                                        TextInput::make('ghn_pick_station_id')
+                                                            ->label(__('warehouse.order.form.ghn_pick_station_id'))
+                                                            ->numeric(),
+                                                        TextInput::make('ghn_deliver_station_id')
+                                                            ->label(__('warehouse.order.form.ghn_deliver_station_id'))
+                                                            ->numeric(),
+                                                    ]),
+                                                    Textarea::make('ghn_content')->label(__('warehouse.order.form.ghn_content'))->rows(2),
+                                                ]),
+
                                             Radio::make('status_action')
                                                 ->label(__('warehouse.order.form.status_action'))
                                                 ->options([
@@ -400,7 +589,8 @@ class CustomerOperationsTable
                             ]);
 
                             $data['customer_id'] = $record->id;
-                            $data['organization_id'] = $record->organization_id;
+                            $data['organization_id'] = $data['organization_id'] ?? $record->organization_id;
+                            $data['code'] = $data['client_order_code'];
                             $data['created_by'] = Auth::id();
                             $data['updated_by'] = Auth::id();
 
