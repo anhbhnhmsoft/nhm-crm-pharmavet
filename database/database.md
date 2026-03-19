@@ -416,6 +416,33 @@
     - required_note : (varchar(50), nullable) -- lưu ý xem hàng GHN
     - created_by : (int, foreign key -> users.id, nullable) -- người tạo
     - updated_by : (int, foreign key -> users.id, nullable) -- người cập nhật
+    - warehouse_id: (int, foreign key -> warehouses.id, nullable) -- kho hàng vận hành đơn
+    - ghn_order_code: (varchar(100), nullable) -- mã đơn hàng từ GHN
+    - ghn_expected_delivery_time: (timestamp, nullable) -- thời gian giao hàng dự kiến
+    - ghn_service_type_id: (integer, nullable) -- loại dịch vụ GHN
+    - ghn_service_name: (varchar(100), nullable) -- tên dịch vụ GHN
+    - ghn_payment_type_id: (integer, nullable) -- hình thức thanh toán GHN
+    - ghn_total_fee: (decimal(15,2), nullable) -- tổng phí ship GHN
+    - ghn_response: (text, nullable) -- response từ GHN API
+    - ghn_status: (varchar(50), nullable) -- trạng thái đơn hàng trên GHN
+    - ghn_posted_at: (timestamp, nullable) -- thời gian đăng đơn lên GHN
+    - ghn_cancelled_at: (timestamp, nullable) -- thời gian hủy đơn trên GHN
+    - weight: (integer, nullable) -- khối lượng (gram)
+    - length: (integer, nullable) -- chiều dài (cm)
+    - width: (integer, nullable) -- chiều rộng (cm)
+    - height: (integer, nullable) -- chiều cao (cm)
+    - insurance_value: (varchar(50), nullable) -- giá trị bảo hiểm
+    - coupon: (varchar(50), nullable) -- mã giảm giá
+    - shipping_provider_code: (varchar(100), nullable) -- mã nhà cung cấp vận chuyển
+    - amount_recived_from_customer: (decimal(15,2), nullable) -- tiền nhận từ khách hàng
+    - amout_support_fee: (decimal(15,2), default 0) -- phí hỗ trợ
+    - ghn_cod_failed_amount: (decimal(15,2), nullable) -- phí giao thất bại thu tiền
+    - ghn_content: (text, nullable) -- nội dung đơn hàng (GHN)
+    - ghn_pick_station_id: (integer, nullable) -- trạm lấy hàng
+    - ghn_deliver_station_id: (integer, nullable) -- trạm giao hàng
+    - ghn_province_id: (integer, nullable) -- ID tỉnh/thành phố (GHN)
+    - ghn_district_id: (integer, nullable) -- ID quận/huyện (GHN)
+    - ghn_ward_code: (varchar(20), nullable) -- mã phường/xã (GHN)
     - softDeletes
     - timestamps
     - index [status]
@@ -719,7 +746,7 @@
     - total_fee: (decimal(15, 2), default 0) -- tổng phí
     - exchange_rate_id: (int, foreign key -> exchange_rates.id, nullable) -- tỉ giá (cho đơn vị nước ngoài)
     - converted_amount: (decimal(15, 2), nullable) -- số tiền sau khi quy đổi theo tỉ giá
-    - status: (tinyint, default 1) -- 1: pending, 2: confirmed, 3: cancelled
+    - status: (tinyint, default 1) -- 1: pending, 2: confirmed, 3: cancelled, 4: paid
     - note: (text, nullable) -- ghi chú
     - created_by: (int, foreign key -> users.id, nullable) -- người tạo
     - confirmed_by: (int, foreign key -> users.id, nullable) -- người xác nhận

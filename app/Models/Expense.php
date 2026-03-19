@@ -16,7 +16,10 @@ class Expense extends Model
         'expense_date',
         'category',
         'description',
+        'unit_price',
+        'quantity',
         'amount',
+        'attachments',
         'order_id',
         'reconciliation_id',
         'note',
@@ -25,7 +28,9 @@ class Expense extends Model
 
     protected $casts = [
         'expense_date' => 'date',
+        'unit_price' => 'decimal:2',
         'amount' => 'decimal:2',
+        'attachments' => 'array',
     ];
 
     public function organization(): BelongsTo

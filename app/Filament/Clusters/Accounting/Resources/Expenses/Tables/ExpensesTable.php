@@ -30,13 +30,9 @@ class ExpensesTable
                     ->formatStateUsing(fn($state) => ExpenseCategory::tryFrom($state)?->getLabel())
                     ->badge()
                     ->color(fn($state) => match ($state) {
-                        ExpenseCategory::SALES->value => 'success',
                         ExpenseCategory::MARKETING->value => 'warning',
-                        ExpenseCategory::RECONCILIATION->value => 'info',
-                        ExpenseCategory::SHIPPING_AUTO->value => 'primary',
-                        ExpenseCategory::MANAGEMENT->value => 'danger',
-                        ExpenseCategory::OFFICE->value => 'gray',
-                        ExpenseCategory::SPENDING->value => 'warning',
+                        ExpenseCategory::OPERATIONAL->value => 'success',
+                        ExpenseCategory::FINANCIAL->value => 'primary',
                         ExpenseCategory::OTHER->value => 'gray',
                         ExpenseCategory::COST_OF_GOODS->value => 'danger',
                         default => 'gray',
@@ -48,11 +44,31 @@ class ExpensesTable
                     ->searchable()
                     ->limit(50),
 
+                TextColumn::make('unit_price')
+                    ->label('Đơn giá')
+                    ->money('VND')
+                    ->sortable()
+                    ->toggleable(),
+
+                TextColumn::make('quantity')
+                    ->label('Số lượng')
+                    ->sortable()
+                    ->alignCenter()
+                    ->toggleable(),
+
                 TextColumn::make('amount')
                     ->label(__('accounting.expense.amount'))
                     ->money('VND')
                     ->sortable()
+                    ->weight('bold')
                     ->summarize(\Filament\Tables\Columns\Summarizers\Sum::make()->money('VND')),
+
+                TextColumn::make('attachments')
+                    ->label('Chứng từ')
+                    ->formatStateUsing(fn($state) => count($state ?? []) > 0 ? count($state) . ' file' : '-')
+                    ->icon('heroicon-o-paper-clip')
+                    ->color('info')
+                    ->alignCenter(),
 
                 TextColumn::make('createdBy.name')
                     ->label(__('accounting.expense.created_by'))
