@@ -474,6 +474,94 @@ class ReconciliationService
     }
 
     /**
+     * Xử lý đối soát hàng loạt
+     * 
+     * @param int $organizationId
+     * @param array $items
+     */
+    public function processBatchReconciliation(int $organizationId, array $items): ServiceReturn
+    {
+        try {
+            $updated = 0;
+            $skipped = 0;
+            $notFound = [];
+
+            foreach ($items as $item) {
+                $code = trim($item['ghn_order_code'] ?? '');
+                $targetStatus = (int) ($item['target_status'] ?? 0);
+
+                if (empty($code) || $targetStatus === 0) {
+                    continue;
+                }
+
+                $reconciliation = $this->reconciliationRepository->query()
+                    ->where('organization_id', $organizationId)
+                    ->where('ghn_order_code', $code)
+                    ->first();
+
+                if ($reconciliation) {
+                    if ((int) $reconciliation->status >= $targetStatus) {
+                        $skipped++;
+                        continue;
+                    }
+
+                    $updateData = [
+                        'status' => $targetStatus,
+                        'cod_amount' => (float) ($item['cod_amount'] ?? $reconciliation->cod_amount),
+                        'shipping_fee' => (float) ($item['shipping_fee'] ?? $reconciliation->shipping_fee),
+                        'total_fee' => (float) ($item['total_fee'] ?? $reconciliation->total_fee),
+                        'ghn_employee_note' => $item['ghn_employee_note'] ?? $reconciliation->ghn_employee_note,
+                        'ghn_to_name' => $item['ghn_to_name'] ?? $reconciliation->ghn_to_name,
+                        'ghn_to_phone' => $item['ghn_to_phone'] ?? $reconciliation->ghn_to_phone,
+                        'ghn_to_address' => $item['ghn_to_address'] ?? $reconciliation->ghn_to_address,
+                    ];
+
+                    if (!empty($item['reconciliation_date'])) {
+                        $updateData['reconciliation_date'] = $this->normalizeDate($item['reconciliation_date']);
+                    }
+
+                    if ($targetStatus === ReconciliationStatus::CONFIRMED->value) {
+                        $updateData['confirmed_by'] = Auth::id();
+                        $updateData['confirmed_at'] = now();
+                    }
+
+                    if ($targetStatus === ReconciliationStatus::PAID->value && empty($reconciliation->confirmed_at)) {
+                        $updateData['confirmed_by'] = Auth::id();
+                        $updateData['confirmed_at'] = now();
+                    }
+
+                    $reconciliation->update($updateData);
+                    $updated++;
+                } else {
+                    $notFound[] = $code;
+                }
+            }
+
+            Logging::web('Batch reconciliation via Excel completed', [
+                'organization_id' => $organizationId,
+                'updated_count' => $updated,
+                'skipped_count' => $skipped,
+                'not_found_count' => count($notFound),
+            ]);
+
+            return ServiceReturn::success(
+                data: [
+                    'updated' => $updated,
+                    'skipped' => $skipped,
+                    'not_found' => $notFound,
+                ],
+                message: __('accounting.reconciliation.batch_success', ['count' => $updated])
+            );
+        } catch (Throwable $e) {
+            Logging::error('Batch reconciliation error', [
+                'organization_id' => $organizationId,
+                'error' => $e->getMessage()
+            ], $e);
+            return ServiceReturn::error(__('accounting.reconciliation.batch_failed'));
+        }
+    }
+
+    /**
      * Backfill exchange_rate_id + converted_amount cho các bản ghi đối soát trong khoảng ngày.
      */
     public function applyExchangeRateForDateRange(int $organizationId, string $fromDate, string $toDate): int

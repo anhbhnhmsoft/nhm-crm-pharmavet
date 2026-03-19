@@ -14,42 +14,79 @@ class ExpenseForm
 {
     public static function configure(Schema $schema): Schema
     {
-        return $schema->components([
-            Section::make(__('accounting.expense.basic_info'))
-                ->schema([
-                    DatePicker::make('expense_date')
-                        ->label(__('accounting.expense.expense_date'))
-                        ->required()
-                        ->default(now())
-                        ->native(false)
-                        ->displayFormat('d/m/Y'),
+        return $schema
+            ->columns(null)
+            ->components([
+                Section::make(__('accounting.expense.basic_info'))
+                    ->schema([
+                        DatePicker::make('expense_date')
+                            ->label(__('accounting.expense.expense_date'))
+                            ->required()
+                            ->default(now())
+                            ->native(false)
+                            ->displayFormat('d/m/Y'),
 
-                    Select::make('category')
-                        ->label(__('accounting.expense.category'))
-                        ->options(ExpenseCategory::getOptions())
-                        ->required()
-                        ->default(ExpenseCategory::OTHER->value),
+                        Select::make('category')
+                            ->label(__('accounting.expense.category'))
+                            ->options(ExpenseCategory::getOptions())
+                            ->required()
+                            ->default(ExpenseCategory::OPERATIONAL->value),
 
-                    TextInput::make('amount')
-                        ->label(__('accounting.expense.amount'))
-                        ->numeric()
-                        ->required()
-                        ->minValue(0)
-                        ->prefix('₫')
-                        ->placeholder('0'),
+                        TextInput::make('unit_price')
+                            ->label('Đơn giá')
+                            ->numeric()
+                            ->required()
+                            ->prefix('₫')
+                            ->live()
+                            ->afterStateUpdated(fn($state, $set, $get) => self::calculateTotal($set, $get)),
 
-                    TextInput::make('description')
-                        ->label(__('accounting.expense.description'))
-                        ->required()
-                        ->maxLength(255)
-                        ->columnSpanFull(),
+                        TextInput::make('quantity')
+                            ->label('Số lượng')
+                            ->numeric()
+                            ->required()
+                            ->default(1)
+                            ->live()
+                            ->afterStateUpdated(fn($state, $set, $get) => self::calculateTotal($set, $get)),
 
-                    Textarea::make('note')
-                        ->label(__('accounting.expense.note'))
-                        ->maxLength(1000)
-                        ->columnSpanFull(),
-                ])
-                ->columns(3),
-        ]);
+                        TextInput::make('amount')
+                            ->label(__('accounting.expense.amount'))
+                            ->numeric()
+                            ->required()
+                            ->minValue(0)
+                            ->prefix('₫')
+                            ->readOnly()
+                            ->helperText('Thành tiền (Đơn giá x Số lượng)')
+                            ->columnSpanFull(),
+
+                        TextInput::make('description')
+                            ->label(__('accounting.expense.description'))
+                            ->required()
+                            ->maxLength(255)
+                            ->columnSpanFull(),
+
+                        \Filament\Forms\Components\FileUpload::make('attachments')
+                            ->label('Chứng từ/Hóa đơn (PDF/Image)')
+                            ->multiple()
+                            ->disk('public')
+                            ->directory('expense_attachments')
+                            ->acceptedFileTypes(['application/pdf', 'image/*'])
+                            ->required()
+                            ->helperText('Bắt buộc tải lên chứng từ để audit')
+                            ->columnSpanFull(),
+
+                        Textarea::make('note')
+                            ->label(__('accounting.expense.note'))
+                            ->maxLength(1000)
+                            ->columnSpanFull(),
+                    ])
+                    ->columns(2),
+            ]);
+    }
+
+    protected static function calculateTotal($set, $get): void
+    {
+        $unitPrice = (float) ($get('unit_price') ?? 0);
+        $quantity = (float) ($get('quantity') ?? 0);
+        $set('amount', $unitPrice * $quantity);
     }
 }
