@@ -7,6 +7,8 @@ use App\Common\Constants\Order\OrderStatus;
 use App\Core\ServiceReturn;
 use App\Jobs\ProcessGHNOrderJob;
 use App\Models\Order;
+use App\Models\Product;
+use App\Models\ProductWarehouse;
 use App\Models\ShippingConfig;
 use App\Models\ShippingConfigForWarehouse;
 use App\Repositories\OrderRepository;
@@ -98,8 +100,39 @@ class OrderService
             $orderDiscount = $data['discount'] ?? 0;
             $productDiscount = $productTotal * ($ck1 + $ck2) / 100;
             $totalDiscount = $productDiscount + $orderDiscount;
+            $shippingFee = (float) ($data['shipping_fee'] ?? 0);
+            $codFee = (float) ($data['cod_fee'] ?? 0);
+            $deposit = (float) ($data['deposit'] ?? 0);
+            $totalAmount = $productTotal - $totalDiscount + $shippingFee + $codFee;
 
-            $totalAmount = $productTotal - $totalDiscount + ($data['shipping_fee'] ?? 0);
+            if ($deposit > $totalAmount) {
+                throw new \RuntimeException(__('telesale.messages.deposit_exceeds_total'));
+            }
+
+            $warehouseId = (int) ($data['warehouse_id'] ?? 0);
+            if ($warehouseId <= 0) {
+                throw new \RuntimeException(__('telesale.messages.warehouse_required'));
+            }
+
+            foreach ($items as $item) {
+                $productId = (int) ($item['product_id'] ?? 0);
+                $requiredQty = (int) ($item['quantity'] ?? 0);
+
+                if ($productId <= 0 || $requiredQty <= 0) {
+                    continue;
+                }
+
+                $stock = ProductWarehouse::query()
+                    ->where('warehouse_id', $warehouseId)
+                    ->where('product_id', $productId)
+                    ->first();
+
+                $availableQty = (int) (($stock?->quantity ?? 0) - ($stock?->pending_quantity ?? 0));
+                if ($availableQty < $requiredQty) {
+                    $productName = Product::find($productId)?->name ?? '#' . $productId;
+                    throw new \RuntimeException(__('telesale.messages.insufficient_stock', ['product' => $productName]));
+                }
+            }
 
             // Create or Update Order
             $orderData = [
@@ -108,15 +141,17 @@ class OrderService
                 'status' => $data['status_action'],
                 'total_amount' => $totalAmount,
                 'discount' => $totalDiscount, // Saving total discount
-                'shipping_fee' => $data['shipping_fee'] ?? 0,
+                'shipping_fee' => $shippingFee,
                 'shipping_method' => $data['shipping_method'] ?? null,
                 'shipping_address' => $data['address'] ?? null,
                 'province_id' => $data['province_id'] ?? null,
                 'district_id' => $data['district_id'] ?? null,
                 'ward_id' => $data['ward_id'] ?? null,
-                'deposit' => $data['deposit'] ?? 0,
+                'deposit' => $deposit,
+                'cod_fee' => $codFee,
                 'ck1' => $ck1,
                 'ck2' => $ck2,
+                'warehouse_id' => $warehouseId,
                 'required_note' => $data['required_note'] ?? null,
                 'weight' => $data['weight'] ?? null,
                 'length' => $data['length'] ?? null,

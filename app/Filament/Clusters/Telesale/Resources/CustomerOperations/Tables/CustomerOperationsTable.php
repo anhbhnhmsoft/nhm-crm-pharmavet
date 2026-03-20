@@ -12,7 +12,9 @@ use App\Common\Constants\Shipping\RequiredNote;
 use App\Models\District;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\ProductWarehouse;
 use App\Models\Province;
+use App\Models\Warehouse;
 use App\Models\Ward;
 use App\Models\Organization;
 use App\Services\OrderService;
@@ -51,6 +53,34 @@ class CustomerOperationsTable
 {
     public static function configure(Table $table): Table
     {
+        $recalculateOrderSummary = function (Get $get, Set $set): void {
+            $items = $get('items') ?? [];
+
+            $productTotal = collect($items)->sum(function ($item) {
+                $qty = (float) ($item['quantity'] ?? 0);
+                $price = (float) ($item['price'] ?? 0);
+
+                return $qty * $price;
+            });
+
+            $discount = (float) ($get('discount') ?? 0);
+            $ck1 = (float) ($get('ck1') ?? 0);
+            $ck2 = (float) ($get('ck2') ?? 0);
+            $codFee = (float) ($get('cod_fee') ?? 0);
+            $shippingFee = (float) ($get('shipping_fee') ?? 0);
+            $deposit = (float) ($get('deposit') ?? 0);
+
+            $productDiscount = $productTotal * (($ck1 + $ck2) / 100);
+            $totalDiscount = $productDiscount + $discount;
+            $grossTotal = max(0, $productTotal - $totalDiscount + $shippingFee + $codFee);
+            $collectAmount = max(0, $grossTotal - $deposit);
+
+            $set('total_amount_temp', round($productTotal));
+            $set('total_discount_display', number_format($totalDiscount) . ' ' . __('telesale.form.currency_suffix'));
+            $set('cod_amount', round($collectAmount));
+            $set('final_collect_amount_display', number_format($collectAmount) . ' ' . __('telesale.form.currency_suffix'));
+        };
+
         return $table
             ->recordClasses(
                 fn($record) =>
@@ -128,6 +158,28 @@ class CustomerOperationsTable
                         ->icon('heroicon-o-shopping-cart')
                         ->color('success')
                         ->modalWidth('7xl')
+                        ->disabled(function ($record): bool {
+                            $isSale = Auth::user()->role === UserRole::SALE->value;
+                            if (!$isSale) {
+                                return false;
+                            }
+
+                            return $record->orders()
+                                ->whereIn('status', [OrderStatus::SHIPPING->value, OrderStatus::COMPLETED->value])
+                                ->exists();
+                        })
+                        ->tooltip(function ($record): ?string {
+                            $isSale = Auth::user()->role === UserRole::SALE->value;
+                            if (!$isSale) {
+                                return null;
+                            }
+
+                            $isLocked = $record->orders()
+                                ->whereIn('status', [OrderStatus::SHIPPING->value, OrderStatus::COMPLETED->value])
+                                ->exists();
+
+                            return $isLocked ? __('telesale.messages.order_edit_locked_for_sale') : null;
+                        })
                         ->mountUsing(function ($form, $record) {
                             $order = Order::where('customer_id', $record->id)
                                 ->whereIn('status', [OrderStatus::PENDING->value, OrderStatus::CONFIRMED->value])
@@ -160,6 +212,7 @@ class CustomerOperationsTable
                                 $data['ghn_district_id'] = $order->ghn_district_id;
                                 $data['ghn_ward_code'] = $order->ghn_ward_code;
                                 $data['client_order_code'] = $order->code;
+                                $data['warehouse_id'] = $order->warehouse_id;
                                 // Map customer info from order if needed, or keep current
                                 $form->fill($data);
                             } else {
@@ -171,6 +224,7 @@ class CustomerOperationsTable
                                     'district_id' => $record->district_id,
                                     'ward_id' => $record->ward_id,
                                     'organization_id' => $record->organization_id,
+                                    'warehouse_id' => null,
                                     'client_order_code' => 'ORD-' . time(),
                                     'status_action' => OrderStatus::CONFIRMED->value,
                                 ]);
@@ -279,6 +333,19 @@ class CustomerOperationsTable
                                                 ->searchable()
                                                 ->live()
                                                 ->required()
+                                                ->afterStateUpdated(function (Set $set) {
+                                                    $set('warehouse_id', null);
+                                                    $set('items', []);
+                                                }),
+                                            Select::make('warehouse_id')
+                                                ->label(__('order.form.warehouse'))
+                                                ->options(fn(Get $get) => Warehouse::where('organization_id', $get('organization_id'))->pluck('name', 'id'))
+                                                ->searchable()
+                                                ->live()
+                                                ->required()
+                                                ->validationMessages([
+                                                    'required' => __('telesale.messages.warehouse_required'),
+                                                ])
                                                 ->afterStateUpdated(fn(Set $set) => $set('items', [])),
                                             TextInput::make('client_order_code')
                                                 ->label(__('warehouse.order.form.client_order_code'))
@@ -330,11 +397,28 @@ class CustomerOperationsTable
                                                 ->schema([
                                                     Select::make('product_id')
                                                         ->label(__('warehouse.order.form.product'))
-                                                        ->options(fn(Get $get) => Product::where('organization_id', $get('../../organization_id'))->pluck('name', 'id'))
+                                                        ->options(function (Get $get) {
+                                                            $organizationId = $get('../../organization_id');
+                                                            $warehouseId = $get('../../warehouse_id');
+
+                                                            if (!$organizationId || !$warehouseId) {
+                                                                return [];
+                                                            }
+
+                                                            return Product::query()
+                                                                ->where('organization_id', $organizationId)
+                                                                ->whereIn('id', function ($query) use ($warehouseId) {
+                                                                    $query->select('product_id')
+                                                                        ->from('product_warehouse')
+                                                                        ->where('warehouse_id', $warehouseId)
+                                                                        ->whereRaw('(quantity - pending_quantity) > 0');
+                                                                })
+                                                                ->pluck('name', 'id');
+                                                        })
                                                         ->searchable()
                                                         ->required()
                                                         ->live()
-                                                        ->afterStateUpdated(function ($state, $get, $set) {
+                                                        ->afterStateUpdated(function ($state, Get $get, Set $set) use ($recalculateOrderSummary) {
                                         $product = Product::find($state);
                                         if ($product) {
                                             $set('price', $product->sale_price ?? 0);
@@ -364,6 +448,8 @@ class CustomerOperationsTable
                                             $set('../../width', $maxWidth);
                                             $set('../../height', $totalHeight);
                                         }
+
+                                        $recalculateOrderSummary($get, $set);
                                     })
                                                         ->validationMessages([
                                                             'required' => __('common.error.required')
@@ -374,7 +460,7 @@ class CustomerOperationsTable
                                                         ->default(1)
                                                         ->required()
                                                         ->live(onBlur: true)
-                                                        ->afterStateUpdated(function ($state, $get, $set) {
+                                                        ->afterStateUpdated(function ($state, Get $get, Set $set) use ($recalculateOrderSummary) {
                                         $set('total', $state * $get('price'));
 
                                         // Update logistics
@@ -399,6 +485,8 @@ class CustomerOperationsTable
                                         $set('../../length', $maxLength);
                                         $set('../../width', $maxWidth);
                                         $set('../../height', $totalHeight);
+
+                                        $recalculateOrderSummary($get, $set);
                                     })
                                                         ->required()
                                                         ->validationMessages([
@@ -425,16 +513,7 @@ class CustomerOperationsTable
                                                 ])
                                                 ->columns(4)
                                                 ->live(debounce: 500)
-                                                ->afterStateUpdated(function ($get, $set) {
-                                    $items = $get('items');
-                                    $total = collect($items)->sum(function ($item) {
-                                        if ($item['price'] == null || $item['quantity'] == null || $item['price'] == 0 || is_int($item['quantity']) == false) {
-                                            return 0;
-                                        }
-                                        return ($item['quantity'] ?? 0) * ($item['price'] ?? 0);
-                                    });
-                                    $set('total_amount_temp', $total);
-                                }),
+                                                ->afterStateUpdated(fn(Get $get, Set $set) => $recalculateOrderSummary($get, $set)),
 
                                             Grid::make(3)->schema([
                                                 // TextInput::make('shipping_fee')->label(__('warehouse.order.form.shipping_fee'))->numeric()->default(0),
@@ -443,51 +522,27 @@ class CustomerOperationsTable
                                                     ->numeric()
                                                     ->default(0)
                                                     ->live(onBlur: true)
-                                                    ->afterStateUpdated(function (Get $get, Set $set) {
-                                    $productTotal = $get('total_amount_temp') ?? 0;
-                                    $ck1 = $get('ck1') ?? 0;
-                                    $ck2 = $get('ck2') ?? 0;
-                                    $orderDiscount = $get('discount') ?? 0;
-                                    $productDiscount = $productTotal * ($ck1 + $ck2) / 100;
-                                    $totalDiscount = $productDiscount + $orderDiscount;
-                                    $set('total_discount_display', number_format($totalDiscount) . ' VNĐ');
-                                }),
+                                                    ->afterStateUpdated(fn(Get $get, Set $set) => $recalculateOrderSummary($get, $set)),
                                                 TextInput::make('ck1')
-                                                    ->label('CK1 (%)')
+                                                    ->label(__('telesale.form.ck1'))
                                                     ->numeric()
                                                     ->minValue(0)
                                                     ->maxValue(100)
                                                     ->default(0)
                                                     ->live(onBlur: true)
-                                                    ->afterStateUpdated(function (Get $get, Set $set) {
-                                    $productTotal = $get('total_amount_temp') ?? 0;
-                                    $ck1 = $get('ck1') ?? 0;
-                                    $ck2 = $get('ck2') ?? 0;
-                                    $orderDiscount = $get('discount') ?? 0;
-                                    $productDiscount = $productTotal * ($ck1 + $ck2) / 100;
-                                    $totalDiscount = $productDiscount + $orderDiscount;
-                                    $set('total_discount_display', number_format($totalDiscount) . ' VNĐ');
-                                })
+                                                    ->afterStateUpdated(fn(Get $get, Set $set) => $recalculateOrderSummary($get, $set))
                                                     ->validationMessages([
                                                         'min' => __('common.error.min_value', ['min' => 0]),
                                                         'max' => __('common.error.max_value', ['max' => 100]),
                                                     ]),
                                                 TextInput::make('ck2')
-                                                    ->label('CK2 (%)')
+                                                    ->label(__('telesale.form.ck2'))
                                                     ->numeric()
                                                     ->minValue(0)
                                                     ->maxValue(100)
                                                     ->default(0)
                                                     ->live(onBlur: true)
-                                                    ->afterStateUpdated(function (Get $get, Set $set) {
-                                    $productTotal = $get('total_amount_temp') ?? 0;
-                                    $ck1 = $get('ck1') ?? 0;
-                                    $ck2 = $get('ck2') ?? 0;
-                                    $orderDiscount = $get('discount') ?? 0;
-                                    $productDiscount = $productTotal * ($ck1 + $ck2) / 100;
-                                    $totalDiscount = $productDiscount + $orderDiscount;
-                                    $set('total_discount_display', number_format($totalDiscount) . ' VNĐ');
-                                })
+                                                    ->afterStateUpdated(fn(Get $get, Set $set) => $recalculateOrderSummary($get, $set))
                                                     ->validationMessages([
                                                         'min' => __('common.error.min_value', ['min' => 0]),
                                                         'max' => __('common.error.max_value', ['max' => 100]),
@@ -505,11 +560,25 @@ class CustomerOperationsTable
                                                     ->label(__('warehouse.order.form.cod_fee'))
                                                     ->numeric()
                                                     ->live(onBlur: true)
-                                                    ->afterStateUpdated(fn($state, Set $set) => $set('cod_amount', round($state))),
-                                                TextInput::make('cod_amount')->label(__('warehouse.order.form.cod_amount'))->numeric(),
+                                                    ->afterStateUpdated(fn(Get $get, Set $set) => $recalculateOrderSummary($get, $set)),
+                                                TextInput::make('cod_amount')
+                                                    ->label(__('warehouse.order.form.cod_amount'))
+                                                    ->numeric()
+                                                    ->disabled()
+                                                    ->dehydrated(),
                                             ]),
 
-                                            TextInput::make('deposit')->label(__('warehouse.order.form.deposit'))->numeric()->default(0),
+                                            TextInput::make('deposit')
+                                                ->label(__('warehouse.order.form.deposit'))
+                                                ->numeric()
+                                                ->default(0)
+                                                ->live(onBlur: true)
+                                                ->afterStateUpdated(fn(Get $get, Set $set) => $recalculateOrderSummary($get, $set)),
+
+                                            TextInput::make('final_collect_amount_display')
+                                                ->label(__('warehouse.order.form.cod_amount'))
+                                                ->disabled()
+                                                ->dehydrated(false),
 
                                             Section::make(__('Logistics GHN'))
                                                 ->schema([
@@ -588,11 +657,67 @@ class CustomerOperationsTable
                                 'data_keys' => array_keys($data)
                             ]);
 
+                            $warehouseId = (int) ($data['warehouse_id'] ?? 0);
+                            if ($warehouseId <= 0) {
+                                Notification::make()
+                                    ->title(__('telesale.messages.warehouse_required'))
+                                    ->danger()
+                                    ->send();
+                                return;
+                            }
+
+                            $items = collect($data['items'] ?? [])
+                                ->filter(fn($item) => !empty($item['product_id']) && (int) ($item['quantity'] ?? 0) > 0)
+                                ->values();
+
+                            $productTotal = $items->sum(fn($item) => ((float) ($item['quantity'] ?? 0)) * ((float) ($item['price'] ?? 0)));
+                            $discount = (float) ($data['discount'] ?? 0);
+                            $ck1 = (float) ($data['ck1'] ?? 0);
+                            $ck2 = (float) ($data['ck2'] ?? 0);
+                            $shippingFee = (float) ($data['shipping_fee'] ?? 0);
+                            $codFee = (float) ($data['cod_fee'] ?? 0);
+                            $deposit = (float) ($data['deposit'] ?? 0);
+
+                            $productDiscount = $productTotal * (($ck1 + $ck2) / 100);
+                            $totalDiscount = $productDiscount + $discount;
+                            $grossTotal = max(0, $productTotal - $totalDiscount + $shippingFee + $codFee);
+
+                            if ($deposit > $grossTotal) {
+                                Notification::make()
+                                    ->title(__('telesale.messages.deposit_exceeds_total'))
+                                    ->danger()
+                                    ->send();
+                                return;
+                            }
+
+                            foreach ($items as $item) {
+                                $productId = (int) $item['product_id'];
+                                $requiredQty = (int) $item['quantity'];
+
+                                $stock = ProductWarehouse::query()
+                                    ->where('warehouse_id', $warehouseId)
+                                    ->where('product_id', $productId)
+                                    ->first();
+
+                                $availableQty = (int) (($stock?->quantity ?? 0) - ($stock?->pending_quantity ?? 0));
+                                if ($availableQty < $requiredQty) {
+                                    $productName = Product::find($productId)?->name ?? '#' . $productId;
+
+                                    Notification::make()
+                                        ->title(__('telesale.messages.insufficient_stock', ['product' => $productName]))
+                                        ->danger()
+                                        ->send();
+                                    return;
+                                }
+                            }
+
                             $data['customer_id'] = $record->id;
                             $data['organization_id'] = $data['organization_id'] ?? $record->organization_id;
                             $data['code'] = $data['client_order_code'];
                             $data['created_by'] = Auth::id();
                             $data['updated_by'] = Auth::id();
+                            $data['warehouse_id'] = $warehouseId;
+                            $data['cod_amount'] = max(0, $grossTotal - $deposit);
 
                             /** @var OrderService $orderService */
                             $orderService = app(OrderService::class);

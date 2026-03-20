@@ -4,19 +4,26 @@ namespace App\Filament\Clusters\Telesale\Resources\TelesaleOperations\Schemas;
 
 use App\Models\District;
 use App\Models\Province;
+use App\Models\Warehouse;
 use App\Models\Ward;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\ViewField;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Tabs;
+use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use App\Models\Organization;
 use App\Models\Product;
+use App\Common\Constants\Interaction\InteractionStatus;
 use App\Common\Constants\User\UserRole;
 use Illuminate\Support\Facades\Auth;
 
@@ -133,216 +140,123 @@ class TelesaleOperationForm
                         'md' => 6,
                         'default' => 3,
                     ]),
-
-
-                // Group::make()
-                //     ->schema([
-                //         Tabs::make('NghiepVu')
-                //             ->tabs([
-                //                 Tab::make(__('telesale.form.order_entry'))
-                //                     ->icon('heroicon-o-shopping-cart')
-                //                     ->schema([
-                //                         Section::make(__('telesale.form.shipping_info'))
-                //                             ->schema([
-                //                                 Grid::make()->schema([
-                //                                     Select::make('province_id')
-                //                                         ->label(__('telesale.form.province'))
-                //                                         ->searchable()
-                //                                         ->options(Province::all()->pluck('full_name', 'id'))
-                //                                         ->native(false)
-                //                                         ->required()
-                //                                         ->validationMessages([
-                //                                             'required' => __('common.error.required'),
-                //                                         ]),
-                //                                     Select::make('district_id')
-                //                                         ->label(__('telesale.form.district'))
-                //                                         ->searchable()
-                //                                         ->native(false)
-                //                                         ->options(fn($get) => District::all()->where('province_id', $get('province_id'))->pluck('full_name', 'id'))
-                //                                         ->required()
-                //                                         ->validationMessages([
-                //                                             'required' => __('common.error.required'),
-                //                                         ]),
-                //                                     Select::make('ward_id')
-                //                                         ->label(__('telesale.form.ward'))
-                //                                         ->searchable()
-                //                                         ->native(false)
-                //                                         ->options(fn($get) => Ward::all()->where('district_id', $get('district_id'))->pluck('full_name', 'id'))
-                //                                         ->required()
-                //                                         ->validationMessages([
-                //                                             'required' => __('common.error.required'),
-                //                                         ]),
-                //                                     LocationPicker::make('shipping_address')
-                //                                         ->label(__('telesale.form.detailed_address'))
-                //                                         ->required()
-                //                                         ->validationMessages([
-                //                                             'required' => __('common.error.required'),
-                //                                         ])
-                //                                         ->columnSpanFull(),
-                //                                 ]),
-                //                             ])
-                //                             ->collapsible(),
-
-                //                         Section::make(__('telesale.form.product_payment'))
-                //                             ->schema([
-                //                                 Repeater::make('order_items')
-                //                                     ->label(__('telesale.form.product_list'))
-                //                                     ->schema([
-                //                                         Grid::make()->schema([
-                //                                             Select::make('product_id')
-                //                                                 ->label(__('telesale.form.product'))
-                //                                                 ->searchable()
-                //                                                 ->options(Product::all()->where('is_business_product', true)->where( 'organization_id', Auth::user()->id)->pluck('name', 'id'))
-                //                                                 ->native(true)
-                //                                                 ->live()
-                //                                                 ->required()
-                //                                                 ->validationMessages([
-                //                                                     'required' => __('common.error.required'),
-                //                                                 ]),
-                //                                             TextInput::make('quantity')
-                //                                                 ->label(__('telesale.form.quantity'))
-                //                                                 ->numeric()
-                //                                                 ->default(1)
-                //                                                 ->live()
-                //                                                 ->required()
-                //                                                 ->validationMessages([
-                //                                                     'required' => __('common.error.required'),
-                //                                                 ]),
-                //                                             TextInput::make('price')
-                //                                                 ->label(__('telesale.form.unit_price'))
-                //                                                 ->numeric()
-                //                                                 ->disabled()
-                //                                                 ->live()
-                //                                                 ->required()
-                //                                                 ->validationMessages([
-                //                                                     'required' => __('common.error.required'),
-                //                                                 ]),
-                //                                         ]),
-                //                                     ])
-                //                                     ->defaultItems(1)
-                //                                     ->live()
-                //                                     ->afterStateUpdated(fn(Get $get, Set $set) => $calculateTotal($get, $set)),
-
-                //                                 Grid::make()->schema([
-                //                                     Select::make('shipping_method')
-                //                                         ->label(__('telesale.form.shipping_provider'))
-                //                                         ->options(ShippingMethod::getOptions())
-                //                                         ->native(false)
-                //                                         ->live()
-                //                                         ->required()
-                //                                         ->validationMessages([
-                //                                             'required' => __('common.error.required'),
-                //                                         ]),
-
-                //                                     Select::make('required_note')
-                //                                         ->label(__('telesale.form.ghn_check_goods'))
-                //                                         ->options(RequiredNote::getOptions())
-                //                                         ->visible(fn(Get $get) => $get('shipping_method') === 'ghn')
-                //                                         ->native(false)
-                //                                         ->required()
-                //                                         ->validationMessages([
-                //                                             'required' => __('common.error.required'),
-                //                                         ]),
-
-                //                                     TextInput::make('shipping_fee')
-                //                                         ->label(__('telesale.form.shipping_fee'))
-                //                                         ->numeric()
-                //                                         ->prefix('₫')
-                //                                         ->live()
-                //                                         ->required()
-                //                                         ->validationMessages([
-                //                                             'required' => __('common.error.required'),
-                //                                         ])
-                //                                         ->afterStateUpdated(fn(Get $get, Set $set) => $calculateTotal($get, $set)),
-
-                //                                     TextInput::make('cod_fee')
-                //                                         ->label(__('telesale.form.cod_fee'))
-                //                                         ->numeric()
-                //                                         ->prefix('₫')
-                //                                         ->live()
-                //                                         ->afterStateUpdated(fn(Get $get, Set $set) => $calculateTotal($get, $set)),
-
-                //                                     TextInput::make('deposit')
-                //                                         ->label(__('telesale.form.deposit'))
-                //                                         ->numeric()
-                //                                         ->prefix('₫')
-                //                                         ->live()
-                //                                         ->afterStateUpdated(fn(Get $get, Set $set) => $calculateTotal($get, $set)),
-
-                //                                     Grid::make()->schema([
-                //                                         TextInput::make('discount')
-                //                                             ->label(__('telesale.form.discount_amount'))
-                //                                             ->numeric()
-                //                                             ->prefix('₫')
-                //                                             ->live()
-                //                                             ->afterStateUpdated(fn(Get $get, Set $set) => $calculateTotal($get, $set)),
-                //                                         TextInput::make('ck1')
-                //                                             ->label('CK 1 (%)')
-                //                                             ->numeric()
-                //                                             ->suffix('%')
-                //                                             ->live()
-                //                                             ->afterStateUpdated(fn(Get $get, Set $set) => $calculateTotal($get, $set)),
-                //                                         TextInput::make('ck2')
-                //                                             ->label('CK 2 (%)')
-                //                                             ->numeric()
-                //                                             ->suffix('%')
-                //                                             ->live()
-                //                                             ->afterStateUpdated(fn(Get $get, Set $set) => $calculateTotal($get, $set)),
-                //                                     ]),
-
-                //                                     TextInput::make('total_amount')
-                //                                         ->label(__('telesale.form.total_amount'))
-                //                                         ->numeric()
-                //                                         ->disabled()
-                //                                         ->prefix('₫')
-                //                                         ->dehydrated()
-                //                                         ->extraAttributes(['class' => 'font-bold text-xl text-primary-600']),
-                //                                 ]),
-                //                             ])
-                //                             ->collapsible(),
-                //                     ]),
-
-                //                 Tab::make(__('telesale.form.interaction_history'))
-                //                     ->icon('heroicon-o-clock')
-                //                     ->schema([
-                //                         Section::make(__('telesale.form.call_history'))
-                //                             ->schema([
-                //                                 \Filament\Forms\Components\ViewField::make('interactions_timeline')
-                //                                     ->label('')
-                //                                     ->view('filament.components.customer-interactions-timeline')
-                //                                     ->columnSpanFull(),
-                //                             ])
-                //                             ->collapsible()
-                //                             ->collapsed(false),
-
-                //                         Section::make(__('telesale.form.add_new_note'))
-                //                             ->schema([
-                //                                 Grid::make()->schema([
-                //                                     Select::make('new_interaction_status')
-                //                                         ->label(__('telesale.form.result'))
-                //                                         ->options(InteractionStatus::options())
-                //                                         ->native(false)
-                //                                         ->required()
-                //                                         ->validationMessages([
-                //                                             'required' => __('common.error.required'),
-                //                                         ]),
-                //                                 ]),
-                //                                 Textarea::make('new_interaction_content')
-                //                                     ->label(__('telesale.form.content'))
-                //                                     ->placeholder(__('telesale.form.content_placeholder'))
-                //                                     ->rows(3)
-                //                                     ->columnSpanFull(),
-                //                             ])
-                //                             ->collapsible(),
-                //                     ]),
-                //             ])
-                //             ->columnSpanFull(),
-                //     ])
-                //     ->columnSpan([
-                //         'xl' => 4,
-                //         'md' => 6,
-                //         'default' => 3,
-                //     ]),
+                Group::make()
+                    ->schema([
+                        Tabs::make(__('telesale.form.operation_tabs'))
+                            ->tabs([
+                                Tab::make(__('telesale.form.order_entry'))
+                                    ->icon('heroicon-o-shopping-cart')
+                                    ->schema([
+                                        Section::make(__('telesale.form.product_payment'))
+                                            ->schema([
+                                                Select::make('warehouse_id')
+                                                    ->label(__('order.form.warehouse'))
+                                                    ->options(Warehouse::query()->pluck('name', 'id'))
+                                                    ->searchable()
+                                                    ->required()
+                                                    ->validationMessages([
+                                                        'required' => __('common.error.required'),
+                                                    ]),
+                                                Repeater::make('order_items')
+                                                    ->label(__('telesale.form.product_list'))
+                                                    ->schema([
+                                                        Grid::make()->schema([
+                                                            Select::make('product_id')
+                                                                ->label(__('telesale.form.product'))
+                                                                ->searchable()
+                                                                ->options(Product::query()->where('is_business_product', true)->pluck('name', 'id'))
+                                                                ->live()
+                                                                ->required()
+                                                                ->afterStateUpdated(function ($state, Set $set) {
+                                                                    $product = Product::find($state);
+                                                                    $set('price', $product?->sale_price ?? 0);
+                                                                    $set('quantity', 1);
+                                                                }),
+                                                            TextInput::make('quantity')
+                                                                ->label(__('telesale.form.quantity'))
+                                                                ->numeric()
+                                                                ->default(1)
+                                                                ->live()
+                                                                ->required(),
+                                                            TextInput::make('price')
+                                                                ->label(__('telesale.form.unit_price'))
+                                                                ->numeric()
+                                                                ->live()
+                                                                ->required(),
+                                                        ]),
+                                                    ])
+                                                    ->defaultItems(1)
+                                                    ->live()
+                                                    ->afterStateUpdated(fn(Get $get, Set $set) => $calculateTotal($get, $set)),
+                                                Grid::make()->schema([
+                                                    TextInput::make('cod_fee')
+                                                        ->label(__('telesale.form.cod_fee'))
+                                                        ->numeric()
+                                                        ->live()
+                                                        ->afterStateUpdated(fn(Get $get, Set $set) => $calculateTotal($get, $set)),
+                                                    TextInput::make('deposit')
+                                                        ->label(__('telesale.form.deposit'))
+                                                        ->numeric()
+                                                        ->live()
+                                                        ->afterStateUpdated(fn(Get $get, Set $set) => $calculateTotal($get, $set)),
+                                                    TextInput::make('discount')
+                                                        ->label(__('telesale.form.discount_amount'))
+                                                        ->numeric()
+                                                        ->live()
+                                                        ->afterStateUpdated(fn(Get $get, Set $set) => $calculateTotal($get, $set)),
+                                                    TextInput::make('ck1')
+                                                        ->label(__('telesale.form.ck1'))
+                                                        ->numeric()
+                                                        ->suffix('%')
+                                                        ->live()
+                                                        ->afterStateUpdated(fn(Get $get, Set $set) => $calculateTotal($get, $set)),
+                                                    TextInput::make('ck2')
+                                                        ->label(__('telesale.form.ck2'))
+                                                        ->numeric()
+                                                        ->suffix('%')
+                                                        ->live()
+                                                        ->afterStateUpdated(fn(Get $get, Set $set) => $calculateTotal($get, $set)),
+                                                    TextInput::make('total_amount')
+                                                        ->label(__('telesale.form.total_amount'))
+                                                        ->numeric()
+                                                        ->disabled()
+                                                        ->dehydrated(),
+                                                ]),
+                                            ]),
+                                    ]),
+                                Tab::make(__('telesale.form.interaction_history'))
+                                    ->icon('heroicon-o-clock')
+                                    ->schema([
+                                        Section::make(__('telesale.form.call_history'))
+                                            ->schema([
+                                                ViewField::make('interactions_timeline')
+                                                    ->label('')
+                                                    ->view('filament.components.customer-interactions-timeline')
+                                                    ->columnSpanFull(),
+                                            ]),
+                                        Section::make(__('telesale.form.add_new_note'))
+                                            ->schema([
+                                                Select::make('new_interaction_status')
+                                                    ->label(__('telesale.form.result'))
+                                                    ->options(InteractionStatus::options())
+                                                    ->native(false),
+                                                DateTimePicker::make('next_action_at')
+                                                    ->label(__('telesale.form.schedule_callback'))
+                                                    ->native(false),
+                                                Textarea::make('new_interaction_content')
+                                                    ->label(__('telesale.form.content'))
+                                                    ->placeholder(__('telesale.form.content_placeholder'))
+                                                    ->rows(3),
+                                            ]),
+                                    ]),
+                            ])
+                            ->columnSpanFull(),
+                    ])
+                    ->columnSpan([
+                        'xl' => 4,
+                        'md' => 6,
+                        'default' => 3,
+                    ]),
             ]);
     }
 }
