@@ -182,6 +182,7 @@ return [
         'revenue_section' => 'Doanh thu',
         'revenue_from_orders' => 'Từ đơn hàng',
         'revenue_other' => 'Doanh thu khác',
+        'total_amount' => 'Thành tiền',
         'revenue_total' => 'Tổng doanh thu',
         'expense_section' => 'Chi phí',
         'expense_total' => 'Tổng chi phí',

@@ -2,9 +2,12 @@
 
 namespace App\Filament\Clusters\Telesale\Resources\TelesaleOperations\Pages;
 
+use App\Common\Constants\Customer\CustomerType;
 use App\Filament\Clusters\Telesale\Resources\TelesaleOperations\TelesaleOperationResource;
+use App\Events\TelesaleLeadCreated;
 use App\Models\Customer;
 use App\Services\CustomerService;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\Model;
@@ -26,7 +29,22 @@ class CreateTelesaleOperation extends CreateRecord
 
         $result = $customerService->createCustomerFromTelesaleOperation($data);
         if ($result->getData() instanceof Model) {
-            return $result->getData();
+            /** @var Customer $customer */
+            $customer = $result->getData();
+
+            event(new TelesaleLeadCreated($customer));
+
+            if (in_array($customer->customer_type, [
+                CustomerType::NEW_DUPLICATE->value,
+                CustomerType::OLD_CUSTOMER->value,
+            ], true)) {
+                Notification::make()
+                    ->title(__('telesale.messages.duplicate_lead_warning'))
+                    ->warning()
+                    ->send();
+            }
+
+            return $customer;
         }
 
         return new Customer();

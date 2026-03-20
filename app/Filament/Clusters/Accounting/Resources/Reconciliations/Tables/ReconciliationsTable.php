@@ -185,7 +185,7 @@ class ReconciliationsTable
                     ->alignLeft(),
 
                 TextColumn::make('cod_amount') // Dùng cod_amount làm gốc cho Thành tiền khi ko có order
-                    ->label('Thành tiền')
+                    ->label(__('accounting.reconciliation.total_amount'))
                     ->money('VND')
                     ->formatStateUsing(fn($state, $record) => $record->order?->total_amount ?? $record->cod_amount)
                     ->alignEnd(),

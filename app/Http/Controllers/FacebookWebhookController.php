@@ -8,16 +8,12 @@ use App\Services\Integrations\MetaBusinessService;
 
 class FacebookWebhookController
 {
-
-    protected MetaBusinessService $metaBusinessService;
-
     /**
      * @param MetaBusinessService $metaBusinessService
      * @return void
      */
-    public function __construct(MetaBusinessService $metaBusinessService)
+    public function __construct(protected MetaBusinessService $metaBusinessService)
     {
-        $this->metaBusinessService = $metaBusinessService;
     }
 
     public function verify(Request $request)
