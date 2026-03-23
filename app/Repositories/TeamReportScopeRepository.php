@@ -3,13 +3,13 @@
 namespace App\Repositories;
 
 use App\Core\BaseRepository;
-use App\Models\InventoryTicketLog;
+use App\Models\TeamReportScope; 
 use Illuminate\Database\Eloquent\Model;
 
-class InventoryTicketLogRepository extends BaseRepository
+class TeamReportScopeRepository extends BaseRepository
 {
     public function model(): Model
     {
-        return new InventoryTicketLog();
+        return new TeamReportScope();
     }
 }

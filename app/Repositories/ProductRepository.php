@@ -6,7 +6,7 @@ use App\Core\BaseRepository;
 use App\Models\Product;
 use Illuminate\Database\Eloquent\Model;
 
-class ProductRepository  extends BaseRepository
+class ProductRepository extends BaseRepository
 {
 
     public function model(): Model

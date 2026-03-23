@@ -7,6 +7,7 @@ use App\Filament\Clusters\Telesale\Resources\TelesaleOperations\TelesaleOperatio
 use App\Events\TelesaleLeadCreated;
 use App\Models\Customer;
 use App\Services\CustomerService;
+use App\Services\Telesale\LeadNotificationService;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\Auth;
@@ -32,7 +33,23 @@ class CreateTelesaleOperation extends CreateRecord
             /** @var Customer $customer */
             $customer = $result->getData();
 
-            event(new TelesaleLeadCreated($customer));
+            $aggregate = [
+                'duplicate_key' => null,
+                'is_duplicate' => false,
+                'group_count' => 1,
+            ];
+            if (config('telesale.realtime.aggregate_notifications', true)) {
+                /** @var LeadNotificationService $leadNotificationService */
+                $leadNotificationService = app(LeadNotificationService::class);
+                $aggregate = $leadNotificationService->aggregateDuplicateLeadNotifications($customer);
+            }
+
+            event(new TelesaleLeadCreated(
+                customer: $customer,
+                duplicateKey: $aggregate['duplicate_key'] ?? null,
+                isDuplicate: (bool) ($aggregate['is_duplicate'] ?? false),
+                groupCount: (int) ($aggregate['group_count'] ?? 1),
+            ));
 
             if (in_array($customer->customer_type, [
                 CustomerType::NEW_DUPLICATE->value,

@@ -2,10 +2,11 @@
 
 namespace App\Repositories;
 
+use App\Core\BaseRepository;
 use App\Models\ProductUserAssignment;
 use Illuminate\Database\Eloquent\Model;
 
-class ProductUserAssignmentRepository extends ProductUserAssignmentRepository
+class ProductUserAssignmentRepository extends BaseRepository
 {
     public function model(): Model
     {

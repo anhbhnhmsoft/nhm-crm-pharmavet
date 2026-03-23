@@ -3,13 +3,13 @@
 namespace App\Repositories;
 
 use App\Core\BaseRepository;
-use App\Models\InventoryTicketLog;
+use App\Models\SaleLevel;
 use Illuminate\Database\Eloquent\Model;
 
-class InventoryTicketLogRepository extends BaseRepository
+class SaleLevelRepository extends BaseRepository
 {
     public function model(): Model
     {
-        return new InventoryTicketLog();
+        return new SaleLevel();
     }
 }

@@ -798,3 +798,199 @@
     - timestamps
     - softDeletes
     - index [organization_id, revenue_date]
+
+# bảng user_assigned_staff
+
+    # note
+    - Bảng pivot gán Sale/CSKH phụ trách cho từng khách hàng.
+    - Dùng cho phân quyền dữ liệu tác nghiệp và lịch sử phân công.
+
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - staff_id: (int, foreign key -> users.id, not null) -- nhân sự được gán
+    - customer_id: (int, foreign key -> customers.id, not null) -- khách hàng được phụ trách
+    - timestamps
+
+# bảng customer_status_logs
+
+    # note
+    - Lưu nhật ký chuyển trạng thái chăm sóc khách hàng theo từng lần tác nghiệp.
+    - Là nguồn dữ liệu chính cho báo cáo phễu chốt theo bước gọi/chăm sóc.
+
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - customer_id: (int, foreign key -> customers.id, not null)
+    - user_id: (int, foreign key -> users.id, nullable) -- người thực hiện thao tác
+    - from_status: (tinyint, nullable) -- trạng thái trước khi chuyển
+    - to_status: (tinyint, not null) -- trạng thái sau khi chuyển
+    - note: (text, nullable) -- ghi chú tác nghiệp
+    - reason: (tinyint, nullable) -- lý do chuyển trạng thái
+    - timestamps
+    - index [customer_id, created_at]
+
+# bảng black_list
+
+    # note
+    - Danh sách đen khách hàng cần chặn/tạm ngưng chăm sóc.
+    - Lưu lý do blacklist để kiểm soát chất lượng data và vận hành CSKH.
+
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - customer_id: (int, foreign key -> customers.id, not null)
+    - user_id: (int, foreign key -> users.id, nullable) -- người thêm blacklist
+    - note: (text, nullable) -- ghi chú
+    - reason: (tinyint, nullable) -- mã lý do blacklist
+    - timestamps
+    - index [customer_id, created_at]
+
+# bảng call_record_of_telesale_operations
+
+    # note
+    - Lưu file ghi âm cuộc gọi trong màn hình tác nghiệp telesale.
+    - Liên kết đến interaction/status log để truy vết nội dung tư vấn và QA cuộc gọi.
+
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - customer_id: (int, foreign key -> customers.id, nullable)
+    - staff_id: (int, foreign key -> users.id, nullable)
+    - customer_interaction_id: (int, foreign key -> customer_interactions.id, nullable)
+    - customer_status_log_id: (int, foreign key -> customer_status_logs.id, nullable)
+    - path_record: (varchar(255), nullable) -- đường dẫn file ghi âm
+    - timestamps
+    - softDeletes
+
+# bảng currencies
+
+    # note
+    - Danh mục mã tiền tệ dùng cho nghiệp vụ quy đổi, báo cáo tài chính và đối soát.
+
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - code: (varchar(3), not null, unique) -- mã ISO tiền tệ (VD: VND, USD)
+    - timestamps
+
+# bảng funds
+
+    # note
+    - Quỹ tiền theo từng tổ chức; phản ánh số dư hiện tại để hạch toán thu/chi nội bộ.
+
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - organization_id: (int, foreign key -> organizations.id, not null)
+    - balance: (decimal(8,2), default 0) -- số dư quỹ hiện tại
+    - timestamps
+    - softDeletes
+
+# bảng fund_transactions
+
+    # note
+    - Lịch sử biến động quỹ (thu/chi/điều chỉnh) để đối chiếu tài chính.
+    - Mỗi bản ghi lưu số dư sau giao dịch để truy xuất sổ quỹ theo thời điểm.
+
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - fund_id: (int, foreign key -> funds.id, not null)
+    - type: (tinyint, not null) -- loại giao dịch (thu/chi/điều chỉnh)
+    - transaction_code: (varchar(255), nullable) -- mã nghiệp vụ
+    - transaction_id: (varchar(255), nullable) -- id tham chiếu ngoài hệ thống
+    - balance_after: (decimal(8,2), not null) -- số dư quỹ sau giao dịch
+    - amount: (decimal(8,2), not null) -- giá trị giao dịch
+    - description: (varchar(255), nullable) -- diễn giải giao dịch
+    - status: (tinyint, not null) -- trạng thái giao dịch
+    - timestamps
+    - softDeletes
+
+# bảng telesale_notification_aggregates
+
+    # note
+    - Bảng gom nhóm thông báo lead trùng theo tổ chức để tránh spam realtime.
+    - Dùng cho badge thông báo và thống kê số lead trùng đã nhận.
+
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - organization_id: (int, foreign key -> organizations.id, not null)
+    - duplicate_hash: (varchar(191), not null, indexed) -- hash phone/email chuẩn hóa
+    - lead_count: (unsigned int, default 1) -- số lead trong nhóm trùng
+    - last_customer_id: (int, foreign key -> customers.id, nullable) -- lead gần nhất trong nhóm
+    - last_notified_at: (timestamp, nullable) -- thời điểm đẩy thông báo gần nhất
+    - timestamps
+    - unique [organization_id, duplicate_hash]
+
+# bảng sale_kpi_targets
+
+    # note
+    - Cấu hình KPI theo tháng cho từng Sale trong từng tổ chức.
+    - Là nguồn tính tiến độ KPI, thưởng dự kiến và dashboard hiệu suất.
+
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - organization_id: (int, foreign key -> organizations.id, not null)
+    - user_id: (int, foreign key -> users.id, not null)
+    - month: (varchar(7), not null, indexed) -- định dạng YYYY-MM
+    - kpi_amount: (decimal(15,2), default 0) -- doanh số mục tiêu
+    - base_salary: (decimal(15,2), default 0) -- lương cứng
+    - bonus_rules_json: (json, nullable) -- rule thưởng theo mốc KPI
+    - timestamps
+    - unique [organization_id, user_id, month]
+
+# bảng sale_levels
+
+    # note
+    - Cấu hình level Sale (mới/cứng/giỏi) theo mục tiêu KPI.
+    - Chứa ngưỡng cảnh báo để tô màu KPI theo trạng thái tốt/trung bình/chưa tốt.
+
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - organization_id: (int, foreign key -> organizations.id, not null)
+    - name: (varchar(100), not null) -- tên level
+    - kpi_target: (decimal(15,2), default 0) -- target chuẩn của level
+    - warning_thresholds_json: (json, nullable) -- cấu hình ngưỡng màu KPI
+    - is_active: (boolean, default true)
+    - timestamps
+
+# bảng pushsale_rule_sets
+
+    # note
+    - Bộ rule tính doanh số/KPI theo chuẩn Pushsale cho từng nhóm Sale.
+    - Dùng để áp dụng lại công thức trên toàn bộ báo cáo khi chọn rule set.
+
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - organization_id: (int, foreign key -> organizations.id, not null)
+    - name: (varchar(100), not null)
+    - rules_json: (json, nullable) -- cấu hình hệ số/điều kiện tính KPI
+    - is_default: (boolean, default false)
+    - timestamps
+
+# bảng team_report_scopes
+
+    # note
+    - Mapping phạm vi dữ liệu báo cáo cho Leader theo team/group.
+    - Hỗ trợ rule phân quyền: Admin full, Leader theo scope, Sale chỉ dữ liệu của mình.
+
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - organization_id: (int, foreign key -> organizations.id, not null)
+    - leader_id: (int, foreign key -> users.id, not null)
+    - team_id: (int, foreign key -> teams.id, nullable)
+    - group_key: (varchar(100), nullable) -- key nhóm mở rộng ngoài team_id
+    - timestamps
+    - index [organization_id, leader_id]
+
+# bảng report_export_jobs
+
+    # note
+    - Theo dõi tiến trình export báo cáo theo bộ lọc hiện tại của người dùng.
+    - Cho phép chạy nền khi dữ liệu lớn để tránh timeout UI.
+
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - user_id: (int, foreign key -> users.id, not null)
+    - report_type: (varchar(100), not null, indexed) -- loại báo cáo export
+    - filters_json: (json, nullable) -- snapshot bộ lọc tại thời điểm export
+    - row_count: (unsigned int, default 0) -- số dòng dữ liệu dự kiến
+    - status: (varchar(30), default 'pending', indexed) -- pending/processing/completed/failed
+    - file_path: (varchar(255), nullable) -- đường dẫn file kết quả
+    - error_message: (text, nullable) -- chi tiết lỗi nếu thất bại
+    - completed_at: (timestamp, nullable) -- thời điểm hoàn tất export
+    - timestamps

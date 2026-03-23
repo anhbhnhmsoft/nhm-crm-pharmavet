@@ -4,7 +4,10 @@
         <form wire:submit="generateReport" class="space-y-4">
             {{ $this->form }}
 
-            <div class="flex justify-end">
+            <div class="flex justify-end gap-2">
+                <x-filament::button type="button" color="gray" wire:click="exportReport">
+                    {{ __('telesale.reports.export') }}
+                </x-filament::button>
                 <x-filament::button type="submit" color="primary">
                     {{ __('telesale.reports.generate') }}
                 </x-filament::button>
@@ -27,17 +30,19 @@
                                 <th class="p-3 border border-gray-200 dark:border-gray-700 text-center">{{ __('telesale.reports.old_customer') }}</th>
                                 <th class="p-3 border border-gray-200 dark:border-gray-700 text-center">{{ __('telesale.reports.total_orders') }}</th>
                                 <th class="p-3 border border-gray-200 dark:border-gray-700 text-right">{{ __('telesale.reports.total_revenue') }}</th>
+                                <th class="p-3 border border-gray-200 dark:border-gray-700 text-right">{{ __('telesale.reports.adjusted_revenue') }}</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach ($rows as $row)
-                                <tr>
+                                <tr class="{{ $row['rank'] <= 3 ? 'bg-yellow-50 dark:bg-yellow-900/10' : '' }}">
                                     <td class="p-3 border border-gray-200 dark:border-gray-700 font-semibold">{{ $row['rank'] }}</td>
                                     <td class="p-3 border border-gray-200 dark:border-gray-700">{{ $row['staff_name'] }}</td>
                                     <td class="p-3 border border-gray-200 dark:border-gray-700 text-center">{{ $row['new_customers'] }}</td>
                                     <td class="p-3 border border-gray-200 dark:border-gray-700 text-center">{{ $row['old_customers'] }}</td>
                                     <td class="p-3 border border-gray-200 dark:border-gray-700 text-center">{{ $row['total_orders'] }}</td>
                                     <td class="p-3 border border-gray-200 dark:border-gray-700 text-right">{{ number_format($row['total_revenue']) }}</td>
+                                    <td class="p-3 border border-gray-200 dark:border-gray-700 text-right">{{ number_format($row['adjusted_revenue']) }}</td>
                                 </tr>
                             @endforeach
                         </tbody>

@@ -32,6 +32,8 @@ class Order extends Model
         'updated_by',
         'deposit',
         'cod_fee',
+        'cod_support_amount',
+        'collect_amount',
         'ck1',
         'ck2',
         'required_note',
@@ -71,6 +73,8 @@ class Order extends Model
         'shipping_fee' => 'decimal:2',
         'deposit' => 'decimal:2',
         'cod_fee' => 'decimal:2',
+        'cod_support_amount' => 'decimal:2',
+        'collect_amount' => 'decimal:2',
         'ck1' => 'decimal:2',
         'ck2' => 'decimal:2',
     ];
