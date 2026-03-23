@@ -55,6 +55,21 @@ use App\Services\LeadDistributionService;
 use App\Services\OrderService;
 use App\Services\ShippingConfigService;
 use App\Services\WarehouseService;
+use App\Repositories\InventoryTicketLogRepository;
+use App\Repositories\PushsaleRuleSetRepository;
+use App\Repositories\ReportExportJobRepository;
+use App\Repositories\SaleKpiTargetRepository;
+use App\Repositories\SaleLevelRepository;
+use App\Repositories\TeamReportScopeRepository;
+use App\Repositories\TelesaleNotificationAggregateRepository;
+use App\Services\ExpenseService;
+use App\Services\Telesale\Customer360Service;
+use App\Services\Telesale\LeadNotificationService;
+use App\Services\Telesale\OrderFinanceService;
+use App\Services\Telesale\PushsaleRuleService;
+use App\Services\Telesale\TelesaleKpiService;
+use App\Services\Telesale\TelesaleReportExportService;
+use App\Services\Telesale\TelesaleReportScopeService;
 use Filament\Support\Assets\Js;
 use Filament\Support\Facades\FilamentAsset;
 use Illuminate\Support\Facades\URL;
@@ -118,6 +133,13 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(InventoryTicketDetailRepository::class);
         $this->app->bind(ProductWarehouseRepository::class);
         $this->app->bind(WarehouseRepository::class);
+        $this->app->bind(InventoryTicketLogRepository::class);
+        $this->app->bind(PushsaleRuleSetRepository::class);
+        $this->app->bind(ReportExportJobRepository::class);
+        $this->app->bind(SaleKpiTargetRepository::class);
+        $this->app->bind(SaleLevelRepository::class);
+        $this->app->bind(TeamReportScopeRepository::class);
+        $this->app->bind(TelesaleNotificationAggregateRepository::class);
     }
 
     private function registerApplicationService(): void
@@ -144,6 +166,14 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(OrderService::class);
         $this->app->bind(ShippingConfigService::class);
         $this->app->bind(WarehouseService::class);
+        $this->app->bind(ExpenseService::class);
+        $this->app->bind(Customer360Service::class);
+        $this->app->bind(LeadNotificationService::class);
+        $this->app->bind(OrderFinanceService::class);
+        $this->app->bind(PushsaleRuleService::class);
+        $this->app->bind(TelesaleKpiService::class);
+        $this->app->bind(TelesaleReportExportService::class);
+        $this->app->bind(TelesaleReportScopeService::class);
     }
 
     private function registerObserver(): void

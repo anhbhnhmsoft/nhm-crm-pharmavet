@@ -7,11 +7,12 @@ use App\Common\Constants\Order\OrderStatus;
 use App\Core\ServiceReturn;
 use App\Jobs\ProcessGHNOrderJob;
 use App\Models\Order;
-use App\Models\Product;
-use App\Models\ProductWarehouse;
-use App\Models\ShippingConfig;
-use App\Models\ShippingConfigForWarehouse;
 use App\Repositories\OrderRepository;
+use App\Repositories\ProductRepository;
+use App\Repositories\ProductWarehouseRepository;
+use App\Repositories\ShippingConfigForWareHouseRepository;
+use App\Repositories\ShippingConfigRepository;
+use App\Services\Telesale\OrderFinanceService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -19,7 +20,12 @@ class OrderService
 {
     public function __construct(
         protected OrderRepository $orderRepository,
-        protected GHNService $ghnService
+        protected GHNService $ghnService,
+        protected OrderFinanceService $orderFinanceService,
+        protected ProductWarehouseRepository $productWarehouseRepository,
+        protected ProductRepository $productRepository,
+        protected ShippingConfigForWareHouseRepository $shippingConfigForWareHouseRepository,
+        protected ShippingConfigRepository $shippingConfigRepository 
     ) {}
 
     public function postOrder(Order $order, array $data): ServiceReturn
@@ -99,15 +105,25 @@ class OrderService
             $ck2 = $data['ck2'] ?? 0;
             $orderDiscount = $data['discount'] ?? 0;
             $productDiscount = $productTotal * ($ck1 + $ck2) / 100;
-            $totalDiscount = $productDiscount + $orderDiscount;
             $shippingFee = (float) ($data['shipping_fee'] ?? 0);
             $codFee = (float) ($data['cod_fee'] ?? 0);
             $deposit = (float) ($data['deposit'] ?? 0);
-            $totalAmount = $productTotal - $totalDiscount + $shippingFee + $codFee;
+            $codSupportAmount = (float) ($data['cod_support_amount'] ?? 0);
 
-            if ($deposit > $totalAmount) {
-                throw new \RuntimeException(__('telesale.messages.deposit_exceeds_total'));
-            }
+            $finance = $this->orderFinanceService->calculateCollectAmount([
+                'product_total' => $productTotal,
+                'discount' => $orderDiscount,
+                'ck1' => $ck1,
+                'ck2' => $ck2,
+                'shipping_fee' => $shippingFee,
+                'cod_fee' => $codFee,
+                'deposit' => $deposit,
+                'cod_support_amount' => $codSupportAmount,
+            ]);
+
+            $totalDiscount = (float) $finance['total_discount'];
+            $totalAmount = (float) $finance['gross_total'];
+            $collectAmount = (float) $finance['collect_amount'];
 
             $warehouseId = (int) ($data['warehouse_id'] ?? 0);
             if ($warehouseId <= 0) {
@@ -122,14 +138,14 @@ class OrderService
                     continue;
                 }
 
-                $stock = ProductWarehouse::query()
+                $stock = $this->productWarehouseRepository->query()
                     ->where('warehouse_id', $warehouseId)
                     ->where('product_id', $productId)
                     ->first();
 
                 $availableQty = (int) (($stock?->quantity ?? 0) - ($stock?->pending_quantity ?? 0));
                 if ($availableQty < $requiredQty) {
-                    $productName = Product::find($productId)?->name ?? '#' . $productId;
+                    $productName = $this->productRepository->find($productId)?->name ?? '#' . $productId;
                     throw new \RuntimeException(__('telesale.messages.insufficient_stock', ['product' => $productName]));
                 }
             }
@@ -149,6 +165,8 @@ class OrderService
                 'ward_id' => $data['ward_id'] ?? null,
                 'deposit' => $deposit,
                 'cod_fee' => $codFee,
+                'cod_support_amount' => $codSupportAmount,
+                'collect_amount' => $collectAmount,
                 'ck1' => $ck1,
                 'ck2' => $ck2,
                 'warehouse_id' => $warehouseId,
@@ -239,7 +257,7 @@ class OrderService
                 'to_address' => $order->shipping_address ?? $order->customer->address,
                 'to_ward_code' => $this->getWardCode($order),
                 'to_district_id' => $this->getDistrictCode($order),
-                'cod_amount' => (int) ($order->total_amount - $order->deposit),
+                'cod_amount' => (int) ($order->collect_amount ?: ($order->total_amount - $order->deposit)),
                 'items' => $items,
                 'service_type_id' => $order->ghn_service_type_id ?? 2, // 2: Standard
                 'weight' => (int) min(20000, ($order->weight ?? $totalWeight)),
@@ -340,7 +358,8 @@ class OrderService
     {
         // 1. Check Warehouse Config
         if ($order->warehouse_id) {
-            $warehouseConfig = ShippingConfigForWarehouse::where('warehouse_id', $order->warehouse_id)
+            $warehouseConfig = $this->shippingConfigForWareHouseRepository->query()
+                ->where('warehouse_id', $order->warehouse_id)
                 ->where('organization_id', $order->organization_id)
                 ->first();
 
@@ -353,7 +372,9 @@ class OrderService
         }
 
         // 2. Check Organization Config
-        $orgConfig = ShippingConfig::where('organization_id', $order->organization_id)->first();
+        $orgConfig = $this->shippingConfigRepository->query()
+            ->where('organization_id', $order->organization_id)
+            ->first();
 
         if ($orgConfig && $orgConfig->api_token && $orgConfig->default_store_id) {
             return [
@@ -373,14 +394,13 @@ class OrderService
             $config = $this->getShippingConfig($order);
 
             // Initialize GHN Service
-            $ghnService = app(\App\Services\GHNService::class);
-            $ghnService->setToken($config['token'])->setShopId($config['shop_id']);
+            $this->ghnService->setToken($config['token'])->setShopId($config['shop_id']);
 
             // Use GHN order code if available, otherwise use client order code
             $orderCode = $order->ghn_order_code ?? $order->code;
 
             // Call GHN Cancel API
-            $result = $ghnService->cancelOrder($orderCode);
+            $result = $this->ghnService->cancelOrder($orderCode);
 
             // Generate new order code with -R suffix
             $newCode = $this->generateRefreshedCode($order->code);

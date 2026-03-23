@@ -9,11 +9,15 @@ use App\Filament\Clusters\Telesale\TelesaleCluster;
 use App\Models\CustomerStatusLog;
 use App\Models\Order;
 use App\Models\User;
+use App\Services\Telesale\TelesaleReportExportService;
+use App\Services\Telesale\TelesaleReportScopeService;
 use BackedEnum;
+use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
+use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -38,6 +42,8 @@ class OperationFunnelReport extends Page implements HasForms
             'from_date' => now()->startOfMonth()->toDateString(),
             'to_date' => now()->toDateString(),
             'staff_id' => null,
+            'selected_steps' => [],
+            'unlimited_close_date' => false,
         ]);
 
         $this->generateReport();
@@ -89,8 +95,15 @@ class OperationFunnelReport extends Page implements HasForms
                             )
                             ->placeholder(__('telesale.reports.all_staff'))
                             ->searchable(),
+                        Select::make('selected_steps')
+                            ->label(__('telesale.reports.step'))
+                            ->options(InteractionStatus::options())
+                            ->multiple()
+                            ->searchable(),
+                        Checkbox::make('unlimited_close_date')
+                            ->label(__('telesale.reports.unlimited_close_date')),
                     ])
-                    ->columns(3),
+                    ->columns(5),
             ])
             ->statePath('data');
     }
@@ -101,11 +114,16 @@ class OperationFunnelReport extends Page implements HasForms
         $from = ($state['from_date'] ?? now()->startOfMonth()->toDateString()) . ' 00:00:00';
         $to = ($state['to_date'] ?? now()->toDateString()) . ' 23:59:59';
         $staffId = $state['staff_id'] ?? null;
+        $selectedSteps = $state['selected_steps'] ?? [];
+        $unlimitedCloseDate = (bool) ($state['unlimited_close_date'] ?? false);
         $user = Auth::user();
 
         $base = CustomerStatusLog::query()
-            ->join('customers', 'customers.id', '=', 'customer_status_logs.customer_id')
-            ->whereBetween('customer_status_logs.created_at', [$from, $to]);
+            ->join('customers', 'customers.id', '=', 'customer_status_logs.customer_id');
+
+        if (!$unlimitedCloseDate) {
+            $base->whereBetween('customer_status_logs.created_at', [$from, $to]);
+        }
 
         if ($user->role !== UserRole::SUPER_ADMIN->value) {
             $base->where('customers.organization_id', $user->organization_id);
@@ -131,6 +149,9 @@ class OperationFunnelReport extends Page implements HasForms
             InteractionStatus::THIRD_CARE->value,
             InteractionStatus::PASS->value,
         ];
+        if (!empty($selectedSteps)) {
+            $steps = array_values(array_intersect($steps, array_map('intval', $selectedSteps)));
+        }
 
         $rows = [];
 
@@ -141,16 +162,19 @@ class OperationFunnelReport extends Page implements HasForms
 
             $ordersQuery = Order::query()
                 ->whereIn('customer_id', $customerIds)
-                ->whereBetween('created_at', [$from, $to])
                 ->whereIn('status', [
                     OrderStatus::CONFIRMED->value,
                     OrderStatus::SHIPPING->value,
                     OrderStatus::COMPLETED->value,
                 ]);
 
-            if ($user->role !== UserRole::SUPER_ADMIN->value) {
-                $ordersQuery->where('organization_id', $user->organization_id);
+            if (!$unlimitedCloseDate) {
+                $ordersQuery->whereBetween('created_at', [$from, $to]);
             }
+
+            /** @var TelesaleReportScopeService $scopeService */
+            $scopeService = app(TelesaleReportScopeService::class);
+            $scopeService->applyOrderScope($ordersQuery, $user);
 
             if (!empty($staffId)) {
                 $ordersQuery->where('created_by', $staffId);
@@ -174,5 +198,22 @@ class OperationFunnelReport extends Page implements HasForms
         }
 
         $this->rows = $rows;
+    }
+
+    public function exportReport(): void
+    {
+        /** @var TelesaleReportExportService $exportService */
+        $exportService = app(TelesaleReportExportService::class);
+        $job = $exportService->enqueueExport(
+            user: Auth::user(),
+            reportType: 'operation_funnel',
+            filters: $this->form->getState(),
+            rowCount: count($this->rows),
+        );
+
+        Notification::make()
+            ->title(__('telesale.reports.export_queued', ['id' => $job->id]))
+            ->success()
+            ->send();
     }
 }

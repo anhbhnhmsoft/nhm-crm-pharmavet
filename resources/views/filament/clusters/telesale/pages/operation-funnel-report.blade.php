@@ -4,7 +4,10 @@
         <form wire:submit="generateReport" class="space-y-4">
             {{ $this->form }}
 
-            <div class="flex justify-end">
+            <div class="flex justify-end gap-2">
+                <x-filament::button type="button" color="gray" wire:click="exportReport">
+                    {{ __('telesale.reports.export') }}
+                </x-filament::button>
                 <x-filament::button type="submit" color="primary">
                     {{ __('telesale.reports.generate') }}
                 </x-filament::button>

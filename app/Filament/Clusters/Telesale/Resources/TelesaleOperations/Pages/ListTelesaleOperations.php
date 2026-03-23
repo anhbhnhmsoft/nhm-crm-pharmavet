@@ -52,13 +52,18 @@ class ListTelesaleOperations extends ListRecords
         ];
     }
 
-    public function handleIncomingLead(): void
+    public function handleIncomingLead(array $event): void
     {
         $this->newLeadBadgeCount++;
         $this->storeLeadBadgeCount($this->newLeadBadgeCount);
 
+        $title = __('telesale.messages.new_lead_detected');
+        if (($event['is_duplicate'] ?? false) && (int) ($event['group_count'] ?? 1) > 1) {
+            $title .= ' (' . __('telesale.messages.duplicate_group_count', ['count' => (int) $event['group_count']]) . ')';
+        }
+
         Notification::make()
-            ->title(__('telesale.messages.new_lead_detected'))
+            ->title($title)
             ->success()
             ->send();
     }

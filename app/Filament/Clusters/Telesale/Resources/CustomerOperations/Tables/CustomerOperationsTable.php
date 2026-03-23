@@ -18,6 +18,7 @@ use App\Models\Warehouse;
 use App\Models\Ward;
 use App\Models\Organization;
 use App\Services\OrderService;
+use App\Services\Telesale\Customer360Service;
 use App\Common\Constants\User\UserRole;
 use App\Common\Constants\Order\PaymentType;
 use App\Common\Constants\Order\ServiceType;
@@ -69,11 +70,12 @@ class CustomerOperationsTable
             $codFee = (float) ($get('cod_fee') ?? 0);
             $shippingFee = (float) ($get('shipping_fee') ?? 0);
             $deposit = (float) ($get('deposit') ?? 0);
+            $codSupportAmount = (float) ($get('cod_support_amount') ?? 0);
 
             $productDiscount = $productTotal * (($ck1 + $ck2) / 100);
             $totalDiscount = $productDiscount + $discount;
             $grossTotal = max(0, $productTotal - $totalDiscount + $shippingFee + $codFee);
-            $collectAmount = max(0, $grossTotal - $deposit);
+            $collectAmount = max(0, $grossTotal - $deposit - $codSupportAmount);
 
             $set('total_amount_temp', round($productTotal));
             $set('total_discount_display', number_format($totalDiscount) . ' ' . __('telesale.form.currency_suffix'));
@@ -390,7 +392,7 @@ class CustomerOperationsTable
 
                                             Placeholder::make('logistics_helper')
                                                 ->label('')
-                                                ->content(fn() => new \Illuminate\Support\HtmlString('<div class="text-xs text-gray-500 italic">* Trọng lượng và kích thước sẽ tự động tính toán dựa trên sản phẩm đã chọn.</div>')),
+                                                ->content(fn() => new \Illuminate\Support\HtmlString('<div class="text-xs text-gray-500 italic">' . e(__('telesale.helper.auto_calculated_logistics_dimensions')) . '</div>')),
 
                                             Repeater::make('items')
                                                 ->label(__('warehouse.order.form.product'))
@@ -561,6 +563,12 @@ class CustomerOperationsTable
                                                     ->numeric()
                                                     ->live(onBlur: true)
                                                     ->afterStateUpdated(fn(Get $get, Set $set) => $recalculateOrderSummary($get, $set)),
+                                                TextInput::make('cod_support_amount')
+                                                    ->label(__('telesale.form.cod_support_amount'))
+                                                    ->numeric()
+                                                    ->default(0)
+                                                    ->live(onBlur: true)
+                                                    ->afterStateUpdated(fn(Get $get, Set $set) => $recalculateOrderSummary($get, $set)),
                                                 TextInput::make('cod_amount')
                                                     ->label(__('warehouse.order.form.cod_amount'))
                                                     ->numeric()
@@ -676,6 +684,7 @@ class CustomerOperationsTable
                             $ck2 = (float) ($data['ck2'] ?? 0);
                             $shippingFee = (float) ($data['shipping_fee'] ?? 0);
                             $codFee = (float) ($data['cod_fee'] ?? 0);
+                            $codSupportAmount = (float) ($data['cod_support_amount'] ?? 0);
                             $deposit = (float) ($data['deposit'] ?? 0);
 
                             $productDiscount = $productTotal * (($ck1 + $ck2) / 100);
@@ -717,7 +726,7 @@ class CustomerOperationsTable
                             $data['created_by'] = Auth::id();
                             $data['updated_by'] = Auth::id();
                             $data['warehouse_id'] = $warehouseId;
-                            $data['cod_amount'] = max(0, $grossTotal - $deposit);
+                            $data['cod_amount'] = max(0, $grossTotal - $deposit - $codSupportAmount);
 
                             /** @var OrderService $orderService */
                             $orderService = app(OrderService::class);
@@ -733,6 +742,44 @@ class CustomerOperationsTable
                             } else {
                                 Notification::make()->title($result->getMessage())->danger()->send();
                             }
+                        }),
+
+                    Action::make('customer_360')
+                        ->label(__('telesale.actions.customer_360'))
+                        ->icon('heroicon-o-user-circle')
+                        ->color('info')
+                        ->modalWidth('7xl')
+                        ->schema(function ($record) {
+                            /** @var Customer360Service $customer360Service */
+                            $customer360Service = app(Customer360Service::class);
+                            $snapshot = $customer360Service->getCustomer360Snapshot((int) $record->id);
+
+                            return [
+                                Section::make(__('telesale.customer360.summary'))
+                                    ->schema([
+                                        Grid::make(4)->schema([
+                                            Placeholder::make('c360_total_revenue')
+                                                ->label(__('telesale.customer360.total_revenue'))
+                                                ->content(number_format((float) ($snapshot['total_revenue'] ?? 0))),
+                                            Placeholder::make('c360_debt_amount')
+                                                ->label(__('telesale.customer360.debt_amount'))
+                                                ->content(number_format((float) ($snapshot['debt_amount'] ?? 0))),
+                                            Placeholder::make('c360_total_orders')
+                                                ->label(__('telesale.customer360.total_orders'))
+                                                ->content((string) count($snapshot['orders'] ?? [])),
+                                            Placeholder::make('c360_latest_status')
+                                                ->label(__('telesale.customer360.latest_order_status'))
+                                                ->content($snapshot['latest_order_status'] ? OrderStatus::getLabel((int) $snapshot['latest_order_status']) : '-'),
+                                        ]),
+                                    ]),
+                                Section::make(__('telesale.customer360.timeline'))
+                                    ->schema([
+                                        \Filament\Forms\Components\ViewField::make('interactions_timeline_c360')
+                                            ->label('')
+                                            ->view('filament.components.customer-interactions-timeline')
+                                            ->columnSpanFull(),
+                                    ]),
+                            ];
                         }),
 
                     ViewAction::make()
@@ -869,6 +916,8 @@ class CustomerOperationsTable
                                     'user_id' => Auth::user()->id,
                                 ]);
 
+                                self::logCustomerInteraction($record, $nextStatus);
+
                                 // Cập nhật trạng thái
                                 $record->interaction_status = $nextStatus;
 
@@ -941,6 +990,8 @@ class CustomerOperationsTable
                                     'reason' => $data['reason'],
                                     'user_id' => Auth::user()->id,
                                 ]);
+
+                                self::logCustomerInteraction($record, $nextStatus);
                                 $record->interaction_status = $nextStatus;
                                 if (ReasonInteraction::requiresScheduling($data['reason']) && isset($data['next_action_at'])) {
                                     $record->next_action_at = $data['next_action_at'];
@@ -1002,6 +1053,8 @@ class CustomerOperationsTable
                                     'reason' => $data['reason'],
                                     'user_id' => Auth::user()->id,
                                 ]);
+
+                                self::logCustomerInteraction($record, $nextStatus);
                                 $record->interaction_status = $nextStatus;
                                 if (ReasonInteraction::requiresScheduling($data['reason']) && isset($data['next_action_at'])) {
                                     $record->next_action_at = $data['next_action_at'];
@@ -1063,6 +1116,8 @@ class CustomerOperationsTable
                                     'reason' => $data['reason'],
                                     'user_id' => Auth::user()->id,
                                 ]);
+
+                                self::logCustomerInteraction($record, $nextStatus);
                                 $record->interaction_status = $nextStatus;
                                 if (ReasonInteraction::requiresScheduling($data['reason']) && isset($data['next_action_at'])) {
                                     $record->next_action_at = $data['next_action_at'];
@@ -1124,6 +1179,8 @@ class CustomerOperationsTable
                                     'reason' => $data['reason'],
                                     'user_id' => Auth::user()->id,
                                 ]);
+
+                                self::logCustomerInteraction($record, $nextStatus);
                                 $record->interaction_status = $nextStatus;
                                 if (ReasonInteraction::requiresScheduling($data['reason']) && isset($data['next_action_at'])) {
                                     $record->next_action_at = $data['next_action_at'];
@@ -1185,6 +1242,8 @@ class CustomerOperationsTable
                                     'reason' => $data['reason'],
                                     'user_id' => Auth::user()->id,
                                 ]);
+
+                                self::logCustomerInteraction($record, $nextStatus);
                                 $record->interaction_status = $nextStatus;
                                 if (ReasonInteraction::requiresScheduling($data['reason']) && isset($data['next_action_at'])) {
                                     $record->next_action_at = $data['next_action_at'];
@@ -1246,6 +1305,8 @@ class CustomerOperationsTable
                                     'reason' => $data['reason'],
                                     'user_id' => Auth::user()->id,
                                 ]);
+
+                                self::logCustomerInteraction($record, $nextStatus);
                                 $record->interaction_status = $nextStatus;
                                 if (ReasonInteraction::requiresScheduling($data['reason']) && isset($data['next_action_at'])) {
                                     $record->next_action_at = $data['next_action_at'];
@@ -1307,6 +1368,8 @@ class CustomerOperationsTable
                                     'reason' => $data['reason'],
                                     'user_id' => Auth::user()->id,
                                 ]);
+
+                                self::logCustomerInteraction($record, $nextStatus);
                                 $record->interaction_status = $nextStatus;
                                 if (ReasonInteraction::requiresScheduling($data['reason']) && isset($data['next_action_at'])) {
                                     $record->next_action_at = $data['next_action_at'];
@@ -1368,6 +1431,8 @@ class CustomerOperationsTable
                                     'reason' => $data['reason'],
                                     'user_id' => Auth::user()->id,
                                 ]);
+
+                                self::logCustomerInteraction($record, $nextStatus);
                                 $record->interaction_status = $nextStatus;
                                 if (ReasonInteraction::requiresScheduling($data['reason']) && isset($data['next_action_at'])) {
                                     $record->next_action_at = $data['next_action_at'];
@@ -1426,5 +1491,22 @@ class CustomerOperationsTable
             ->striped()
             ->persistFiltersInSession()
             ->poll('30s');
+    }
+
+    private static function logCustomerInteraction($record, int $nextStatus): void
+    {
+        $lastAttempt = (int) ($record->interactions()->max('attempt_no') ?? 0);
+        $lastCare = (int) ($record->interactions()->max('care_no') ?? 0);
+
+        $record->interactions()->create([
+            'user_id' => Auth::id(),
+            'type' => 1,
+            'channel' => 'call',
+            'attempt_no' => max(1, $lastAttempt + 1),
+            'care_no' => max(1, $lastCare + 1),
+            'status' => $nextStatus,
+            'interacted_at' => now(),
+            'content' => InteractionStatus::getLabelStatus($nextStatus),
+        ]);
     }
 }
