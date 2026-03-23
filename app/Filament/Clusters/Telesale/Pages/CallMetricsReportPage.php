@@ -3,7 +3,6 @@
 namespace App\Filament\Clusters\Telesale\Pages;
 
 use App\Common\Constants\User\UserRole;
-use App\Filament\Clusters\Telesale\TelesaleCluster;
 use App\Models\CustomerInteraction;
 use BackedEnum;
 use Filament\Forms\Components\DatePicker;
@@ -21,7 +20,10 @@ class CallMetricsReportPage extends Page implements HasForms
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-phone';
     protected string $view = 'filament.clusters.telesale.pages.call-metrics-report-page';
     protected static ?int $navigationSort = 14;
-    protected static string|null $cluster = TelesaleCluster::class;
+    public static function getNavigationGroup(): \UnitEnum|string|null
+    {
+        return __('filament.navigation.unit_telesale');
+    }
 
     public ?array $data = [];
     public array $metrics = [];

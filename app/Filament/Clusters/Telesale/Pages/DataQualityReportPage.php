@@ -3,7 +3,6 @@
 namespace App\Filament\Clusters\Telesale\Pages;
 
 use App\Common\Constants\User\UserRole;
-use App\Filament\Clusters\Telesale\TelesaleCluster;
 use App\Models\Customer;
 use BackedEnum;
 use Filament\Forms\Components\DatePicker;
@@ -21,7 +20,10 @@ class DataQualityReportPage extends Page implements HasForms
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-rectangle-stack';
     protected string $view = 'filament.clusters.telesale.pages.data-quality-report-page';
     protected static ?int $navigationSort = 13;
-    protected static string|null $cluster = TelesaleCluster::class;
+    public static function getNavigationGroup(): \UnitEnum|string|null
+    {
+        return __('filament.navigation.unit_telesale');
+    }
 
     public ?array $data = [];
     public array $stats = [];

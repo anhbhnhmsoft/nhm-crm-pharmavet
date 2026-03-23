@@ -5,7 +5,6 @@ namespace App\Filament\Clusters\Telesale\Pages;
 use App\Common\Constants\Customer\CustomerType;
 use App\Common\Constants\Order\OrderStatus;
 use App\Common\Constants\User\UserRole;
-use App\Filament\Clusters\Telesale\TelesaleCluster;
 use App\Models\Order;
 use App\Models\PushsaleRuleSet;
 use App\Models\User;
@@ -30,7 +29,10 @@ class TopSaleRankingReport extends Page implements HasForms
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-trophy';
     protected string $view = 'filament.clusters.telesale.pages.top-sale-ranking-report';
     protected static ?int $navigationSort = 10;
-    protected static string|null $cluster = TelesaleCluster::class;
+    public static function getNavigationGroup(): \UnitEnum|string|null
+    {
+        return __('filament.navigation.unit_telesale');
+    }
 
     public ?array $data = [];
 
@@ -115,6 +117,7 @@ class TopSaleRankingReport extends Page implements HasForms
         $from = ($state['from_date'] ?? now()->startOfMonth()->toDateString()) . ' 00:00:00';
         $to = ($state['to_date'] ?? now()->toDateString()) . ' 23:59:59';
         $staffId = $state['staff_id'] ?? null;
+        /** @var \App\Models\User $user */
         $user = Auth::user();
 
         $query = Order::query()
