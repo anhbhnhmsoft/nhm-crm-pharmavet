@@ -5,7 +5,6 @@ namespace App\Filament\Clusters\Telesale\Pages;
 use App\Common\Constants\Interaction\InteractionStatus;
 use App\Common\Constants\Order\OrderStatus;
 use App\Common\Constants\User\UserRole;
-use App\Filament\Clusters\Telesale\TelesaleCluster;
 use App\Models\CustomerStatusLog;
 use App\Models\Order;
 use App\Models\User;
@@ -30,7 +29,10 @@ class OperationFunnelReport extends Page implements HasForms
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-chart-bar';
     protected string $view = 'filament.clusters.telesale.pages.operation-funnel-report';
     protected static ?int $navigationSort = 11;
-    protected static string|null $cluster = TelesaleCluster::class;
+    public static function getNavigationGroup(): \UnitEnum|string|null
+    {
+        return __('filament.navigation.unit_telesale');
+    }
 
     public ?array $data = [];
 
@@ -116,6 +118,7 @@ class OperationFunnelReport extends Page implements HasForms
         $staffId = $state['staff_id'] ?? null;
         $selectedSteps = $state['selected_steps'] ?? [];
         $unlimitedCloseDate = (bool) ($state['unlimited_close_date'] ?? false);
+        /** @var \App\Models\User $user */
         $user = Auth::user();
 
         $base = CustomerStatusLog::query()

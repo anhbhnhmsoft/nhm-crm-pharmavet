@@ -3,7 +3,6 @@
 namespace App\Filament\Clusters\Telesale\Pages;
 
 use App\Common\Constants\User\UserRole;
-use App\Filament\Clusters\Telesale\TelesaleCluster;
 use App\Models\User;
 use App\Services\Telesale\TelesaleKpiService;
 use BackedEnum;
@@ -24,7 +23,10 @@ class SaleKpiReportPage extends Page implements HasForms
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-presentation-chart-line';
     protected string $view = 'filament.clusters.telesale.pages.sale-kpi-report-page';
     protected static ?int $navigationSort = 12;
-    protected static string|null $cluster = TelesaleCluster::class;
+    public static function getNavigationGroup(): \UnitEnum|string|null
+    {
+        return __('filament.navigation.unit_telesale');
+    }
 
     public ?array $data = [];
     public array $summary = [];
