@@ -15,7 +15,8 @@ return new class extends Migration
          *  Cấu hình phân bổ (LeadDistributionConfig)
          * ------------------------------------------------
          */
-        Schema::create('lead_distribution_configs', function (Blueprint $table) {
+        if (!Schema::hasTable('lead_distribution_configs')) {
+            Schema::create('lead_distribution_configs', function (Blueprint $table) {
             $table->id();
 
             $table->foreignId('organization_id')
@@ -47,13 +48,15 @@ return new class extends Migration
             $table->softDeletes();
 
             $table->index(['organization_id']);
-        });
+            });
+        }
 
         /**
          * Khách hàng (Customer)
          * ------------------------------------------------
          */
-        Schema::create('customers', function (Blueprint $table) {
+        if (!Schema::hasTable('customers')) {
+            Schema::create('customers', function (Blueprint $table) {
             $table->id();
 
             $table->foreignId('organization_id')
@@ -79,13 +82,15 @@ return new class extends Migration
 
             $table->index('phone');
             $table->index(['assigned_staff_id', 'customer_type']);
-        });
+            });
+        }
 
         /**
          * Quy tắc chi tiết (LeadDistributionRule)
          * ------------------------------------------------
          */
-        Schema::create('lead_distribution_rules', function (Blueprint $table) {
+        if (!Schema::hasTable('lead_distribution_rules')) {
+            Schema::create('lead_distribution_rules', function (Blueprint $table) {
             $table->id();
 
             $table->foreignId('config_id')
@@ -101,13 +106,15 @@ return new class extends Migration
 
             $table->timestamps();
             $table->softDeletes();
-        });
+            });
+        }
 
         /**
          * Nhân viên được phân bổ theo cấu hình (LeadDistributionStaff)
          * ------------------------------------------------
          */
-        Schema::create('lead_distribution_staff', function (Blueprint $table) {
+        if (!Schema::hasTable('lead_distribution_staff')) {
+            Schema::create('lead_distribution_staff', function (Blueprint $table) {
             $table->id();
 
             $table->foreignId('config_id')
@@ -121,7 +128,8 @@ return new class extends Migration
                 ->comment('Nhân viên được phân bổ');
             $table->integer('weight')->default(1)->comment('Trọng số phân phối');
             $table->unique(['config_id', 'staff_id'], 'unique_lead_distribution_staff');
-        });
+            });
+        }
     }
 
     /**
@@ -129,9 +137,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('lead_distribution_staff');
-        Schema::dropIfExists('lead_distribution_rules');
-        Schema::dropIfExists('customers');
-        Schema::dropIfExists('lead_distribution_configs');
+        // Compatibility migration: keep schema from baseline init migration.
     }
 };

@@ -11,7 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('integrations', function (Blueprint $table) {
+        if (!Schema::hasTable('integrations')) {
+            Schema::create('integrations', function (Blueprint $table) {
             $table->id();
 
             // Mỗi tổ chức có nhiều integration
@@ -40,9 +41,11 @@ return new class extends Migration
 
             $table->foreign('created_by')->references('id')->on('users')->nullOnDelete();
             $table->foreign('updated_by')->references('id')->on('users')->nullOnDelete();
-        });
+            });
+        }
 
-        Schema::create('integration_entities', function (Blueprint $table) {
+        if (!Schema::hasTable('integration_entities')) {
+            Schema::create('integration_entities', function (Blueprint $table) {
             $table->id();
 
             $table->foreignId('integration_id')
@@ -66,9 +69,11 @@ return new class extends Migration
 
             $table->index(['integration_id', 'type']);
             $table->index('external_id');
-        });
+            });
+        }
 
-        Schema::create('integration_tokens', function (Blueprint $table) {
+        if (!Schema::hasTable('integration_tokens')) {
+            Schema::create('integration_tokens', function (Blueprint $table) {
             $table->id();
 
             $table->foreignId('integration_id')
@@ -93,7 +98,8 @@ return new class extends Migration
             $table->softDeletes();
 
             $table->index(['integration_id', 'type']);
-        });
+            });
+        }
     }
 
     /**
@@ -101,8 +107,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('integration_tokens');
-        Schema::dropIfExists('integration_entities');
-        Schema::dropIfExists('integrations');
+        // Compatibility migration: keep schema from baseline init migration.
     }
 };
