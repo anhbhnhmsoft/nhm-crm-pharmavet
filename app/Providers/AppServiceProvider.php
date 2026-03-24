@@ -64,6 +64,7 @@ use App\Repositories\TeamReportScopeRepository;
 use App\Repositories\TelesaleNotificationAggregateRepository;
 use App\Services\ExpenseService;
 use App\Services\Telesale\Customer360Service;
+use App\Services\Telesale\HonorBoardService;
 use App\Services\Telesale\LeadNotificationService;
 use App\Services\Telesale\OrderFinanceService;
 use App\Services\Telesale\PushsaleRuleService;
@@ -168,6 +169,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(WarehouseService::class);
         $this->app->bind(ExpenseService::class);
         $this->app->bind(Customer360Service::class);
+        $this->app->bind(HonorBoardService::class);
         $this->app->bind(LeadNotificationService::class);
         $this->app->bind(OrderFinanceService::class);
         $this->app->bind(PushsaleRuleService::class);

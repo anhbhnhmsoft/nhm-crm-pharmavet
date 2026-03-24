@@ -216,6 +216,7 @@ return [
 
     'reports' => [
         'top_sale_navigation' => 'Top Sale Ranking',
+        'legacy_suffix' => 'Legacy',
         'top_sale_title' => 'Báo cáo xếp hạng Sale',
         'funnel_navigation' => 'Phễu tác nghiệp',
         'funnel_title' => 'Báo cáo phễu chốt đơn',

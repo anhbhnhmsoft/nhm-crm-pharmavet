@@ -24,8 +24,22 @@ class TelesaleReportScopeService
 
         $query->where('orders.organization_id', $user->organization_id);
 
+        $staffIds = $this->resolveScopedStaffIds($user);
+        if (is_array($staffIds)) {
+            return $query->whereIn($column, $staffIds);
+        }
+
+        return $query;
+    }
+
+    public function resolveScopedStaffIds(User $user): ?array
+    {
+        if ($user->role === UserRole::SUPER_ADMIN->value) {
+            return null;
+        }
+
         if ($user->role === UserRole::SALE->value) {
-            return $query->where($column, $user->id);
+            return [$user->id];
         }
 
         $scopeRows = $this->teamReportScopeRepository->query()
@@ -33,24 +47,24 @@ class TelesaleReportScopeService
             ->where('leader_id', $user->id)
             ->get(['team_id']);
 
-        if ($scopeRows->isNotEmpty()) {
-            $teamIds = $scopeRows->pluck('team_id')->filter()->unique()->values()->all();
-            $staffIds = [];
-
-            if (!empty($teamIds)) {
-                $staffIds = DB::table('user_team')
-                    ->whereIn('team_id', $teamIds)
-                    ->pluck('user_id')
-                    ->unique()
-                    ->values()
-                    ->all();
-            }
-
-            $staffIds[] = $user->id;
-
-            return $query->whereIn($column, array_values(array_unique($staffIds)));
+        if ($scopeRows->isEmpty()) {
+            return null;
         }
 
-        return $query;
+        $teamIds = $scopeRows->pluck('team_id')->filter()->unique()->values()->all();
+        $staffIds = [];
+
+        if (!empty($teamIds)) {
+            $staffIds = DB::table('user_team')
+                ->whereIn('team_id', $teamIds)
+                ->pluck('user_id')
+                ->unique()
+                ->values()
+                ->all();
+        }
+
+        $staffIds[] = $user->id;
+
+        return array_values(array_unique($staffIds));
     }
 }
