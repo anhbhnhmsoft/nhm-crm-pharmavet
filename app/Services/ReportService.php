@@ -13,7 +13,7 @@ use App\Repositories\OrderRepository;
 use App\Repositories\ExpenseRepository;
 use App\Repositories\RevenueRepository;
 use App\Repositories\CustomerRepository;
-use App\Models\Order;
+use App\Repositories\InventoryTicketRepository;
 use Throwable;
 
 class ReportService
@@ -23,6 +23,7 @@ class ReportService
         protected ExpenseRepository $expenseRepository,
         protected RevenueRepository $revenueRepository,
         protected CustomerRepository $customerRepository,
+        protected InventoryTicketRepository $inventoryTicketRepository,
     ) {
     }
 
@@ -48,7 +49,8 @@ class ReportService
             $totalDiscounts = $completedOrders->sum('discount');
 
             // 3. Hàng bán bị trả lại (Sales Returns) - Lấy từ phiếu Nhập hoàn Kho
-            $returns = \App\Models\InventoryTicket::where('organization_id', $organizationId)
+            $returns = $this->inventoryTicketRepository->query()
+                ->where('organization_id', $organizationId)
                 ->where('is_sales_return', true)
                 ->where('status', StatusTicket::COMPLETED->value)
                 ->whereBetween('approved_at', [$fromDate . ' 00:00:00', $toDate . ' 23:59:59'])
@@ -364,7 +366,8 @@ class ReportService
         try {
             // 1. Phải thu PTGH (Logistics Partner - GHN)
             // Đơn COMPLETED, có COD > 0, chưa có đối soát status=PAID
-            $logisticsReceivables = Order::where('organization_id', $organizationId)
+            $logisticsReceivables = $this->orderRepository->query()
+                ->where('organization_id', $organizationId)
                 ->where('status', OrderStatus::COMPLETED->value)
                 ->where('total_amount', '>', 0)
                 ->whereDoesntHave('reconciliation', function ($query) {
@@ -387,7 +390,8 @@ class ReportService
 
             // 2. Phải thu KH (Customer Direct)
             // Đơn COMPLETED, tiền nhận từ khách < tổng tiền
-            $customerReceivables = Order::where('organization_id', $organizationId)
+            $customerReceivables = $this->orderRepository->query()
+                ->where('organization_id', $organizationId)
                 ->where('status', OrderStatus::COMPLETED->value)
                 ->whereRaw('total_amount > amount_recived_from_customer')
                 ->with(['createdBy', 'customer'])
