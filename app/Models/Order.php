@@ -12,6 +12,25 @@ class Order extends Model
 {
     use HasFactory, SoftDeletes;
 
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::saving(function ($model) {
+            $date = $model->created_at ?: now();
+            if (AccountingPeriod::isClosed($model->organization_id, $date->month, $date->year)) {
+                throw new \Exception(__('accounting.accounting_period.period_closed'));
+            }
+        });
+
+        static::deleting(function ($model) {
+            $date = $model->created_at ?: now();
+            if (AccountingPeriod::isClosed($model->organization_id, $date->month, $date->year)) {
+                throw new \Exception(__('accounting.accounting_period.period_closed'));
+            }
+        });
+    }
+
     protected $table = 'orders';
 
     protected $fillable = [
@@ -127,6 +146,11 @@ class Order extends Model
     public function ward(): BelongsTo
     {
         return $this->belongsTo(Ward::class, 'ward_id');
+    }
+
+    public function reconciliation(): HasMany
+    {
+        return $this->hasMany(Reconciliation::class);
     }
 
     // Scopes

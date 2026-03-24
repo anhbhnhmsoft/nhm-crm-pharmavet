@@ -16,33 +16,62 @@
                 <div class="space-y-6">
                     <x-filament::section>
                         <x-slot name="heading">{{ __('accounting.report.revenue_section') }}</x-slot>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                            {{-- Gross Revenue --}}
                             <div
-                                class="p-4 bg-green-50/50 dark:bg-green-900/5 rounded-lg border border-green-100 dark:border-green-900/10">
-                                <p class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-2">
-                                    {{ __('accounting.report.revenue_from_orders') }}
+                                class="p-4 bg-gray-50/50 dark:bg-gray-900/5 rounded-lg border border-gray-100 dark:border-gray-900/10">
+                                <p class="text-[10px] font-bold text-gray-400 uppercase mb-1">
+                                    {{ __('accounting.report.revenue_gross') }}
                                 </p>
-                                <p class="text-2xl font-bold text-gray-900 dark:text-white"
-                                    x-text="new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(reportData.business.revenue?.from_orders || 0)">
+                                <p class="text-xl font-bold text-gray-700 dark:text-gray-300"
+                                    x-text="new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(reportData.business.revenue?.gross || 0)">
                                 </p>
                             </div>
+
+                            {{-- Deductions (Returns & Discounts) --}}
                             <div
-                                class="p-4 bg-blue-50/50 dark:bg-blue-900/5 rounded-lg border border-blue-100 dark:border-blue-900/10">
-                                <p class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-2">
-                                    {{ __('accounting.report.revenue_other') }}
+                                class="p-4 bg-red-50/50 dark:bg-red-900/5 rounded-lg border border-red-100 dark:border-red-900/10">
+                                <p class="text-[10px] font-black text-red-400 uppercase mb-1">
+                                    {{ __('accounting.report.revenue_discounts') }} &
+                                    {{ __('accounting.report.revenue_returns') }}
                                 </p>
-                                <p class="text-2xl font-bold text-gray-900 dark:text-white"
-                                    x-text="new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(reportData.business.revenue?.other || 0)">
+                                <p class="text-xl font-bold text-red-600 dark:text-red-400"
+                                    x-text="'- ' + new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format((reportData.business.revenue?.discounts || 0) + (reportData.business.revenue?.returns || 0))">
+                                </p>
+                                <div class="mt-1 flex gap-2 text-[9px] font-semibold text-gray-400">
+                                    <span
+                                        x-text="'{{ __('accounting.report.discount_short') }}: ' + new Intl.NumberFormat('vi-VN').format(reportData.business.revenue?.discounts || 0)"></span>
+                                    <span>|</span>
+                                    <span
+                                        x-text="'{{ __('accounting.report.return_short') }}: ' + new Intl.NumberFormat('vi-VN').format(reportData.business.revenue?.returns || 0)"></span>
+                                </div>
+                            </div>
+
+                            {{-- Net Revenue --}}
+                            <div
+                                class="p-4 bg-blue-50/50 dark:bg-blue-900/5 rounded-lg border border-blue-100 dark:border-blue-900/10 shadow-sm shadow-blue-50/50">
+                                <p
+                                    class="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase mb-1 flex items-center gap-1">
+                                    <x-heroicon-s-star class="w-2.5 h-2.5" />
+                                    {{ __('accounting.report.revenue_net') }}
+                                </p>
+                                <p class="text-2xl font-black text-blue-700 dark:text-blue-300"
+                                    x-text="new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(reportData.business.revenue?.net || 0)">
                                 </p>
                             </div>
+
+                            {{-- Total Combined --}}
                             <div
-                                class="p-6 bg-green-600 rounded-lg shadow-lg shadow-green-200 dark:shadow-none flex flex-col justify-center">
-                                <p class="text-xs font-bold text-green-100 uppercase mb-2">
+                                class="p-6 bg-gradient-to-br from-green-600 to-green-700 rounded-xl shadow-lg shadow-green-200 dark:shadow-none flex flex-col justify-center border-b-4 border-green-800">
+                                <p class="text-[10px] font-black text-green-100 uppercase mb-1">
                                     {{ __('accounting.report.revenue_total') }}
                                 </p>
                                 <p class="text-3xl font-black text-white"
                                     x-text="new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(reportData.business.revenue?.total || 0)">
                                 </p>
+                                <div class="mt-1 text-[10px] text-green-100/70 font-bold uppercase italic"
+                                    x-text="'{{ __('accounting.report.net_plus_other') }} (' + new Intl.NumberFormat('vi-VN').format(reportData.business.revenue?.other || 0) + ')'">
+                                </div>
                             </div>
                         </div>
                     </x-filament::section>
@@ -92,7 +121,7 @@
                                                     <div class="text-center text-green-600 font-bold"
                                                         x-text="item.success.count"></div>
                                                     <div class="text-xs text-center text-gray-500"
-                                                        x-text="new Intl.NumberFormat('vi-VN').format(item.success.cod) + ' COD'">
+                                                        x-text="new Intl.NumberFormat('vi-VN').format(item.success.cod) + ' {{ __('accounting.report.cod') }}'">
                                                     </div>
                                                     <div class="text-xs text-center font-semibold text-green-500"
                                                         x-text="item.success.rate + '%'"></div>
@@ -101,7 +130,7 @@
                                                     <div class="text-center text-red-600 font-bold"
                                                         x-text="item.returned.count"></div>
                                                     <div class="text-xs text-center text-gray-500"
-                                                        x-text="new Intl.NumberFormat('vi-VN').format(item.returned.cod) + ' COD'">
+                                                        x-text="new Intl.NumberFormat('vi-VN').format(item.returned.cod) + ' {{ __('accounting.report.cod') }}'">
                                                     </div>
                                                     <div class="text-xs text-center font-semibold text-red-500"
                                                         x-text="item.returned.rate + '%'"></div>
@@ -110,7 +139,7 @@
                                                     <div class="text-center text-blue-600 font-bold"
                                                         x-text="item.delivering.count"></div>
                                                     <div class="text-xs text-center text-gray-500"
-                                                        x-text="new Intl.NumberFormat('vi-VN').format(item.delivering.cod) + ' COD'">
+                                                        x-text="new Intl.NumberFormat('vi-VN').format(item.delivering.cod) + ' {{ __('accounting.report.cod') }}'">
                                                     </div>
                                                     <div class="text-xs text-center font-semibold text-blue-500"
                                                         x-text="item.delivering.rate + '%'"></div>
@@ -131,7 +160,7 @@
                                                 <div class="text-center text-green-600"
                                                     x-text="reportData.sales.summary.success.count"></div>
                                                 <div class="text-xs text-center text-gray-500"
-                                                    x-text="new Intl.NumberFormat('vi-VN').format(reportData.sales.summary.success.cod)">
+                                                    x-text="new Intl.NumberFormat('vi-VN').format(reportData.sales.summary.success.cod) + ' {{ __('accounting.report.cod') }}'">
                                                 </div>
                                                 <div class="text-xs text-center"
                                                     x-text="reportData.sales.summary.success.rate + '%'"></div>
@@ -140,7 +169,7 @@
                                                 <div class="text-center text-red-600"
                                                     x-text="reportData.sales.summary.returned.count"></div>
                                                 <div class="text-xs text-center text-gray-500"
-                                                    x-text="new Intl.NumberFormat('vi-VN').format(reportData.sales.summary.returned.cod)">
+                                                    x-text="new Intl.NumberFormat('vi-VN').format(reportData.sales.summary.returned.cod) + ' {{ __('accounting.report.cod') }}'">
                                                 </div>
                                                 <div class="text-xs text-center"
                                                     x-text="reportData.sales.summary.returned.rate + '%'"></div>
@@ -149,7 +178,7 @@
                                                 <div class="text-center text-blue-600"
                                                     x-text="reportData.sales.summary.delivering.count"></div>
                                                 <div class="text-xs text-center text-gray-500"
-                                                    x-text="new Intl.NumberFormat('vi-VN').format(reportData.sales.summary.delivering.cod)">
+                                                    x-text="new Intl.NumberFormat('vi-VN').format(reportData.sales.summary.delivering.cod) + ' {{ __('accounting.report.cod') }}'">
                                                 </div>
                                                 <div class="text-xs text-center"
                                                     x-text="reportData.sales.summary.delivering.rate + '%'"></div>
@@ -203,7 +232,7 @@
                                                     <div class="text-center text-green-700 dark:text-green-400 font-bold text-lg"
                                                         x-text="item.success.count"></div>
                                                     <div class="text-[10px] text-center text-gray-400 font-bold uppercase tracking-tighter"
-                                                        x-text="new Intl.NumberFormat('vi-VN').format(item.success.cod) + ' COD'">
+                                                        x-text="new Intl.NumberFormat('vi-VN').format(item.success.cod) + ' {{ __('accounting.report.cod') }}'">
                                                     </div>
                                                     <div class="flex justify-center mt-1">
                                                         <span
@@ -215,7 +244,7 @@
                                                     <div class="text-center text-red-700 dark:text-red-400 font-bold text-lg"
                                                         x-text="item.returned.count"></div>
                                                     <div class="text-[10px] text-center text-gray-400 font-bold uppercase tracking-tighter"
-                                                        x-text="new Intl.NumberFormat('vi-VN').format(item.returned.cod) + ' COD'">
+                                                        x-text="new Intl.NumberFormat('vi-VN').format(item.returned.cod) + ' {{ __('accounting.report.cod') }}'">
                                                     </div>
                                                     <div class="flex justify-center mt-1">
                                                         <span
@@ -227,7 +256,7 @@
                                                     <div class="text-center text-blue-700 dark:text-blue-400 font-bold text-lg"
                                                         x-text="item.delivering.count"></div>
                                                     <div class="text-[10px] text-center text-gray-400 font-bold uppercase tracking-tighter"
-                                                        x-text="new Intl.NumberFormat('vi-VN').format(item.delivering.cod) + ' COD'">
+                                                        x-text="new Intl.NumberFormat('vi-VN').format(item.delivering.cod) + ' {{ __('accounting.report.cod') }}'">
                                                     </div>
                                                     <div class="flex justify-center mt-1">
                                                         <span
@@ -301,7 +330,7 @@
                                             <div class="flex justify-between items-center mb-1.5">
                                                 <span
                                                     class="text-sm font-semibold text-gray-700 dark:text-gray-300 transition-colors group-hover:text-red-500"
-                                                    x-text="categories[categoryId] || 'Unknown'"></span>
+                                                    x-text="categories[categoryId] || '{{ __('accounting.report.unknown') }}'"></span>
                                                 <span class="text-sm font-bold text-gray-900 dark:text-white"
                                                     x-text="new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount)"></span>
                                             </div>

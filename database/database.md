@@ -994,3 +994,38 @@
     - error_message: (text, nullable) -- chi tiết lỗi nếu thất bại
     - completed_at: (timestamp, nullable) -- thời điểm hoàn tất export
     - timestamps
+# bảng accounting_periods
+
+    # note
+    - Bảng lưu trữ các kỳ kế toán
+
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - organization_id: (int, foreign key -> organizations.id, not null) -- tổ chức
+    - month: (tinyint, not null) -- tháng
+    - year: (smallint, not null) -- năm
+    - closed_at: (timestamp, nullable) -- thời gian đóng kỳ
+    - closed_by: (int, foreign key -> users.id, nullable) -- người đóng kỳ
+    - note: (text, nullable) -- ghi chú
+    - timestamps
+    - unique [organization_id, month, year]
+
+# bảng shipping_shops
+
+    # note
+    - Bảng lưu trữ thông tin các kho hàng của tổ chức
+
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - shop_id: (int, not null) -- ID của GHN
+    - name: (varchar(255), not null) -- tên kho hàng
+    - phone: (varchar(20), nullable) -- số điện thoại
+    - address: (varchar(255), nullable) -- địa chỉ
+    - province_id: (int, nullable) -- tỉnh/thành phố
+    - district_id: (int, nullable) -- quận/huyện
+    - ward_code: (varchar(20), nullable) -- phường/xã
+    - organization_id: (int, foreign key -> organizations.id, not null) -- tổ chức
+    - is_default: (boolean, default false) -- kho hàng mặc định
+    - status: (boolean, default true) -- trạng thái
+    - timestamps
+    - unique [shop_id, organization_id]

@@ -3,14 +3,17 @@
 namespace App\Services;
 
 use App\Common\Constants\Accounting\ExpenseCategory;
+use App\Common\Constants\Accounting\ReconciliationStatus;
 use App\Common\Constants\Order\OrderStatus;
 use App\Common\Constants\Customer\CustomerType;
+use App\Common\Constants\Warehouse\StatusTicket;
 use App\Core\ServiceReturn;
 use App\Core\Logging;
 use App\Repositories\OrderRepository;
 use App\Repositories\ExpenseRepository;
 use App\Repositories\RevenueRepository;
 use App\Repositories\CustomerRepository;
+use App\Models\Order;
 use Throwable;
 
 class ReportService
@@ -35,9 +38,26 @@ class ReportService
                 ->whereBetween('created_at', [$fromDate . ' 00:00:00', $toDate . ' 23:59:59'])
                 ->get();
 
-            $revenueFromOrders = $orders->where('status', OrderStatus::COMPLETED->value)->sum('total_amount');
-            $revenueReturned = $orders->where('status', OrderStatus::CANCELLED->value)->sum('total_amount');
-            $revenueShipping = $orders->where('status', OrderStatus::SHIPPING->value)->sum('total_amount');
+            // Báo cáo Doanh thu Thuần (Theo công thức Kế toán)
+            $completedOrders = $orders->where('status', OrderStatus::COMPLETED->value);
+
+            // 1. Doanh thu Gộp (Gross) = Tiền hàng trước chiết khấu
+            $grossRevenue = $completedOrders->sum('total_amount') + $completedOrders->sum('discount');
+
+            // 2. Các khoản giảm trừ: Chiết khấu
+            $totalDiscounts = $completedOrders->sum('discount');
+
+            // 3. Hàng bán bị trả lại (Sales Returns) - Lấy từ phiếu Nhập hoàn Kho
+            $returns = \App\Models\InventoryTicket::where('organization_id', $organizationId)
+                ->where('is_sales_return', true)
+                ->where('status', StatusTicket::COMPLETED->value)
+                ->whereBetween('approved_at', [$fromDate . ' 00:00:00', $toDate . ' 23:59:59'])
+                ->with('order')
+                ->get()
+                ->sum(fn($t) => $t->order->total_amount ?? 0);
+
+            // 4. Doanh thu Thuần (Net)
+            $netRevenue = $grossRevenue - $totalDiscounts - $returns;
 
             // Doanh thu khác
             $otherRevenues = $this->revenueRepository->query()
@@ -45,7 +65,7 @@ class ReportService
                 ->whereBetween('revenue_date', [$fromDate, $toDate])
                 ->sum('amount');
 
-            $totalRevenue = $revenueFromOrders + $otherRevenues;
+            $finalRevenue = $netRevenue + $otherRevenues;
 
             // Chi phí
             $expenses = $this->expenseRepository->query()
@@ -62,8 +82,8 @@ class ReportService
             }
 
             // Lợi nhuận
-            $profit = $totalRevenue - $totalExpense;
-            $profitRate = $totalRevenue > 0 ? ($profit / $totalRevenue) * 100 : 0;
+            $profit = $finalRevenue - $totalExpense;
+            $profitRate = $finalRevenue > 0 ? ($profit / $finalRevenue) * 100 : 0;
 
             $report = [
                 'period' => [
@@ -72,12 +92,12 @@ class ReportService
                     'type' => $type,
                 ],
                 'revenue' => [
-                    'from_orders' => $revenueFromOrders,
-                    'from_orders_completed' => $revenueFromOrders,
-                    'from_orders_returned' => $revenueReturned,
-                    'from_orders_shipping' => $revenueShipping,
+                    'gross' => $grossRevenue,
+                    'discounts' => $totalDiscounts,
+                    'returns' => $returns,
+                    'net' => $netRevenue,
                     'other' => $otherRevenues,
-                    'total' => $totalRevenue,
+                    'total' => $finalRevenue,
                 ],
                 'expense' => [
                     'total' => $totalExpense,
@@ -333,6 +353,70 @@ class ReportService
         } catch (Throwable $e) {
             Logging::error('Get customer report error', ['error' => $e->getMessage()], $e);
             return ServiceReturn::error('Could not generate customer report');
+        }
+    }
+
+    /**
+     * Bác cáo khoản phải thu và Tuổi nợ
+     */
+    public function getReceivableReport(int $organizationId): ServiceReturn
+    {
+        try {
+            // 1. Phải thu PTGH (Logistics Partner - GHN)
+            // Đơn COMPLETED, có COD > 0, chưa có đối soát status=PAID
+            $logisticsReceivables = Order::where('organization_id', $organizationId)
+                ->where('status', OrderStatus::COMPLETED->value)
+                ->where('total_amount', '>', 0)
+                ->whereDoesntHave('reconciliation', function ($query) {
+                    $query->where('status', ReconciliationStatus::PAID->value);
+                })
+                ->with(['createdBy', 'customer'])
+                ->get()
+                ->map(function ($order) {
+                    $age = now()->diffInDays($order->ghn_posted_at ?? $order->updated_at);
+                    return [
+                        'order_id' => $order->id,
+                        'order_code' => $order->code,
+                        'customer_name' => $order->customer?->name,
+                        'amount' => $order->total_amount - ($order->deposit ?? 0),
+                        'sale_name' => $order->createdBy?->name,
+                        'debt_age' => $age,
+                        'type' => 'Logistics',
+                    ];
+                });
+
+            // 2. Phải thu KH (Customer Direct)
+            // Đơn COMPLETED, tiền nhận từ khách < tổng tiền
+            $customerReceivables = Order::where('organization_id', $organizationId)
+                ->where('status', OrderStatus::COMPLETED->value)
+                ->whereRaw('total_amount > amount_recived_from_customer')
+                ->with(['createdBy', 'customer'])
+                ->get()
+                ->map(function ($order) {
+                    $age = now()->diffInDays($order->updated_at);
+                    return [
+                        'order_id' => $order->id,
+                        'order_code' => $order->code,
+                        'customer_name' => $order->customer?->name,
+                        'amount' => $order->total_amount - ($order->amount_recived_from_customer ?? 0),
+                        'sale_name' => $order->createdBy?->name,
+                        'debt_age' => $age,
+                        'type' => 'Customer',
+                    ];
+                });
+
+            return ServiceReturn::success(data: [
+                'logistics' => $logisticsReceivables,
+                'customers' => $customerReceivables,
+                'summary' => [
+                    'total_logistics' => $logisticsReceivables->sum('amount'),
+                    'total_customers' => $customerReceivables->sum('amount'),
+                    'grand_total' => $logisticsReceivables->sum('amount') + $customerReceivables->sum('amount'),
+                ]
+            ]);
+        } catch (Throwable $e) {
+            Logging::error('Get receivable report error', ['error' => $e->getMessage()], $e);
+            return ServiceReturn::error('Could not generate receivable report');
         }
     }
 }

@@ -13,6 +13,7 @@ use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
+use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
@@ -44,6 +45,19 @@ class InventoryTicketsTable
                     ->formatStateUsing(fn($state) => StatusTicket::from($state)->getLabel())
                     ->color(fn($state) => StatusTicket::from($state)->getColor())
                     ->sortable(),
+
+                TextColumn::make('order.code')
+                    ->label('Đơn hàng')
+                    ->searchable()
+                    ->sortable()
+                    ->toggleable()
+                    ->placeholder('—'),
+
+                IconColumn::make('is_sales_return')
+                    ->label('Nhập hoàn')
+                    ->isBool()
+                    ->alignCenter()
+                    ->toggleable(),
 
                 TextColumn::make('warehouse.name')
                     ->label(__('warehouse.ticket.form.warehouse'))
