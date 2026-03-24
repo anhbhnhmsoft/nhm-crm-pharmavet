@@ -4,12 +4,12 @@ namespace App\Common\Constants\User;
 
 enum UserRole: int
 {
-    case SUPER_ADMIN = 1;
-    case ADMIN = 2;
-    case WAREHOUSE = 3;
-    case ACCOUNTING = 4;
-    case MARKETING = 5;
-    case SALE = 6;
+    case SUPER_ADMIN = 1; //Quản trị viên cấp cao nhất
+    case ADMIN = 2; //Quản trị viên
+    case WAREHOUSE = 3; //Thủ kho
+    case ACCOUNTING = 4; //Kế toán
+    case MARKETING = 5; //Marketing
+    case SALE = 6; //Nhân viên kinh doanh
 
     public function label(): string
     {

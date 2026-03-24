@@ -105,5 +105,12 @@ return [
         'post_order_failed' => 'Đăng đơn thất bại',
         'calculate_fee_failed' => 'Tính phí thất bại',
         'calculate_fee_success' => 'Tính phí thành công',
+        'debt' => [
+            'warning_title' => 'Cảnh báo nợ quá hạn',
+            'view_order' => 'Xem đơn hàng',
+            'logistic_message' => 'Đơn hàng :code hoàn thành được :days ngày nhưng chưa nhận được tiền từ PTGH.',
+            'customer_message' => 'Khách hàng :customer của đơn :code còn nợ tiền đã lâu (:days ngày).',
+            'email_subject' => '[CRM] Cảnh báo nợ đơn hàng: :code',
+        ],
     ],
 ];

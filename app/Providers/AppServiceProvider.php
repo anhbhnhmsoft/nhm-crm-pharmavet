@@ -35,6 +35,7 @@ use App\Services\ComboService;
 use App\Services\CustomerService;
 use App\Services\Integrations\IntegrationService;
 use App\Services\LeadDistributionConfigService;
+use App\Services\DebtNotificationService;
 use App\Services\OrganizationService;
 use App\Services\AccountingService;
 use App\Services\ExchangeRateService;
@@ -174,6 +175,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(TelesaleKpiService::class);
         $this->app->bind(TelesaleReportExportService::class);
         $this->app->bind(TelesaleReportScopeService::class);
+        $this->app->bind(DebtNotificationService::class);
     }
 
     private function registerObserver(): void

@@ -5,6 +5,7 @@ namespace App\Filament\Clusters\Accounting\Pages;
 use App\Services\ReportService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Forms\Concerns\InteractsWithForms;
@@ -13,6 +14,8 @@ use Filament\Schemas\Schema;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Actions\Action;
+use App\Models\AccountingPeriod;
 use Illuminate\Support\Facades\Auth;
 use BackedEnum;
 
@@ -224,6 +227,71 @@ class BusinessReport extends Page implements HasForms
     {
         return [
             //
+        ];
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('closePeriod')
+                ->label('Khóa sổ Kế toán')
+                ->icon('heroicon-o-lock-closed')
+                ->color('danger')
+                ->requiresConfirmation()
+                ->modalHeading('Khóa sổ Kế toán kỳ')
+                ->modalDescription('Khi đã khóa sổ, TOÀN BỘ dữ liệu Đơn hàng, Doanh thu, Chi phí trong tháng này sẽ không thể chỉnh sửa hoặc xóa bởi bất kỳ ai (kể cả Admin). Bạn có chắc chắn muốn tiếp tục?')
+                ->modalSubmitActionLabel('Xác nhận Khóa sổ')
+                ->form([
+                    Select::make('month')
+                        ->label('Chọn tháng')
+                        ->options(array_combine(range(1, 12), array_map(fn($m) => "Tháng " . str_pad($m, 2, '0', STR_PAD_LEFT), range(1, 12))))
+                        ->default(now()->subMonth()->month)
+                        ->required(),
+                    TextInput::make('year')
+                        ->label('Chọn năm')
+                        ->numeric()
+                        ->default(now()->year)
+                        ->required(),
+                    Textarea::make('note')
+                        ->label('Ghi chú khóa sổ')
+                        ->placeholder('Ví dụ: Chốt số liệu tháng 2/2026')
+                        ->rows(2),
+                ])
+                ->action(function (array $data) {
+                    $organizationId = Auth::user()->organization_id;
+                    $month = (int) $data['month'];
+                    $year = (int) $data['year'];
+
+                    // Check if already closed
+                    if (AccountingPeriod::isClosed($organizationId, $month, $year)) {
+                        Notification::make()
+                            ->warning()
+                            ->title(__('accounting.report.period_locked'))
+                            ->send();
+                        return;
+                    }
+
+                    // Perform closing
+                    AccountingPeriod::create([
+                        'organization_id' => $organizationId,
+                        'month' => $month,
+                        'year' => $year,
+                        'closed_at' => now(),
+                        'closed_by' => Auth::id(),
+                        'note' => $data['note'],
+                    ]);
+
+                    Notification::make()
+                        ->success()
+                        ->title(__('accounting.report.period_locked_success'))
+                        ->body(
+                            __('accounting.report.period_locked_body', [
+                                'month' => $month,
+                                'year' => $year,
+                            ])
+                        )
+                        ->send();
+                }),
         ];
     }
 

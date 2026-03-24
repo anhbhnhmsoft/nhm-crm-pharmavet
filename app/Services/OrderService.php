@@ -7,6 +7,9 @@ use App\Common\Constants\Order\OrderStatus;
 use App\Core\ServiceReturn;
 use App\Jobs\ProcessGHNOrderJob;
 use App\Models\Order;
+use App\Models\Customer;
+use App\Models\ShippingConfig;
+use App\Models\ShippingConfigForWarehouse;
 use App\Repositories\OrderRepository;
 use App\Repositories\ProductRepository;
 use App\Repositories\ProductWarehouseRepository;
@@ -68,7 +71,7 @@ class OrderService
             $order->save();
 
             // Dispatch job to process GHN order
-            \App\Jobs\ProcessGHNOrderJob::dispatch($order, 'post', $data)->onQueue('post_ghn_order');
+            ProcessGHNOrderJob::dispatch($order, 'post', $data)->onQueue('post_ghn_order');
 
             return ServiceReturn::success(__('order.message.post_order_queued'));
         } catch (\Exception $e) {
@@ -80,7 +83,7 @@ class OrderService
     {
         try {
             // Dispatch job to cancel GHN order
-            \App\Jobs\ProcessGHNOrderJob::dispatch($order, 'cancel')->onQueue('cancel_ghn_order');
+            ProcessGHNOrderJob::dispatch($order, 'cancel')->onQueue('cancel_ghn_order');
 
             return ServiceReturn::success(__('order.message.cancel_order_queued'));
         } catch (\Exception $e) {
@@ -91,6 +94,13 @@ class OrderService
     public function finalizeOrder(array $data): ServiceReturn
     {
         Log::info('OrderService: finalizeOrder triggered', ['data_keys' => array_keys($data)]);
+
+        // Kiểm tra khách hàng có bị khóa (Blacklist) không
+        $customer = Customer::find($data['customer_id']);
+        if ($customer && $customer->blackList()->exists()) {
+            return ServiceReturn::error(__('customer.notifications.customer_locked', ['customer' => $customer->username]));
+        }
+
         DB::beginTransaction();
         try {
             $existingOrder = $this->orderRepository->query()->where('customer_id', $data['customer_id'])

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Clusters\Organization\Pages;
 
+use App\Models\ShippingShop;
 use App\Services\GHNService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
@@ -127,26 +128,26 @@ class ShippingConfig extends Page
 
                 Section::make(__('filament.shipping.shop_info'))
                     ->description(__('filament.shipping.shop_info_description'))
+                    ->headerActions([
+                        Action::make('sync_shops')
+                            ->label(__('filament.shipping.sync_shops'))
+                            ->icon('heroicon-o-arrow-path')
+                            ->color('info')
+                            ->action('syncShops')
+                    ])
                     ->schema([
                         Select::make('default_store_id')
                             ->label(__('filament.shipping.default_store'))
                             ->options(function () {
-                                return collect($this->shops)->pluck('name', '_id')->toArray();
+                                return ShippingShop::where('organization_id', Auth::user()->organization_id)->pluck('name', 'shop_id')->toArray();
                             })
                             ->required()
                             ->searchable()
-                            ->disabled(fn() => empty($this->shops))
-                            ->placeholder(fn() => empty($this->shops)
-                                ? __('filament.shipping.test_connection_first')
-                                : __('filament.shipping.select_store'))
-                            ->helperText(fn() => empty($this->shops)
-                                ? __('filament.shipping.test_connection_to_load_stores')
-                                : __('filament.shipping.store_helper'))
+                            ->placeholder(__('filament.shipping.select_store'))
                             ->validationMessages([
                                 'required' => __('common.error.required'),
                             ]),
-                    ])
-                    ->visible(fn() => !empty($this->shops)),
+                    ]),
 
                 Section::make(__('filament.shipping.insurance_settings'))
                     ->description(__('filament.shipping.insurance_settings_description'))
@@ -326,6 +327,52 @@ class ShippingConfig extends Page
         } catch (\Exception $e) {
             Notification::make()
                 ->title(__('filament.shipping.save_error'))
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
+        }
+    }
+
+    /**
+     * Đồng bộ danh sách hàng từ GHN về DB
+     */
+    public function syncShops(): void
+    {
+        try {
+            $this->validate([
+                'data.api_token' => 'required|string',
+            ]);
+
+            Notification::make()
+                ->title(__('filament.shipping.syncing'))
+                ->info()
+                ->send();
+
+            $ghnService = app(GHNService::class, [
+                'organizationId' => Auth::user()->organization_id
+            ]);
+
+            $shops = $ghnService->syncShopsToDatabase(Auth::user()->organization_id);
+
+            if (!empty($shops)) {
+                Notification::make()
+                    ->title(__('filament.shipping.sync_success'))
+                    ->body(__('filament.shipping.found_shops', ['count' => count($shops)]))
+                    ->success()
+                    ->send();
+
+                // Reload component
+                $this->mount();
+            } else {
+                Notification::make()
+                    ->title(__('filament.shipping.sync_error'))
+                    ->body(__('filament.shipping.no_shops_found'))
+                    ->danger()
+                    ->send();
+            }
+        } catch (\Exception $e) {
+            Notification::make()
+                ->title(__('filament.shipping.sync_error'))
                 ->body($e->getMessage())
                 ->danger()
                 ->send();

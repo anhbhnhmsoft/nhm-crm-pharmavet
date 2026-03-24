@@ -15,6 +15,7 @@ use App\Models\Product;
 use App\Models\ProductWarehouse;
 use App\Models\Province;
 use App\Models\Warehouse;
+use App\Models\ShippingShop;
 use App\Models\Ward;
 use App\Models\Organization;
 use App\Services\OrderService;
@@ -615,12 +616,17 @@ class CustomerOperationsTable
                                                             ->label(__('warehouse.order.form.ghn_cod_failed_amount'))
                                                             ->numeric()
                                                             ->default(0),
-                                                        TextInput::make('ghn_pick_station_id')
+                                                        Select::make('ghn_pick_station_id')
                                                             ->label(__('warehouse.order.form.ghn_pick_station_id'))
-                                                            ->numeric(),
-                                                        TextInput::make('ghn_deliver_station_id')
-                                                            ->label(__('warehouse.order.form.ghn_deliver_station_id'))
-                                                            ->numeric(),
+                                                            ->options(function (Get $get) {
+                                                                $orgId = $get('organization_id');
+                                                                if (!$orgId) return [];
+                                                                
+                                                                return ShippingShop::where('organization_id', (int) $orgId)
+                                                                    ->pluck('name', 'shop_id')
+                                                                    ->toArray();
+                                                            })
+                                                            ->searchable(),
                                                     ]),
                                                     Textarea::make('ghn_content')->label(__('warehouse.order.form.ghn_content'))->rows(2),
                                                 ]),

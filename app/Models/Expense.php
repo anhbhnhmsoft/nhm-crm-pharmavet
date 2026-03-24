@@ -11,6 +11,25 @@ class Expense extends Model
 {
     use HasFactory, SoftDeletes;
 
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::saving(function ($model) {
+            $date = $model->expense_date ?: now();
+            if (AccountingPeriod::isClosed($model->organization_id, $date->month, $date->year)) {
+                throw new \Exception(__('accounting.accounting_period.period_closed'));
+            }
+        });
+
+        static::deleting(function ($model) {
+            $date = $model->expense_date ?: now();
+            if (AccountingPeriod::isClosed($model->organization_id, $date->month, $date->year)) {
+                throw new \Exception(__('accounting.accounting_period.period_closed'));
+            }
+        });
+    }
+
     protected $fillable = [
         'organization_id',
         'expense_date',
