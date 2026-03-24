@@ -78,8 +78,11 @@ return [
             'quantity' => 'Số lượng',
             'current_quantity' => 'Tồn kho hiện tại',
             'order_id' => 'Đơn hàng liên quan (Nhập hoàn)',
+            'is_sales'=> 'Nhập hoàn',
             'is_sales_return' => 'Xác nhận Nhập hoàn',
-            'is_return_helper_text' => 'Đánh dấu đây là hàng bán bị trả lại để tính Doanh thu Thuần'
+            'is_return_helper_text' => 'Đánh dấu đây là hàng bán bị trả lại để tính Doanh thu Thuần',
+            'order' => 'Đơn hàng',
+            'product_quantity' => 'Số SP',
         ],
         'section' => [
             'basic_info' => 'Thông tin cơ bản',

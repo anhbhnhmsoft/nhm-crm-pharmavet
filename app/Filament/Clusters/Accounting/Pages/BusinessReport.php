@@ -2,6 +2,7 @@
 
 namespace App\Filament\Clusters\Accounting\Pages;
 
+use App\Common\Constants\Accounting\ExpenseCategory;
 use App\Services\ReportService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -161,7 +162,7 @@ class BusinessReport extends Page implements HasForms
                 Notification::make()
                     ->danger()
                     ->title(__('accounting.report.error_title'))
-                    ->body('Thời gian kết thúc phải sau hoặc bằng thời gian bắt đầu')
+                    ->body(__('accounting.report.error_message'))
                     ->send();
                 return;
             }
@@ -171,7 +172,7 @@ class BusinessReport extends Page implements HasForms
                 Notification::make()
                     ->danger()
                     ->title(__('accounting.report.error_title'))
-                    ->body('Thời gian không được vượt quá hiện tại')
+                    ->body(__('accounting.report.error_exceed_time'))
                     ->send();
                 return;
             }
@@ -206,7 +207,7 @@ class BusinessReport extends Page implements HasForms
             Notification::make()
                 ->danger()
                 ->title(__('accounting.report.error_title'))
-                ->body('Có lỗi xảy ra khi tạo báo cáo')
+                ->body(__('accounting.report.error_create_report'))
                 ->send();
         } else {
             $reportData = [
@@ -234,27 +235,27 @@ class BusinessReport extends Page implements HasForms
     {
         return [
             Action::make('closePeriod')
-                ->label('Khóa sổ Kế toán')
+                ->label(__('accounting.report.close_period'))
                 ->icon('heroicon-o-lock-closed')
                 ->color('danger')
                 ->requiresConfirmation()
-                ->modalHeading('Khóa sổ Kế toán kỳ')
-                ->modalDescription('Khi đã khóa sổ, TOÀN BỘ dữ liệu Đơn hàng, Doanh thu, Chi phí trong tháng này sẽ không thể chỉnh sửa hoặc xóa bởi bất kỳ ai (kể cả Admin). Bạn có chắc chắn muốn tiếp tục?')
-                ->modalSubmitActionLabel('Xác nhận Khóa sổ')
+                ->modalHeading(__('accounting.report.close_period_heading'))
+                ->modalDescription(__('accounting.report.close_period_description'))
+                ->modalSubmitActionLabel(__('accounting.report.close_period_submit'))
                 ->form([
                     Select::make('month')
-                        ->label('Chọn tháng')
+                        ->label(__('accounting.report.month'))
                         ->options(array_combine(range(1, 12), array_map(fn($m) => "Tháng " . str_pad($m, 2, '0', STR_PAD_LEFT), range(1, 12))))
                         ->default(now()->subMonth()->month)
                         ->required(),
                     TextInput::make('year')
-                        ->label('Chọn năm')
+                        ->label(__('accounting.report.year'))
                         ->numeric()
                         ->default(now()->year)
                         ->required(),
                     Textarea::make('note')
-                        ->label('Ghi chú khóa sổ')
-                        ->placeholder('Ví dụ: Chốt số liệu tháng 2/2026')
+                        ->label(__('accounting.report.note'))
+                        ->placeholder(__('accounting.report.note_placeholder'))
                         ->rows(2),
                 ])
                 ->action(function (array $data) {
@@ -298,7 +299,7 @@ class BusinessReport extends Page implements HasForms
     protected function getViewData(): array
     {
         return [
-            'expenseCategories' => \App\Common\Constants\Accounting\ExpenseCategory::getOptions(),
+            'expenseCategories' => ExpenseCategory::getOptions(),
         ];
     }
 

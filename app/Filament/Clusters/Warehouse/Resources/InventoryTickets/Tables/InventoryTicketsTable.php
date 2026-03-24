@@ -47,14 +47,14 @@ class InventoryTicketsTable
                     ->sortable(),
 
                 TextColumn::make('order.code')
-                    ->label('Đơn hàng')
+                    ->label(__('warehouse.ticket.form.order'))
                     ->searchable()
                     ->sortable()
                     ->toggleable()
                     ->placeholder('—'),
 
                 IconColumn::make('is_sales_return')
-                    ->label('Nhập hoàn')
+                    ->label(__('warehouse.ticket.form.is_sales_return'))
                     ->isBool()
                     ->alignCenter()
                     ->toggleable(),
@@ -80,7 +80,7 @@ class InventoryTicketsTable
                     ->placeholder('—'),
 
                 TextColumn::make('details_count')
-                    ->label(__('Số SP'))
+                    ->label(__('warehouse.ticket.form.product_quantity'))
                     ->counts('details')
                     ->sortable()
                     ->alignCenter(),
