@@ -10,4 +10,14 @@ class FundRepository extends BaseRepository
     {
         return new Fund();
     }
+
+    /**
+     * Tính tổng số dư các quỹ của một tổ chức
+     */
+    public function sumTotalBalanceByOrganization(int $organizationId): float
+    {
+        return (float) $this->query()
+            ->where('organization_id', $organizationId)
+            ->sum('balance');
+    }
 }

@@ -14,6 +14,9 @@ use App\Repositories\RevenueRepository;
 use App\Repositories\CustomerRepository;
 use App\Repositories\InventoryTicketRepository;
 use App\Repositories\FinancialSummaryRepository;
+use App\Repositories\FundRepository;
+use App\Repositories\FundTransactionRepository;
+use App\Common\Constants\Organization\FundTransactionType;
 use Throwable;
 
 class ReportService
@@ -25,6 +28,8 @@ class ReportService
         protected CustomerRepository $customerRepository,
         protected InventoryTicketRepository $inventoryTicketRepository,
         protected FinancialSummaryRepository $financialSummaryRepository,
+        protected FundRepository $fundRepository,
+        protected FundTransactionRepository $fundTransactionRepository,
     ) {
     }
 
@@ -337,14 +342,14 @@ class ReportService
                 ->with(['createdBy', 'customer'])
                 ->get()
                 ->map(function ($order) {
-                    $age = now()->diffInDays($order->ghn_posted_at ?? $order->updated_at);
+                    $age = now()->diffInDays($order->ghn_posted_at ?? $order->updated_at, true);
                     return [
                         'order_id' => $order->id,
                         'order_code' => $order->code,
                         'customer_name' => $order->customer?->name,
-                        'amount' => $order->total_amount - ($order->deposit ?? 0),
+                        'amount' => (float)($order->total_amount - ($order->deposit ?? 0)),
                         'sale_name' => $order->createdBy?->name,
-                        'debt_age' => $age,
+                        'debt_age' => (int) $age,
                         'type' => 'Logistics',
                     ];
                 });
@@ -358,14 +363,14 @@ class ReportService
                 ->with(['createdBy', 'customer'])
                 ->get()
                 ->map(function ($order) {
-                    $age = now()->diffInDays($order->updated_at);
+                    $age = now()->diffInDays($order->updated_at, true);
                     return [
                         'order_id' => $order->id,
                         'order_code' => $order->code,
                         'customer_name' => $order->customer?->name,
-                        'amount' => $order->total_amount - ($order->amount_recived_from_customer ?? 0),
+                        'amount' => (float)($order->total_amount - ($order->amount_recived_from_customer ?? 0)),
                         'sale_name' => $order->createdBy?->name,
-                        'debt_age' => $age,
+                        'debt_age' => (int) $age,
                         'type' => 'Customer',
                     ];
                 });
@@ -382,6 +387,65 @@ class ReportService
         } catch (Throwable $e) {
             Logging::error('Get receivable report error', ['error' => $e->getMessage()], $e);
             return ServiceReturn::error('Could not generate receivable report');
+        }
+    }
+
+    /**
+     * BCTC: Bảng cân đối và Lưu chuyển tiền tệ
+     */
+    public function getFinancialStatementReport(int $organizationId, string $fromDate, string $toDate): ServiceReturn
+    {
+        try {
+            // Kết quả kinh doanh cơ bản (Net Revenue, COGS, Gross Profit)
+            $stats = $this->financialSummaryRepository->getSummaryByDateRange($organizationId, $fromDate, $toDate);
+            
+            $netRevenue = (float) $stats->sum('net_revenue');
+            $cogs = (float) $stats->sum('cogs');
+            $grossProfit = (float) $stats->sum('gross_profit');
+            
+            // Chi phí vận hành bóc tách
+            $expenseBreakdown = $this->expenseRepository->sumByCategoryDateRange($organizationId, $fromDate, $toDate);
+            $totalExpenses = (float) $expenseBreakdown->sum();
+            
+            // Tài sản
+            $cashBalance = $this->fundRepository->sumTotalBalanceByOrganization($organizationId);
+            $receivableSummary = $this->getReceivableReport($organizationId)->getData()['summary'] ?? [];
+            $totalReceivables = (float) ($receivableSummary['grand_total'] ?? 0);
+            
+            // Lưu chuyển tiền tệ
+            $fundFlow = $this->fundTransactionRepository->sumByTypeDateRange($organizationId, $fromDate, $toDate);
+            $inflow = (float) ($fundFlow[FundTransactionType::DEPOSIT->value] ?? 0);
+            $outflow = (float) ($fundFlow[FundTransactionType::WITHDRAW->value] ?? 0);
+            
+            $report = [
+                'income_statement' => [
+                    'net_revenue' => $netRevenue,
+                    'cogs' => $cogs,
+                    'gross_profit' => $grossProfit,
+                    'operating_expenses' => [
+                        'total' => $totalExpenses,
+                        'details' => $expenseBreakdown,
+                    ],
+                    'net_income' => $grossProfit - $totalExpenses + (float) $stats->sum('other_revenues'),
+                ],
+                'balance_sheet_frame' => [
+                    'current_assets' => [
+                        'cash_and_bank' => $cashBalance,
+                        'accounts_receivable' => $totalReceivables,
+                    ],
+                    'total_assets_estimate' => $cashBalance + $totalReceivables,
+                ],
+                'cash_flow_frame' => [
+                    'inflow' => $inflow,
+                    'outflow' => $outflow,
+                    'net_cash_flow' => $inflow - $outflow,
+                ]
+            ];
+
+            return ServiceReturn::success(data: $report);
+        } catch (Throwable $e) {
+            Logging::error('Get financial statements error', ['error' => $e->getMessage()], $e);
+            return ServiceReturn::error('Could not generate financial statements');
         }
     }
 }
