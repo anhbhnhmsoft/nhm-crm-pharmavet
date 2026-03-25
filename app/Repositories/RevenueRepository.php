@@ -12,5 +12,15 @@ class RevenueRepository extends BaseRepository
     {
         return new Revenue();
     }
-}
 
+    /**
+     * Tính tổng doanh thu khác trong khoảng thời gian
+     */
+    public function sumTotalByDateRange(int $organizationId, string $startDate, string $endDate): float
+    {
+        return (float) $this->query()
+            ->where('organization_id', $organizationId)
+            ->whereBetween('revenue_date', [$startDate, $endDate])
+            ->sum('amount');
+    }
+}

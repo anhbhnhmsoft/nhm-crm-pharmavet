@@ -17,6 +17,7 @@ use App\Models\ShippingShop;
 use App\Models\Ward;
 use App\Models\Organization;
 use App\Services\OrderService;
+use App\Services\Telesale\OrderFinanceService;
 use App\Common\Constants\User\UserRole;
 use App\Common\Constants\Order\PaymentType;
 use App\Common\Constants\Order\ServiceType;
@@ -336,36 +337,39 @@ class CustomerOperationsTable
                                                         ->required()
                                                         ->live()
                                                         ->afterStateUpdated(function ($state, $get, $set) {
-                                        $product = Product::find($state);
-                                        if ($product) {
-                                            $set('price', $product->sale_price ?? 0);
-                                            $set('quantity', 1);
-                                            $set('total', $product->sale_price ?? 0);
+                                                            $product = Product::find($state);
+                                                            if ($product) {
+                                                                $set('price', $product->sale_price ?? 0);
+                                                                $set('quantity', 1);
+                                                                $set('total', $product->sale_price ?? 0);
 
-                                            // Update logistics immediately for this item
-                                            $items = $get('../../items') ?? [];
-                                            $totalWeight = 0;
-                                            $maxLength = 0;
-                                            $maxWidth = 0;
-                                            $totalHeight = 0;
+                                                                // Update logistics
+                                                                $items = $get('../../items') ?? [];
+                                                                $totalWeight = 0;
+                                                                $maxLength = 0;
+                                                                $maxWidth = 0;
+                                                                $totalHeight = 0;
 
-                                            foreach ($items as $item) {
-                                                $p = Product::find($item['product_id']);
-                                                if ($p) {
-                                                    $qty = $item['quantity'] ?? 1;
-                                                    $totalWeight += ($p->weight ?? 200) * $qty;
-                                                    $maxLength = max($maxLength, $p->length ?? 10);
-                                                    $maxWidth = max($maxWidth, $p->width ?? 10);
-                                                    $totalHeight += ($p->height ?? 5) * $qty;
-                                                }
-                                            }
+                                                                foreach ($items as $item) {
+                                                                    $p = Product::find($item['product_id']);
+                                                                    if ($p) {
+                                                                        $qty = $item['quantity'] ?? 1;
+                                                                        $totalWeight += ($p->weight ?? 200) * $qty;
+                                                                        $maxLength = max($maxLength, $p->length ?? 10);
+                                                                        $maxWidth = max($maxWidth, $p->width ?? 10);
+                                                                        $totalHeight += ($p->height ?? 5) * $qty;
+                                                                    }
+                                                                }
 
-                                            $set('../../weight', $totalWeight);
-                                            $set('../../length', $maxLength);
-                                            $set('../../width', $maxWidth);
-                                            $set('../../height', $totalHeight);
-                                        }
-                                    })
+                                                                $set('../../weight', $totalWeight);
+                                                                $set('../../length', $maxLength);
+                                                                $set('../../width', $maxWidth);
+                                                                $set('../../height', $totalHeight);
+                                                                
+                                                                // Recalculate finance
+                                                                $this->recalculateOrderSummary($set, $get);
+                                                            }
+                                                        })
                                                         ->validationMessages([
                                                             'required' => __('common.error.required')
                                                         ]),
@@ -376,31 +380,34 @@ class CustomerOperationsTable
                                                         ->required()
                                                         ->live(onBlur: true)
                                                         ->afterStateUpdated(function ($state, $get, $set) {
-                                        $set('total', $state * $get('price'));
+                                                            $set('total', $state * $get('price'));
 
-                                        // Update logistics
-                                        $items = $get('../../items') ?? [];
-                                        $totalWeight = 0;
-                                        $maxLength = 0;
-                                        $maxWidth = 0;
-                                        $totalHeight = 0;
+                                                            // Update logistics
+                                                            $items = $get('../../items') ?? [];
+                                                            $totalWeight = 0;
+                                                            $maxLength = 0;
+                                                            $maxWidth = 0;
+                                                            $totalHeight = 0;
 
-                                        foreach ($items as $item) {
-                                            $product = Product::find($item['product_id']);
-                                            if ($product) {
-                                                $qty = $item['quantity'] ?? 1;
-                                                $totalWeight += ($product->weight ?? 200) * $qty;
-                                                $maxLength = max($maxLength, $product->length ?? 10);
-                                                $maxWidth = max($maxWidth, $product->width ?? 10);
-                                                $totalHeight += ($product->height ?? 5) * $qty;
-                                            }
-                                        }
+                                                            foreach ($items as $item) {
+                                                                $product = Product::find($item['product_id']);
+                                                                if ($product) {
+                                                                    $qty = $item['quantity'] ?? 1;
+                                                                    $totalWeight += ($product->weight ?? 200) * $qty;
+                                                                    $maxLength = max($maxLength, $product->length ?? 10);
+                                                                    $maxWidth = max($maxWidth, $product->width ?? 10);
+                                                                    $totalHeight += ($product->height ?? 5) * $qty;
+                                                                }
+                                                            }
 
-                                        $set('../../weight', $totalWeight);
-                                        $set('../../length', $maxLength);
-                                        $set('../../width', $maxWidth);
-                                        $set('../../height', $totalHeight);
-                                    })
+                                                            $set('../../weight', $totalWeight);
+                                                            $set('../../length', $maxLength);
+                                                            $set('../../width', $maxWidth);
+                                                            $set('../../height', $totalHeight);
+                                                            
+                                                            // Recalculate finance
+                                                            $this->recalculateOrderSummary($set, $get);
+                                                        })
                                                         ->required()
                                                         ->validationMessages([
                                                             'required' => __('common.error.required')
@@ -460,15 +467,7 @@ class CustomerOperationsTable
                                                     ->maxValue(100)
                                                     ->default(0)
                                                     ->live(onBlur: true)
-                                                    ->afterStateUpdated(function (Get $get, Set $set) {
-                                    $productTotal = $get('total_amount_temp') ?? 0;
-                                    $ck1 = $get('ck1') ?? 0;
-                                    $ck2 = $get('ck2') ?? 0;
-                                    $orderDiscount = $get('discount') ?? 0;
-                                    $productDiscount = $productTotal * ($ck1 + $ck2) / 100;
-                                    $totalDiscount = $productDiscount + $orderDiscount;
-                                    $set('total_discount_display', number_format($totalDiscount) . ' VNĐ');
-                                })
+                                                    ->afterStateUpdated(fn(Get $get, Set $set) => $this->recalculateOrderSummary($set, $get))
                                                     ->validationMessages([
                                                         'min' => __('common.error.min_value', ['min' => 0]),
                                                         'max' => __('common.error.max_value', ['max' => 100]),
@@ -480,15 +479,7 @@ class CustomerOperationsTable
                                                     ->maxValue(100)
                                                     ->default(0)
                                                     ->live(onBlur: true)
-                                                    ->afterStateUpdated(function (Get $get, Set $set) {
-                                    $productTotal = $get('total_amount_temp') ?? 0;
-                                    $ck1 = $get('ck1') ?? 0;
-                                    $ck2 = $get('ck2') ?? 0;
-                                    $orderDiscount = $get('discount') ?? 0;
-                                    $productDiscount = $productTotal * ($ck1 + $ck2) / 100;
-                                    $totalDiscount = $productDiscount + $orderDiscount;
-                                    $set('total_discount_display', number_format($totalDiscount) . ' VNĐ');
-                                })
+                                                    ->afterStateUpdated(fn(Get $get, Set $set) => $this->recalculateOrderSummary($set, $get))
                                                     ->validationMessages([
                                                         'min' => __('common.error.min_value', ['min' => 0]),
                                                         'max' => __('common.error.max_value', ['max' => 100]),
@@ -506,11 +497,11 @@ class CustomerOperationsTable
                                                     ->label(__('warehouse.order.form.cod_fee'))
                                                     ->numeric()
                                                     ->live(onBlur: true)
-                                                    ->afterStateUpdated(fn($state, Set $set) => $set('cod_amount', round($state))),
-                                                TextInput::make('cod_amount')->label(__('warehouse.order.form.cod_amount'))->numeric(),
+                                                    ->afterStateUpdated(fn(Get $get, Set $set) => $this->recalculateOrderSummary($set, $get)),
+                                                TextInput::make('cod_amount')->label(__('warehouse.order.form.cod_amount'))->numeric()->disabled()->dehydrated(),
                                             ]),
 
-                                            TextInput::make('deposit')->label(__('warehouse.order.form.deposit'))->numeric()->default(0),
+                                            TextInput::make('deposit')->label(__('warehouse.order.form.deposit'))->numeric()->default(0)->live(onBlur: true)->afterStateUpdated(fn(Get $get, Set $set) => $this->recalculateOrderSummary($set, $get)),
 
                                             Section::make(__('Logistics GHN'))
                                                 ->schema([
@@ -1307,5 +1298,29 @@ class CustomerOperationsTable
             ->striped()
             ->persistFiltersInSession()
             ->poll('30s');
+    }
+
+    public function recalculateOrderSummary(Set $set, Get $get): void
+    {
+        $items = $get('items') ?? [];
+        $productTotal = collect($items)->sum(function ($item) {
+            return ($item['quantity'] ?? 0) * ($item['price'] ?? 0);
+        });
+
+        $financeService = app(OrderFinanceService::class);
+        $results = $financeService->calculateCollectAmount([
+            'product_total' => $productTotal,
+            'discount' => $get('discount') ?? 0,
+            'ck1' => $get('ck1') ?? 0,
+            'ck2' => $get('ck2') ?? 0,
+            'shipping_fee' => $get('shipping_fee') ?? 0,
+            'cod_fee' => $get('cod_fee') ?? 0,
+            'deposit' => $get('deposit') ?? 0,
+            'cod_support_amount' => $get('cod_support_amount') ?? 0,
+        ]);
+
+        $set('total_amount_temp', $productTotal);
+        $set('total_discount_display', number_format($results['total_discount'], 0, ',', '.') . ' VNĐ');
+        $set('cod_amount', $results['collect_amount']);
     }
 }

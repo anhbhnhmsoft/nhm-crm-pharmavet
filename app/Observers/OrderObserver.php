@@ -2,51 +2,33 @@
 
 namespace App\Observers;
 
-use App\Common\Constants\Accounting\ExpenseCategory;
 use App\Common\Constants\Order\OrderStatus;
 use App\Models\Order;
-use App\Repositories\ExpenseRepository;
-use Illuminate\Support\Facades\Log;
-use Throwable;
+use App\Services\ExpenseService;
+use App\Services\Accounting\FinancialSummaryService;
 
 class OrderObserver
 {
     public function __construct(
-        protected ExpenseRepository $expenseRepository
+        protected ExpenseService $expenseService,
+        protected FinancialSummaryService $financialSummaryService
     ) {
     }
 
     public function updated(Order $order): void
     {
-        // Tự động tạo expense cho chi phí giao hàng khi đơn hàng completed
-        if ($order->wasChanged('status') && $order->status === OrderStatus::COMPLETED->value) {
-            try {
-                // Kiểm tra xem đã có expense cho đơn hàng này chưa
-                $existingExpense = $this->expenseRepository->query()
-                    ->where('order_id', $order->id)
-                    ->where('category', ExpenseCategory::SHIPPING_AUTO->value)
-                    ->first();
+        if ($order->wasChanged('status')) {
+            $currentStatus = $order->status;
+            $oldStatus = $order->getOriginal('status');
 
-                if (!$existingExpense && $order->shipping_fee > 0) {
-                    $this->expenseRepository->create([
-                        'organization_id' => $order->organization_id,
-                        'expense_date' => $order->updated_at->toDateString(),
-                        'category' => ExpenseCategory::SHIPPING_AUTO->value,
-                        'description' => __('accounting.expense.auto_shipping_fee', [
-                            'order_code' => $order->code,
-                        ]),
-                        'amount' => $order->shipping_fee,
-                        'order_id' => $order->id,
-                        'created_by' => $order->updated_by,
-                    ]);
-                }
-            } catch (Throwable $e) {
-                Log::error('Auto create expense for completed order failed', [
-                    'order_id' => $order->id,
-                    'error' => $e->getMessage(),
-                ]);
+            if ($currentStatus === OrderStatus::COMPLETED->value || $oldStatus === OrderStatus::COMPLETED->value) {
+                // Đồng bộ lại báo cáo tài chính cho ngày tạo đơn
+                $this->financialSummaryService->syncDailySummary($order->organization_id, $order->created_at->toDateString());
+            }
+
+            if ($currentStatus === OrderStatus::COMPLETED->value) {
+                $this->expenseService->createShippingExpenseForOrder($order);
             }
         }
     }
 }
-

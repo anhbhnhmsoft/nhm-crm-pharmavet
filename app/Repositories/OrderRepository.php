@@ -66,4 +66,17 @@ class OrderRepository extends BaseRepository
             ->whereDate('updated_at', '<=', now()->subDays($thresholdDays)->toDateString())
             ->get();
     }
+
+    /**
+     * Lấy các đơn hàng hoàn thành trong khoảng thời gian
+     */
+    public function findCompletedOrdersByDateRange(int $organizationId, string $startDate, string $endDate): Collection
+    {
+        return $this->query()
+            ->where('organization_id', $organizationId)
+            ->where('status', OrderStatus::COMPLETED->value)
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->with('items')
+            ->get();
+    }
 }

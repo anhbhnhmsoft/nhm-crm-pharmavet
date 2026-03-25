@@ -5,19 +5,21 @@ namespace App\Services;
 use App\Common\Constants\Accounting\ExpenseCategory;
 use App\Core\Logging;
 use App\Core\ServiceReturn;
-use App\Models\Expense;
+use App\Models\Order;
+use App\Repositories\ExpenseRepository;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Throwable;
 
 class ExpenseService
 {
+    public function __construct(
+        protected ExpenseRepository $expenseRepository
+    ) {
+    }
+
     /**
      * Xử lý nhập chi phí hàng loạt từ Excel
-     * 
-     * @param int $organizationId
-     * @param array $items
-     * @return ServiceReturn
      */
     public function processBatchExpenses(int $organizationId, array $items): ServiceReturn
     {
@@ -27,7 +29,7 @@ class ExpenseService
 
             foreach ($items as $item) {
                 try {
-                    Expense::create([
+                    $this->expenseRepository->create([
                         'organization_id' => $organizationId,
                         'expense_date' => $this->normalizeDate($item['expense_date'] ?? null),
                         'category' => $this->normalizeCategory($item['category'] ?? ''),
@@ -64,6 +66,47 @@ class ExpenseService
                 'error' => $e->getMessage()
             ], $e);
             return ServiceReturn::error('Có lỗi xảy ra khi xử lý dữ liệu hàng loạt.');
+        }
+    }
+
+    /**
+     * Tạo chi phí vận chuyển tự động cho đơn hàng
+     */
+    public function createShippingExpenseForOrder(Order $order): ServiceReturn
+    {
+        try {
+            if ($order->shipping_fee <= 0) {
+                return ServiceReturn::error('Shipping fee is zero');
+            }
+
+            $existingExpense = $this->expenseRepository->query()
+                ->where('order_id', $order->id)
+                ->where('category', ExpenseCategory::SHIPPING_AUTO->value)
+                ->first();
+
+            if ($existingExpense) {
+                return ServiceReturn::success($existingExpense, 'Expense already exists');
+            }
+
+            $expense = $this->expenseRepository->create([
+                'organization_id' => $order->organization_id,
+                'expense_date' => $order->updated_at->toDateString(),
+                'category' => ExpenseCategory::SHIPPING_AUTO->value,
+                'description' => __('accounting.expense.auto_shipping_fee', [
+                    'order_code' => $order->code,
+                ]),
+                'amount' => $order->shipping_fee,
+                'order_id' => $order->id,
+                'created_by' => $order->updated_by,
+            ]);
+
+            return ServiceReturn::success($expense);
+        } catch (Throwable $e) {
+            Logging::error('Auto create shipping expense failed', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage()
+            ], $e);
+            return ServiceReturn::error('Có lỗi khi tạo chi phí vận chuyển tự động.');
         }
     }
 
