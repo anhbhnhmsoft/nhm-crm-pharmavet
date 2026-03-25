@@ -1,49 +1,46 @@
-# 1. Nâng cấp lên PHP 8.3
-FROM php:8.3-fpm
+FROM php:8.2-fpm
 
 WORKDIR /var/www
 
-# 2. Cài đặt System deps + Thêm libicu-dev cho ext-intl
+# System deps + PHP extensions
 RUN apt-get update && apt-get install -y \
-    git unzip libpng-dev libjpeg62-turbo-dev libfreetype6-dev libpq-dev \
-    libzip-dev libonig-dev curl libicu-dev \
+    git \
+    unzip \
+    libpng-dev \
+    libjpeg62-turbo-dev \
+    libfreetype6-dev \
+    libpq-dev \
+    libzip-dev \
+    libonig-dev \
+    curl \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-configure intl \
-    && docker-php-ext-install -j$(nproc) gd pdo pdo_pgsql zip mbstring exif intl \
+    && docker-php-ext-install -j$(nproc) gd pdo pdo_pgsql zip mbstring exif \
     && rm -rf /var/lib/apt/lists/*
 
-# Cài Composer
+# Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Cài các dependency trước (tận dụng Docker Cache)
 COPY composer.json composer.lock ./
+RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
 
-# Tắt IPv6 và tăng timeout lên 3600 giây (1 tiếng) để tránh đứt kết nối giữa chừng
-RUN composer config -g process-timeout 3600 \
-    && composer config -g default-ipv6 false \
-    && composer install --no-dev --no-interaction --prefer-dist --no-scripts --no-autoloader
-
-# Cài đặt Node.js và Yarn
 COPY package.json yarn.lock vite.config.js ./
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs \
+    && apt-get update && apt-get install -y nodejs \
     && corepack enable \
-    && yarn install --frozen-lockfile
-
-# Copy toàn bộ SOURCE CODE
-COPY . .
-
-# Build Autoload và Asset (Vite/Mix)
-RUN composer dump-autoload --optimize \
+    && yarn install --frozen-lockfile \
     && yarn build \
     && rm -rf node_modules \
     && apt-get purge -y nodejs \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
-# Thiết lập quyền và Tối ưu cache Laravel
-RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache \
-    && php artisan config:clear \
+COPY . .
+
+# Ensure storage and cache are writable
+RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
+
+# Optimize
+RUN php artisan config:clear \
     && php artisan route:clear \
     && php artisan view:clear
 

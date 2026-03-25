@@ -11,28 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
-        if (!Schema::hasTable('customers')) {
-            return;
-        }
-
-        Schema::table('customers', function (Blueprint $table) {
-            if (!Schema::hasColumn('customers', 'source')) {
-                $table->tinyInteger('source')->nullable()->comment('Nguồn lead: Facebook Ads, Landing Page, Website, Manual, etc.');
-                $table->index('source');
-            }
-            if (!Schema::hasColumn('customers', 'source_detail')) {
-                $table->string('source_detail')->nullable()->comment('Chi tiết nguồn: Tên campaign, form, etc.');
-            }
-            if (!Schema::hasColumn('customers', 'source_id')) {
-                $table->string('source_id')->nullable()->comment('ID từ nguồn bên ngoài');
-            }
-            if (!Schema::hasColumn('customers', 'note')) {
-                $table->text('note')->nullable()->comment('Ghi chú');
-            }
-            if (!Schema::hasColumn('customers', 'email')) {
-                $table->string('email')->nullable()->comment('Email khách hàng');
-            }
-        });
+//        Schema::table('customers', function (Blueprint $table) {
+//            $table->tinyInteger('source')->nullable()->after('assigned_staff_id')->comment('Nguồn lead: Facebook Ads, Landing Page, Website, Manual, etc.');
+//            $table->string('source_detail')->nullable()->after('source')->comment('Chi tiết nguồn: Tên campaign, form, etc.');
+//            $table->string('source_id')->nullable()->after('source_detail')->comment('ID từ nguồn bên ngoài');
+//            $table->text('note')->nullable()->after('source_id')->comment('Ghi chú');
+//            $table->string('email')->nullable()->after('phone')->comment('Email khách hàng');
+//            $table->index('source');
+//        });
     }
 
     /**
@@ -40,6 +26,16 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // Compatibility migration: keep schema from baseline init migration.
+//        Schema::table('customers', function (Blueprint $table) {
+//            $table->dropIndex(['source']);
+//
+//            $table->dropColumn([
+//                'source',
+//                'source_detail',
+//                'source_id',
+//                'note',
+//                'email',
+//            ]);
+//        });
     }
 };
