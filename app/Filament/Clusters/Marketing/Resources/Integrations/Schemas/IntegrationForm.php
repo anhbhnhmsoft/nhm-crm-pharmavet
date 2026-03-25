@@ -2,6 +2,7 @@
 
 namespace App\Filament\Clusters\Marketing\Resources\Integrations\Schemas;
 
+use App\Common\Constants\Marketing\IntegrationStatus;
 use App\Common\Constants\Marketing\IntegrationType;
 use App\Models\Integration;
 use App\Models\Product;
@@ -52,13 +53,8 @@ class IntegrationForm
                                         $type = IntegrationType::tryFrom($state);
 
                                         if ($type === IntegrationType::FACEBOOK_ADS) {
-                                            $set('name', fn($current) => $current ?: __('filament.integration.defaults.facebook_name'));
                                             $set('config.webhook_verify_token', fn($current) => $current ?: Str::random(32));
-                                        } elseif ($type === IntegrationType::LANDING_PAGE) {
-                                            $set('name', fn($current) => $current ?: __('filament.integration.defaults.landing_page_name'));
-                                            $set('config.webhook_secret', fn($current) => $current ?: Str::random(32));
                                         } elseif ($type === IntegrationType::WEBSITE) {
-                                            $set('name', fn($current) => $current ?: __('filament.integration.defaults.website_name'));
                                             $set('config.webhook_secret', fn($current) => $current ?: Str::random(32));
                                         }
                                     })
@@ -85,7 +81,7 @@ class IntegrationForm
                         Placeholder::make('facebook_status')
                             ->label(false)
                             ->content(function (?Integration $record) {
-                                if (!$record || $record->status !== 1) {
+                                if (!$record || $record->status !== IntegrationStatus::CONNECTED->value) {
                                     return __('filament.integration.sections.facebook_connect_required');
                                 }
 
@@ -101,7 +97,7 @@ class IntegrationForm
                         View::make('filament.components.facebook-oauth-button')
                             ->viewData(fn(?Integration $record) => [
                                 'record' => $record ?? 'temp',
-                                'isConnected' => (bool) ($record && $record->status === StatusConnect::CONNECTED->value),
+                                'isConnected' => (bool) ($record && $record->status === IntegrationStatus::CONNECTED->value),
                                 'pagesCount' => $record ? $record->entities()->where('type', IntegrationEntityType::PAGE_META->value)->count() : 0,
                                 'lastSync' => $record ? ($record->last_sync_at ? $record->last_sync_at->diffForHumans() : now()) : now(),
                             ])
@@ -168,8 +164,7 @@ class IntegrationForm
                             )
                             ->columnSpanFull(),
                     ])
-                    ->visible(fn(Get $get) => $get('type') == IntegrationType::FACEBOOK_ADS->value)
-                    ->collapsible(),
+                    ->visible(fn(Get $get) => $get('type') == IntegrationType::FACEBOOK_ADS->value),
 
                 Section::make(__('filament.integration.sections.webhook.title'))
                     ->description(__('filament.integration.sections.webhook.description'))
@@ -192,8 +187,8 @@ class IntegrationForm
                                     ->label(__('filament.integration.fields.webhook_secret'))
                                     ->required()
                                     ->default(fn(Get $get) => $get('config.webhook_secret') ?? Str::random(32))
-                                    ->disabled(fn(?Integration $record) => $record && $record->status === 1)
-                                    ->helperText(fn(?Integration $record) => $record && $record->status === 1
+                                    ->disabled(fn(?Integration $record) => $record && $record->status === IntegrationStatus::CONNECTED->value)
+                                    ->helperText(fn(?Integration $record) => $record && $record->status === IntegrationStatus::CONNECTED->value
                                         ? __('filament.integration.fields.webhook_secret_locked')
                                         : __('filament.integration.fields.webhook_secret_helper'))
                                     ->validationMessages([
@@ -210,10 +205,8 @@ class IntegrationForm
                             ]),
                     ])
                     ->visible(fn(Get $get) => in_array($get('type'), [
-                        IntegrationType::LANDING_PAGE->value,
                         IntegrationType::WEBSITE->value
-                    ]))
-                    ->collapsible(),
+                    ])),
 
                 // Field Mapping
                 Section::make(__('filament.integration.sections.field_mapping.title'))
@@ -233,9 +226,7 @@ class IntegrationForm
                             ->helperText(__('filament.integration.fields.field_mapping_helper'))
                             ->reorderable(),
                     ])
-                    ->visible(fn(Get $get) => (bool) $get('type'))
-                    ->collapsible()
-                    ->collapsed(),
+                    ->visible(fn(Get $get) => (bool) $get('type')),
             ])
             ->columns(1);
     }

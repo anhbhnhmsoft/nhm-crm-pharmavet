@@ -47,14 +47,12 @@ return [
     'integration_type' => [
         'facebook_ads' => 'Facebook Lead Ads',
         'facebook_ads_desc' => 'Tự động nhận lead từ Facebook Lead Ads khi khách hàng điền form',
-        'landing_page' => 'Landing Page',
-        'landing_page_desc' => 'Nhận lead từ landing page thông qua webhook',
         'website' => 'Website',
         'website_desc' => 'Nhận lead từ website của bạn thông qua webhook',
         'manual_data' => 'Dữ liệu nhập tay',
         'manual_data_desc' => 'Nhận lead từ dữ liệu nhập tay',
         'unknown' => 'Không xác định',
-        
+
     ],
     'interaction_type' => [
         'first_call' => 'Gọi lần 1',

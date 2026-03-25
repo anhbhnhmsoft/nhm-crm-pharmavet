@@ -1,0 +1,97 @@
+version: "3.9"
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: nhm-crm-pharmavet:prod
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ../storage:/var/www/storage
+      - ../bootstrap/cache:/var/www/bootstrap/cache
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - appnet
+
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: nhm_crm_pharmavet
+      POSTGRES_USER: nhm_user
+      POSTGRES_PASSWORD: 1dqGH221aDvwW
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nhm_user -d nhm_crm_pharmavet"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - appnet
+
+  nginx:
+    image: nginx:1.25
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ../public:/var/www/public:ro
+      - ../storage:/var/www/storage:ro
+      - ./certbot/www:/var/www/certbot
+      - ./certbot/conf:/etc/letsencrypt
+    depends_on:
+      - app
+    networks:
+      - appnet
+
+  certbot:
+    image: certbot/certbot:latest
+    restart: unless-stopped
+    volumes:
+      - ./certbot/www:/var/www/certbot
+      - ./certbot/conf:/etc/letsencrypt
+    entrypoint: ["sh", "-c", "trap exit TERM; while :; do sleep 12h & wait $${!}; certbot renew; done"]
+    networks:
+      - appnet
+
+  queue:
+    image: nhm-crm-pharmavet:prod
+    restart: unless-stopped
+    env_file:
+      - .env
+    command: ["php", "artisan", "queue:work", "--sleep=3", "--tries=3", "--timeout=360"]
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - appnet
+
+  scheduler:
+    image: nhm-crm-pharmavet:prod
+    restart: unless-stopped
+    env_file:
+      - .env
+    command: ["php", "artisan", "schedule:work"]
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - appnet
+
+networks:
+  appnet:
+    driver: bridge
+
+volumes:
+  dbdata:

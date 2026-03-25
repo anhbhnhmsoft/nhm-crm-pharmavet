@@ -16,9 +16,7 @@ Route::middleware(['auth:web'])->group(function () {
         ->name('impersonate.leave');
 });
 
-Route::middleware(['web'
-// , 'auth'
-])->prefix('integration/facebook')->group(function () {
+Route::middleware(['web'])->prefix('integration/facebook')->group(function () {
     Route::get('{integration}/redirect', [FacebookAuthController::class, 'redirect'])
         ->name('integration.facebook.redirect');
 

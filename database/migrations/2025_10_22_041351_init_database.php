@@ -442,7 +442,7 @@ return new class extends Migration {
 
         /**
          * 14. Nguồn phân bổ data (Integration)
-         * ------------------------------------------------ 
+         * ------------------------------------------------
          */
         Schema::create('integrations', function (Blueprint $table) {
             $table->id();
@@ -476,7 +476,7 @@ return new class extends Migration {
 
         /**
          * 15. Nguồn phân bổ data (Integration Entity)
-         * ------------------------------------------------ 
+         * ------------------------------------------------
          */
         Schema::create('integration_entities', function (Blueprint $table) {
             $table->id();
@@ -561,7 +561,6 @@ return new class extends Migration {
             $table->text('note')->nullable();
             $table->string('required_note', 20)->nullable();
             $table->string('provider_shipping', 50)->nullable();
-            $table->foreignId('warehouse_id')->nullable()->constrained('warehouses')->nullOnDelete();
             $table->string('shipping_provider_code', 100)->nullable();
             $table->decimal('deposit', 15, 2)->default(0);
             $table->decimal('amount_recived_from_customer', 15, 2)->default(0);
@@ -854,21 +853,21 @@ return new class extends Migration {
             $table->date('reconciliation_date')->comment('Ngày đối soát');
             $table->foreignId('order_id')->nullable()->constrained('orders')->nullOnDelete()->comment('Đơn hàng liên quan (nếu đối soát theo đơn)');
             $table->string('ghn_order_code', 100)->nullable()->comment('Mã đơn GHN');
-            
+
             // Chi phí từ GHN
             $table->decimal('cod_amount', 15, 2)->default(0)->comment('Tiền COD');
             $table->decimal('shipping_fee', 15, 2)->default(0)->comment('Phí giao hàng');
             $table->decimal('storage_fee', 15, 2)->default(0)->comment('Phí kho');
             $table->decimal('total_fee', 15, 2)->default(0)->comment('Tổng phí');
-            
+
             // Tỉ giá (cho đơn vị nước ngoài)
             $table->foreignId('exchange_rate_id')->nullable()->constrained('exchange_rates')->nullOnDelete();
             $table->decimal('converted_amount', 15, 2)->nullable()->comment('Số tiền sau khi quy đổi theo tỉ giá');
-            
+
             // Trạng thái
             $table->unsignedTinyInteger('status')->default(1)->comment('1: pending, 2: confirmed, 3: cancelled');
             $table->text('note')->nullable()->comment('Ghi chú');
-            
+
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignId('confirmed_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamp('confirmed_at')->nullable();
@@ -884,19 +883,19 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('organization_id')->constrained('organizations')->cascadeOnDelete();
             $table->date('expense_date')->comment('Ngày phát sinh chi phí');
-            
+
             // Phân loại chi phí
-            // 1: salary (Lương), 2: marketing (MKT), 3: shipping (Đối soát giao hàng), 
-            // 4: management (Quản lý doanh nghiệp), 5: office (Văn phòng), 
+            // 1: salary (Lương), 2: marketing (MKT), 3: shipping (Đối soát giao hàng),
+            // 4: management (Quản lý doanh nghiệp), 5: office (Văn phòng),
             // 6: other (Chi tiêu khác), 7: cost_of_goods (Giá vốn)
             $table->unsignedTinyInteger('category')->comment('Loại chi phí');
             $table->string('description', 500)->comment('Mô tả chi phí');
             $table->decimal('amount', 15, 2)->comment('Số tiền');
-            
+
             // Liên kết với đơn hàng (nếu là chi phí giao hàng tự động)
             $table->foreignId('order_id')->nullable()->constrained('orders')->nullOnDelete();
             $table->foreignId('reconciliation_id')->nullable()->constrained('reconciliations')->nullOnDelete();
-            
+
             $table->text('note')->nullable()->comment('Ghi chú');
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
