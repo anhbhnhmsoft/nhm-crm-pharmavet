@@ -6,29 +6,40 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
     image: nhm-crm-pharmavet:prod
+    restart: unless-stopped
     env_file:
-      - ./.env.prod
+      - .env
     volumes:
       - ../storage:/var/www/storage
       - ../bootstrap/cache:/var/www/bootstrap/cache
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     networks:
       - appnet
 
   db:
     image: postgres:16
+    restart: unless-stopped
+    env_file:
+      - .env
     environment:
       POSTGRES_DB: nhm_crm_pharmavet
       POSTGRES_USER: nhm_user
-      POSTGRES_PASSWORD: nhm_password
+      POSTGRES_PASSWORD: 1dqGH221aDvwW
     volumes:
       - dbdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nhm_user -d nhm_crm_pharmavet"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - appnet
 
   nginx:
     image: nginx:1.25
+    restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
@@ -46,6 +57,7 @@ services:
 
   certbot:
     image: certbot/certbot:latest
+    restart: unless-stopped
     volumes:
       - ./certbot/www:/var/www/certbot
       - ./certbot/conf:/etc/letsencrypt
@@ -55,21 +67,25 @@ services:
 
   queue:
     image: nhm-crm-pharmavet:prod
+    restart: unless-stopped
     env_file:
-      - ./.env.prod
-    command: ["php", "artisan", "queue:work", "--sleep=3", "--tries=3", "--timeout=120"]
+      - .env
+    command: ["php", "artisan", "queue:work", "--sleep=3", "--tries=3", "--timeout=360"]
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     networks:
       - appnet
 
   scheduler:
     image: nhm-crm-pharmavet:prod
+    restart: unless-stopped
     env_file:
-      - ./.env.prod
+      - .env
     command: ["php", "artisan", "schedule:work"]
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     networks:
       - appnet
 
