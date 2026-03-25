@@ -57,7 +57,9 @@ class CustomerService
                         'customer_type' => CustomerType::OLD_CUSTOMER->value,
                         'source' => IntegrationType::MANUAL_DATA->value,
                         'interaction_status' => InteractionStatus::FIRST_CALL->value,
-
+                        'province_id' => $data['province_id'] ?? null,
+                        'district_id' => $data['district_id'] ?? null,
+                        'ward_id' => $data['ward_id'] ?? null,
                     ]);
                     DB::commit();
                     $this->initiateDistributionJob($customer->id);
@@ -75,7 +77,9 @@ class CustomerService
                         'customer_type' => CustomerType::NEW_DUPLICATE->value,
                         'interaction_status' => InteractionStatus::FIRST_CALL->value,
                         'source' => IntegrationType::MANUAL_DATA->value,
-
+                        'province_id' => $data['province_id'] ?? null,
+                        'district_id' => $data['district_id'] ?? null,
+                        'ward_id' => $data['ward_id'] ?? null,
                     ]);
                     DB::commit();
                     $this->initiateDistributionJob($customer->id);
@@ -95,6 +99,9 @@ class CustomerService
                 'customer_type' => CustomerType::NEW ->value,
                 'interaction_status' => InteractionStatus::FIRST_CALL->value,
                 'source' => IntegrationType::MANUAL_DATA->value,
+                'province_id' => $data['province_id'] ?? null,
+                'district_id' => $data['district_id'] ?? null,
+                'ward_id' => $data['ward_id'] ?? null,
             ]);
 
             DB::commit();

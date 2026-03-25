@@ -2,6 +2,7 @@
 
 namespace App\Filament\Clusters\Warehouse\Resources\InventoryTickets\Schemas;
 
+use App\Common\Constants\Order\OrderStatus;
 use App\Common\Constants\Warehouse\StatusTicket;
 use App\Common\Constants\Warehouse\TypeTicket;
 use App\Models\Product;
@@ -11,6 +12,7 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Auth;
@@ -48,10 +50,34 @@ class InventoryTicketForm
                                     $set('source_warehouse_id', null);
                                     $set('target_warehouse_id', null);
                                 }
+                                if ($state != TypeTicket::IMPORT->value) {
+                                    $set('order_id', null);
+                                    $set('is_sales_return', false);
+                                }
                             })
                             ->validationMessages([
                                 'required' => __('common.error.required'),
                             ]),
+
+                        Select::make('order_id')
+                            ->label(__('warehouse.ticket.form.order_id'))
+                            ->relationship(
+                                name: 'order',
+                                titleAttribute: 'code',
+                                modifyQueryUsing: fn($query) => $query
+                                    ->where('organization_id', Auth::user()->organization_id)
+                                    ->whereIn('status', [OrderStatus::CANCELLED->value, OrderStatus::SHIPPING->value])
+                            )
+                            ->searchable()
+                            ->preload()
+                            ->hidden(fn($get) => $get('type') != TypeTicket::IMPORT->value)
+                            ->live()
+                            ->afterStateUpdated(fn($state, $set) => $set('is_sales_return', (bool) $state)),
+
+                        Toggle::make('is_sales_return')
+                            ->label(__('warehouse.ticket.form.is_sales_return'))
+                            ->hidden(fn($get) => $get('type') != TypeTicket::IMPORT->value)
+                            ->helperText(__('warehouse.ticket.form.is_sales_return_helper_text')),
 
                         Select::make('status')
                             ->label(__('warehouse.ticket.form.status'))
@@ -195,8 +221,8 @@ class InventoryTicketForm
                             ->itemLabel(
                                 fn(array $state): ?string =>
                                 $state['product_id']
-                                    ? Product::find($state['product_id'])?->name
-                                    : null
+                                ? Product::find($state['product_id'])?->name
+                                : null
                             ),
                     ]),
 

@@ -919,6 +919,47 @@ return new class extends Migration {
 
             $table->index(['organization_id', 'revenue_date']);
         });
+
+        Schema::create('accounting_periods', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('organization_id')->constrained()->cascadeOnDelete();
+            $table->unsignedTinyInteger('month');
+            $table->unsignedSmallInteger('year');
+            $table->timestamp('closed_at')->nullable();
+            $table->foreignId('closed_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->text('note')->nullable();
+
+            $table->timestamps();
+
+            $table->unique(['organization_id', 'month', 'year']);
+        });
+
+        Schema::create('shipping_shops', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('shop_id');
+            $table->string('name');
+            $table->string('phone')->nullable();
+            $table->string('address')->nullable();
+            $table->unsignedInteger('province_id')->nullable();
+            $table->unsignedInteger('district_id')->nullable();
+            $table->string('ward_code')->nullable();
+            $table->unsignedBigInteger('organization_id');
+            $table->boolean('is_default')->default(false);
+            $table->boolean('status')->default(true);
+            $table->timestamps();
+
+            $table->foreign('organization_id')->references('id')->on('organizations')->onDelete('cascade');
+            $table->unique(['shop_id', 'organization_id']); // Không trùng cặp ShopID + Organization
+        });
+
+        Schema::create('notifications', function (Blueprint $table) {
+            $table->uuid('id')->primary();
+            $table->unsignedInteger('type');
+            $table->morphs('notifiable');
+            $table->text('data');
+            $table->timestamp('read_at')->nullable();
+            $table->timestamps();
+        });
     }
 
     /**
@@ -970,5 +1011,9 @@ return new class extends Migration {
         Schema::dropIfExists('wards');
         Schema::dropIfExists('districts');
         Schema::dropIfExists('provinces');
+
+        Schema::dropIfExists('accounting_periods');
+
+        Schema::dropIfExists('notifications');
     }
 };

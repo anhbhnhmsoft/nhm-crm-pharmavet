@@ -12,6 +12,25 @@ class Order extends Model
 {
     use HasFactory, SoftDeletes;
 
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::saving(function ($model) {
+            $date = $model->created_at ?: now();
+            if (AccountingPeriod::isClosed($model->organization_id, $date->month, $date->year)) {
+                throw new \Exception(__('accounting.accounting_period.period_closed'));
+            }
+        });
+
+        static::deleting(function ($model) {
+            $date = $model->created_at ?: now();
+            if (AccountingPeriod::isClosed($model->organization_id, $date->month, $date->year)) {
+                throw new \Exception(__('accounting.accounting_period.period_closed'));
+            }
+        });
+    }
+
     protected $table = 'orders';
 
     protected $fillable = [
@@ -32,6 +51,8 @@ class Order extends Model
         'updated_by',
         'deposit',
         'cod_fee',
+        'cod_support_amount',
+        'collect_amount',
         'ck1',
         'ck2',
         'required_note',
@@ -56,6 +77,13 @@ class Order extends Model
         'shipping_provider_code',
         'amount_recived_from_customer',
         'amout_support_fee',
+        'ghn_cod_failed_amount',
+        'ghn_content',
+        'ghn_pick_station_id',
+        'ghn_deliver_station_id',
+        'ghn_province_id',
+        'ghn_district_id',
+        'ghn_ward_code',
     ];
 
     protected $casts = [
@@ -64,6 +92,8 @@ class Order extends Model
         'shipping_fee' => 'decimal:2',
         'deposit' => 'decimal:2',
         'cod_fee' => 'decimal:2',
+        'cod_support_amount' => 'decimal:2',
+        'collect_amount' => 'decimal:2',
         'ck1' => 'decimal:2',
         'ck2' => 'decimal:2',
     ];
@@ -116,6 +146,11 @@ class Order extends Model
     public function ward(): BelongsTo
     {
         return $this->belongsTo(Ward::class, 'ward_id');
+    }
+
+    public function reconciliation(): HasMany
+    {
+        return $this->hasMany(Reconciliation::class);
     }
 
     // Scopes

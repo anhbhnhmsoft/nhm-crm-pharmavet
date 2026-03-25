@@ -29,6 +29,7 @@ class Customer extends Model
         'source',
         'source_detail',
         'source_id',
+        'duplicate_hash',
         'birthday',
         'interaction_status',
         'next_action_at',

@@ -35,6 +35,7 @@ use App\Common\Constants\Team\TeamType;
 use App\Common\Constants\Order\OrderStatus;
 use Filament\Tables\Table;
 use Filament\Tables\Enums\FiltersLayout;
+use Filament\Actions\BulkAction;
 
 class ReconciliationsTable
 {
@@ -184,7 +185,7 @@ class ReconciliationsTable
                     ->alignLeft(),
 
                 TextColumn::make('cod_amount') // Dùng cod_amount làm gốc cho Thành tiền khi ko có order
-                    ->label('Thành tiền')
+                    ->label(__('accounting.reconciliation.total_amount'))
                     ->money('VND')
                     ->formatStateUsing(fn($state, $record) => $record->order?->total_amount ?? $record->cod_amount)
                     ->alignEnd(),
@@ -709,6 +710,71 @@ class ReconciliationsTable
                                 ->title(__('accounting.reconciliation.confirmed'))
                                 ->send();
                         }
+                    }),
+            ])
+            ->bulkActions([
+                BulkAction::make('bulk_confirm')
+                    ->label(__('accounting.reconciliation.batch_confirm'))
+                    ->icon('heroicon-o-check-circle')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->visible(fn($livewire) => $livewire->activeTab === 'pending' || $livewire->activeTab === 'all')
+                    ->action(function (\Illuminate\Database\Eloquent\Collection $records) {
+                        $service = app(ReconciliationService::class);
+                        $count = 0;
+                        $skipped = 0;
+
+                        $finalStatuses = [
+                            GhnOrderStatus::DELIVERED->value,
+                            GhnOrderStatus::RETURNED->value,
+                            GhnOrderStatus::CANCEL->value,
+                            GhnOrderStatus::LOST->value,
+                            GhnOrderStatus::DAMAGE->value,
+                        ];
+
+                        foreach ($records as $record) {
+                            $ghnStatus = $record->order?->ghn_status;
+
+                            // Chỉ cho phép đối soát các đơn đã ở trạng thái kết thúc
+                            if (in_array($ghnStatus, $finalStatuses) && $record->status === ReconciliationStatus::PENDING->value) {
+                                $result = $service->confirmReconciliation($record->id);
+                                if (!$result->isError()) {
+                                    $count++;
+                                }
+                            } else {
+                                $skipped++;
+                            }
+                        }
+
+                        $notification = Notification::make()
+                            ->success()
+                            ->title(__('accounting.reconciliation.batch_success', ['count' => $count]));
+
+                        if ($skipped > 0) {
+                            $notification->body("Đã bỏ qua {$skipped} đơn chưa ở trạng thái kết thúc (Đang giao/Đang hoàn...)");
+                        }
+
+                        $notification->send();
+                    }),
+                BulkAction::make('bulk_pay')
+                    ->label(__('accounting.reconciliation.batch_pay'))
+                    ->icon('heroicon-o-currency-dollar')
+                    ->color('warning')
+                    ->requiresConfirmation()
+                    ->visible(fn($livewire) => $livewire->activeTab === 'confirmed' || $livewire->activeTab === 'all')
+                    ->action(function (\Illuminate\Database\Eloquent\Collection $records) {
+                        $count = 0;
+                        foreach ($records as $record) {
+                            if ($record->status === ReconciliationStatus::CONFIRMED->value) {
+                                $record->update(['status' => ReconciliationStatus::PAID->value]);
+                                $count++;
+                            }
+                        }
+
+                        Notification::make()
+                            ->success()
+                            ->title(__('accounting.reconciliation.batch_success', ['count' => $count]))
+                            ->send();
                     }),
             ])
             ->defaultSort('reconciliation_date', 'desc');

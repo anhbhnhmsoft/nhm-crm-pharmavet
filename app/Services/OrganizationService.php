@@ -104,6 +104,22 @@ class OrganizationService
             $fund = $this->fundRepository->query()->where('organization_id', $organizationId)->first();
 
             if (!$fund) {
+                $organization = $this->organizationRepository->find($organizationId);
+                if (!$organization || !$organization->is_foreign) {
+                    return [
+                        'fund' => null,
+                        'totalDeposit' => 0,
+                        'totalWithdraw' => 0,
+                        'pendingTransactions' => 0,
+                        'totalTransactions' => 0,
+                        'filteredDeposit' => 0,
+                        'filteredWithdraw' => 0,
+                        'balanceChart' => [],
+                        'depositChart' => [],
+                        'withdrawChart' => [],
+                    ];
+                }
+
                 $fund = $this->fundRepository->create([
                     'balance' => 0,
                     'is_locked' => false,
@@ -203,10 +219,15 @@ class OrganizationService
     public function getFundBalanceChartData(int $organizationId, string $startDate, string $endDate): array
     {
         try {
-            $fund = $this->fundTransactionRepository->query()->where('organization_id', $organizationId)->first();
+            $fund = $this->fundRepository->query()->where('organization_id', $organizationId)->first();
 
             if (!$fund) {
-                throw new \Exception('Fund not found on OrganizationService@getFundBalanceChartData');
+                return [
+                    'labels' => [],
+                    'balanceData' => [],
+                    'depositData' => [],
+                    'withdrawData' => [],
+                ];
             }
 
             $transactions = $this->fundTransactionRepository->query()->where('fund_id', $fund->id)

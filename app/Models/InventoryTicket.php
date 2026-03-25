@@ -11,12 +11,34 @@ class InventoryTicket extends Model
 {
     use HasFactory, SoftDeletes;
 
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::saving(function ($model) {
+            $date = $model->approved_at ?: $model->created_at ?: now();
+            if (AccountingPeriod::isClosed($model->organization_id, $date->month, $date->year)) {
+                // Chỉ khóa nếu là phiếu Nhập hoàn (ảnh hưởng doanh thu) hoặc nếu user muốn khóa toàn bộ kho
+                throw new \Exception(__('accounting.accounting_period.period_closed'));
+            }
+        });
+
+        static::deleting(function ($model) {
+            $date = $model->approved_at ?: $model->created_at ?: now();
+            if (AccountingPeriod::isClosed($model->organization_id, $date->month, $date->year)) {
+                throw new \Exception(__('accounting.accounting_period.period_closed'));
+            }
+        });
+    }
+
     protected $table = 'inventory_tickets';
 
     protected $fillable = [
         'organization_id',
         'code',
         'type',
+        'order_id',
+        'is_sales_return',
         'status',
         'warehouse_id',
         'source_warehouse_id',
@@ -31,6 +53,11 @@ class InventoryTicket extends Model
     public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class);
+    }
+
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(Order::class);
     }
 
     public function warehouse(): BelongsTo

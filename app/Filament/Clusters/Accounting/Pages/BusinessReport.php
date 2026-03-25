@@ -2,9 +2,11 @@
 
 namespace App\Filament\Clusters\Accounting\Pages;
 
+use App\Common\Constants\Accounting\ExpenseCategory;
 use App\Services\ReportService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Forms\Concerns\InteractsWithForms;
@@ -13,6 +15,8 @@ use Filament\Schemas\Schema;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Actions\Action;
+use App\Models\AccountingPeriod;
 use Illuminate\Support\Facades\Auth;
 use BackedEnum;
 
@@ -158,7 +162,7 @@ class BusinessReport extends Page implements HasForms
                 Notification::make()
                     ->danger()
                     ->title(__('accounting.report.error_title'))
-                    ->body('Thời gian kết thúc phải sau hoặc bằng thời gian bắt đầu')
+                    ->body(__('accounting.report.error_message'))
                     ->send();
                 return;
             }
@@ -168,7 +172,7 @@ class BusinessReport extends Page implements HasForms
                 Notification::make()
                     ->danger()
                     ->title(__('accounting.report.error_title'))
-                    ->body('Thời gian không được vượt quá hiện tại')
+                    ->body(__('accounting.report.error_exceed_time'))
                     ->send();
                 return;
             }
@@ -203,7 +207,7 @@ class BusinessReport extends Page implements HasForms
             Notification::make()
                 ->danger()
                 ->title(__('accounting.report.error_title'))
-                ->body('Có lỗi xảy ra khi tạo báo cáo')
+                ->body(__('accounting.report.error_create_report'))
                 ->send();
         } else {
             $reportData = [
@@ -227,10 +231,75 @@ class BusinessReport extends Page implements HasForms
         ];
     }
 
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('closePeriod')
+                ->label(__('accounting.report.close_period'))
+                ->icon('heroicon-o-lock-closed')
+                ->color('danger')
+                ->requiresConfirmation()
+                ->modalHeading(__('accounting.report.close_period_heading'))
+                ->modalDescription(__('accounting.report.close_period_description'))
+                ->modalSubmitActionLabel(__('accounting.report.close_period_submit'))
+                ->form([
+                    Select::make('month')
+                        ->label(__('accounting.report.month'))
+                        ->options(array_combine(range(1, 12), array_map(fn($m) => "Tháng " . str_pad($m, 2, '0', STR_PAD_LEFT), range(1, 12))))
+                        ->default(now()->subMonth()->month)
+                        ->required(),
+                    TextInput::make('year')
+                        ->label(__('accounting.report.year'))
+                        ->numeric()
+                        ->default(now()->year)
+                        ->required(),
+                    Textarea::make('note')
+                        ->label(__('accounting.report.note'))
+                        ->placeholder(__('accounting.report.note_placeholder'))
+                        ->rows(2),
+                ])
+                ->action(function (array $data) {
+                    $organizationId = Auth::user()->organization_id;
+                    $month = (int) $data['month'];
+                    $year = (int) $data['year'];
+
+                    // Check if already closed
+                    if (AccountingPeriod::isClosed($organizationId, $month, $year)) {
+                        Notification::make()
+                            ->warning()
+                            ->title(__('accounting.report.period_locked'))
+                            ->send();
+                        return;
+                    }
+
+                    // Perform closing
+                    AccountingPeriod::create([
+                        'organization_id' => $organizationId,
+                        'month' => $month,
+                        'year' => $year,
+                        'closed_at' => now(),
+                        'closed_by' => Auth::id(),
+                        'note' => $data['note'],
+                    ]);
+
+                    Notification::make()
+                        ->success()
+                        ->title(__('accounting.report.period_locked_success'))
+                        ->body(
+                            __('accounting.report.period_locked_body', [
+                                'month' => $month,
+                                'year' => $year,
+                            ])
+                        )
+                        ->send();
+                }),
+        ];
+    }
+
     protected function getViewData(): array
     {
         return [
-            'expenseCategories' => \App\Common\Constants\Accounting\ExpenseCategory::getOptions(),
+            'expenseCategories' => ExpenseCategory::getOptions(),
         ];
     }
 

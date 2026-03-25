@@ -16,6 +16,9 @@ class CustomerInteraction extends Model
         'customer_id',
         'user_id',
         'type',
+        'channel',
+        'attempt_no',
+        'care_no',
         'direction',
         'status',
         'duration',
@@ -28,6 +31,8 @@ class CustomerInteraction extends Model
         'metadata' => 'array',
         'interacted_at' => 'datetime',
         'duration' => 'integer',
+        'attempt_no' => 'integer',
+        'care_no' => 'integer',
     ];
 
     public function customer(): BelongsTo

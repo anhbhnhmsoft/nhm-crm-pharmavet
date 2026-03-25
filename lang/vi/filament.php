@@ -95,7 +95,6 @@ return [
             'choose_team' => 'Chọn nhóm'
         ],
         'exceed_members_limit' => 'Vượt giới hạn số lượng thành viên cho phép, vui lòng liên hệ quản trị viên để cập nhật!',
-        'team' => 'Nhóm'
     ],
     'team' => [
         'label' => 'Đội nhóm',
@@ -379,10 +378,10 @@ return [
         'save_error' => 'Lỗi khi lưu cấu hình',
         'save' => 'Lưu cấu hình',
         'saving' => 'Đang lưu...',
-
-        // Connection Info
-        'account_name_placeholder' => 'VD: Cửa hàng ABC',
-        'account_name_helper' => 'Tên tài khoản GHN của bạn',
+        'sync_shops' => 'Đồng bộ danh sách cửa hàng',
+        'syncing' => 'Đang đồng bộ...',
+        'sync_success' => 'Đồng bộ thành công',
+        'sync_error' => 'Lỗi đồng bộ',
 
         // Connected Stores
         'connected_stores' => 'Danh sách cửa hàng đã kết nối',
@@ -579,13 +578,6 @@ return [
             'field_mapping_value' => 'Trường từ nguồn',
             'field_mapping_helper' => 'VD: name => full_name, phone => phone_number',
             'field_mapping_add' => 'Thêm mapping',
-        ],
-
-        // Defaults
-        'defaults' => [
-            'facebook_name' => 'Facebook Lead Ads',
-            'landing_page_name' => 'Landing Page',
-            'website_name' => 'Website',
         ],
 
         // Actions

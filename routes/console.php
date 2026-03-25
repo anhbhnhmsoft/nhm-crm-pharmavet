@@ -13,3 +13,9 @@ Schedule::command('app:sync-exchange-rate')
     ->dailyAt('07:00')
     ->withoutOverlapping()
     ->runInBackground();
+
+// Cảnh báo nợ quá hạn mỗi ngày lúc 8:00 sáng
+Schedule::command('app:notify-debt')
+    ->dailyAt('08:00')
+    ->withoutOverlapping()
+    ->runInBackground();

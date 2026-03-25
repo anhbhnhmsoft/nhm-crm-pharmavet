@@ -2,10 +2,13 @@
 
 namespace App\Filament\Clusters\Telesale\Resources\TelesaleOperations\Tables;
 
+use App\Common\Constants\Customer\CustomerType;
+use App\Common\Constants\Interaction\InteractionStatus;
 use App\Common\Constants\Marketing\IntegrationType;
 use App\Common\Constants\User\UserRole;
 use App\Models\Customer;
 use App\Models\User;
+use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -16,11 +19,19 @@ use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class TelesaleOperationsTable
 {
@@ -84,6 +95,39 @@ class TelesaleOperationsTable
                     ->size('sm'),
             ])
             ->filters([
+                Filter::make('advanced_search')
+                    ->label(__('telesale.filters.advanced_search'))
+                    ->form([
+                        TextInput::make('keyword')
+                            ->label(__('telesale.filters.search_keyword'))
+                            ->placeholder(__('telesale.filters.search_keyword_placeholder')),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        $keyword = trim((string) ($data['keyword'] ?? ''));
+                        if ($keyword === '') {
+                            return $query;
+                        }
+
+                        return $query->where(function (Builder $subQuery) use ($keyword) {
+                            $subQuery
+                                ->where('username', 'like', "%{$keyword}%")
+                                ->orWhere('phone', 'like', "%{$keyword}%")
+                                ->orWhereHas('orders', fn(Builder $orderQuery) => $orderQuery->where('code', 'like', "%{$keyword}%"));
+                        });
+                    }),
+
+                Filter::make('date_received')
+                    ->label(__('telesale.filters.date_received'))
+                    ->form([
+                        DatePicker::make('from_date')->label(__('telesale.filters.from_date')),
+                        DatePicker::make('to_date')->label(__('telesale.filters.to_date')),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when($data['from_date'] ?? null, fn(Builder $q, $date) => $q->whereDate('created_at', '>=', $date))
+                            ->when($data['to_date'] ?? null, fn(Builder $q, $date) => $q->whereDate('created_at', '<=', $date));
+                    }),
+
                 SelectFilter::make('assigned_staff_id')
                     ->label(__('telesale.filters.assigned_staff'))
                     ->options(User::pluck('name', 'id'))
@@ -100,6 +144,43 @@ class TelesaleOperationsTable
                         'processing' => __('telesale.status.processing'),
                         'closed' => __('telesale.status.closed'),
                     ]),
+
+                SelectFilter::make('customer_type')
+                    ->label(__('telesale.filters.customer_temperature'))
+                    ->options(CustomerType::toOptions()),
+
+                SelectFilter::make('interaction_status')
+                    ->label(__('telesale.filters.care_result'))
+                    ->options(InteractionStatus::options()),
+
+                Filter::make('duplicate_contact')
+                    ->label(__('telesale.filters.duplicate_contact'))
+                    ->toggle()
+                    ->query(function (Builder $query): Builder {
+                        return $query->where(function (Builder $duplicateQuery) {
+                            $duplicateQuery
+                                ->whereExists(function ($subQuery) {
+                                    $subQuery
+                                        ->select(DB::raw(1))
+                                        ->from('customers as c2')
+                                        ->whereNull('c2.deleted_at')
+                                        ->whereColumn('c2.organization_id', 'customers.organization_id')
+                                        ->whereColumn('c2.id', '<>', 'customers.id')
+                                        ->whereNotNull('customers.phone')
+                                        ->whereColumn('c2.phone', 'customers.phone');
+                                })
+                                ->orWhereExists(function ($subQuery) {
+                                    $subQuery
+                                        ->select(DB::raw(1))
+                                        ->from('customers as c2')
+                                        ->whereNull('c2.deleted_at')
+                                        ->whereColumn('c2.organization_id', 'customers.organization_id')
+                                        ->whereColumn('c2.id', '<>', 'customers.id')
+                                        ->whereNotNull('customers.email')
+                                        ->whereColumn('c2.email', 'customers.email');
+                                });
+                        });
+                    }),
                 TrashedFilter::make(),
             ])
             ->recordActions([
@@ -152,6 +233,46 @@ class TelesaleOperationsTable
             ], position: \Filament\Tables\Enums\RecordActionsPosition::BeforeColumns)
             ->toolbarActions([
                 BulkActionGroup::make([
+                    BulkAction::make('assign_staff')
+                        ->label(__('telesale.actions.assign_sale'))
+                        ->icon('heroicon-o-user-plus')
+                        ->form([
+                            Select::make('staff_id')
+                                ->label(__('telesale.actions.select_staff'))
+                                ->options(
+                                    User::query()
+                                        ->where('role', UserRole::SALE->value)
+                                        ->orderBy('name')
+                                        ->pluck('name', 'id')
+                                )
+                                ->searchable()
+                                ->required(),
+                        ])
+                        ->action(function (Collection $records, array $data): void {
+                            $staffId = (int) $data['staff_id'];
+                            $actorId = (int) Auth::id();
+
+                            foreach ($records as $record) {
+                                $record->update([
+                                    'assigned_staff_id' => $staffId,
+                                ]);
+                                $record->assignedStaff()->syncWithoutDetaching([$staffId]);
+                            }
+
+                            DB::table('user_logs')->insert([
+                                'user_id' => $actorId,
+                                'desc' => __('telesale.messages.bulk_assign_log') . " | count={$records->count()} | staff_id={$staffId}",
+                                'ip_address' => request()->ip(),
+                                'created_at' => now(),
+                                'updated_at' => now(),
+                            ]);
+
+                            Notification::make()
+                                ->title(__('telesale.messages.bulk_assign_success'))
+                                ->success()
+                                ->send();
+                        })
+                        ->requiresConfirmation(),
                     DeleteBulkAction::make()
                         ->label(__('common.action.delete'))
                         ->requiresConfirmation()

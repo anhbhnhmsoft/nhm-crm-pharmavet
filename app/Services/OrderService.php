@@ -5,10 +5,17 @@ namespace App\Services;
 use App\Common\Constants\Order\GhnOrderStatus;
 use App\Common\Constants\Order\OrderStatus;
 use App\Core\ServiceReturn;
+use App\Jobs\ProcessGHNOrderJob;
 use App\Models\Order;
-use App\Repositories\OrderRepository;
+use App\Models\Customer;
 use App\Models\ShippingConfig;
 use App\Models\ShippingConfigForWarehouse;
+use App\Repositories\OrderRepository;
+use App\Repositories\ProductRepository;
+use App\Repositories\ProductWarehouseRepository;
+use App\Repositories\ShippingConfigForWareHouseRepository;
+use App\Repositories\ShippingConfigRepository;
+use App\Services\Telesale\OrderFinanceService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -16,7 +23,12 @@ class OrderService
 {
     public function __construct(
         protected OrderRepository $orderRepository,
-        protected GHNService $ghnService
+        protected GHNService $ghnService,
+        protected OrderFinanceService $orderFinanceService,
+        protected ProductWarehouseRepository $productWarehouseRepository,
+        protected ProductRepository $productRepository,
+        protected ShippingConfigForWareHouseRepository $shippingConfigForWareHouseRepository,
+        protected ShippingConfigRepository $shippingConfigRepository 
     ) {}
 
     public function postOrder(Order $order, array $data): ServiceReturn
@@ -59,7 +71,7 @@ class OrderService
             $order->save();
 
             // Dispatch job to process GHN order
-            \App\Jobs\ProcessGHNOrderJob::dispatch($order, 'post', $data)->onQueue('post_ghn_order');
+            ProcessGHNOrderJob::dispatch($order, 'post', $data)->onQueue('post_ghn_order');
 
             return ServiceReturn::success(__('order.message.post_order_queued'));
         } catch (\Exception $e) {
@@ -71,7 +83,7 @@ class OrderService
     {
         try {
             // Dispatch job to cancel GHN order
-            \App\Jobs\ProcessGHNOrderJob::dispatch($order, 'cancel')->onQueue('cancel_ghn_order');
+            ProcessGHNOrderJob::dispatch($order, 'cancel')->onQueue('cancel_ghn_order');
 
             return ServiceReturn::success(__('order.message.cancel_order_queued'));
         } catch (\Exception $e) {
@@ -82,6 +94,13 @@ class OrderService
     public function finalizeOrder(array $data): ServiceReturn
     {
         Log::info('OrderService: finalizeOrder triggered', ['data_keys' => array_keys($data)]);
+
+        // Kiểm tra khách hàng có bị khóa (Blacklist) không
+        $customer = Customer::find($data['customer_id']);
+        if ($customer && $customer->blackList()->exists()) {
+            return ServiceReturn::error(__('customer.notifications.customer_locked', ['customer' => $customer->username]));
+        }
+
         DB::beginTransaction();
         try {
             $existingOrder = $this->orderRepository->query()->where('customer_id', $data['customer_id'])
@@ -96,9 +115,50 @@ class OrderService
             $ck2 = $data['ck2'] ?? 0;
             $orderDiscount = $data['discount'] ?? 0;
             $productDiscount = $productTotal * ($ck1 + $ck2) / 100;
-            $totalDiscount = $productDiscount + $orderDiscount;
+            $shippingFee = (float) ($data['shipping_fee'] ?? 0);
+            $codFee = (float) ($data['cod_fee'] ?? 0);
+            $deposit = (float) ($data['deposit'] ?? 0);
+            $codSupportAmount = (float) ($data['cod_support_amount'] ?? 0);
 
-            $totalAmount = $productTotal - $totalDiscount + ($data['shipping_fee'] ?? 0);
+            $finance = $this->orderFinanceService->calculateCollectAmount([
+                'product_total' => $productTotal,
+                'discount' => $orderDiscount,
+                'ck1' => $ck1,
+                'ck2' => $ck2,
+                'shipping_fee' => $shippingFee,
+                'cod_fee' => $codFee,
+                'deposit' => $deposit,
+                'cod_support_amount' => $codSupportAmount,
+            ]);
+
+            $totalDiscount = (float) $finance['total_discount'];
+            $totalAmount = (float) $finance['gross_total'];
+            $collectAmount = (float) $finance['collect_amount'];
+
+            $warehouseId = (int) ($data['warehouse_id'] ?? 0);
+            if ($warehouseId <= 0) {
+                throw new \RuntimeException(__('telesale.messages.warehouse_required'));
+            }
+
+            foreach ($items as $item) {
+                $productId = (int) ($item['product_id'] ?? 0);
+                $requiredQty = (int) ($item['quantity'] ?? 0);
+
+                if ($productId <= 0 || $requiredQty <= 0) {
+                    continue;
+                }
+
+                $stock = $this->productWarehouseRepository->query()
+                    ->where('warehouse_id', $warehouseId)
+                    ->where('product_id', $productId)
+                    ->first();
+
+                $availableQty = (int) (($stock?->quantity ?? 0) - ($stock?->pending_quantity ?? 0));
+                if ($availableQty < $requiredQty) {
+                    $productName = $this->productRepository->find($productId)?->name ?? '#' . $productId;
+                    throw new \RuntimeException(__('telesale.messages.insufficient_stock', ['product' => $productName]));
+                }
+            }
 
             // Create or Update Order
             $orderData = [
@@ -107,16 +167,34 @@ class OrderService
                 'status' => $data['status_action'],
                 'total_amount' => $totalAmount,
                 'discount' => $totalDiscount, // Saving total discount
-                'shipping_fee' => $data['shipping_fee'] ?? 0,
+                'shipping_fee' => $shippingFee,
                 'shipping_method' => $data['shipping_method'] ?? null,
                 'shipping_address' => $data['address'] ?? null,
                 'province_id' => $data['province_id'] ?? null,
                 'district_id' => $data['district_id'] ?? null,
                 'ward_id' => $data['ward_id'] ?? null,
-                'deposit' => $data['deposit'] ?? 0,
+                'deposit' => $deposit,
+                'cod_fee' => $codFee,
+                'cod_support_amount' => $codSupportAmount,
+                'collect_amount' => $collectAmount,
                 'ck1' => $ck1,
                 'ck2' => $ck2,
+                'warehouse_id' => $warehouseId,
                 'required_note' => $data['required_note'] ?? null,
+                'weight' => $data['weight'] ?? null,
+                'length' => $data['length'] ?? null,
+                'width' => $data['width'] ?? null,
+                'height' => $data['height'] ?? null,
+                'insurance_value' => $data['insurance_value'] ?? 0,
+                'ghn_payment_type_id' => $data['ghn_payment_type_id'] ?? null,
+                'ghn_service_type_id' => $data['ghn_service_type_id'] ?? null,
+                'ghn_content' => $data['ghn_content'] ?? null,
+                'ghn_cod_failed_amount' => $data['ghn_cod_failed_amount'] ?? 0,
+                'ghn_pick_station_id' => $data['ghn_pick_station_id'] ?? null,
+                'ghn_deliver_station_id' => $data['ghn_deliver_station_id'] ?? null,
+                'ghn_province_id' => $data['ghn_province_id'] ?? null,
+                'ghn_district_id' => $data['ghn_district_id'] ?? null,
+                'ghn_ward_code' => $data['ghn_ward_code'] ?? null,
                 'updated_by' => $data['updated_by'],
             ];
 
@@ -125,7 +203,7 @@ class OrderService
                 $existingOrder->items()->delete();
                 $order = $existingOrder;
             } else {
-                $orderData['code'] = 'ORD-' . time(); // Simple code generation
+                $orderData['code'] = $data['code'] ?? ('ORD-' . time());
                 $orderData['created_by'] = $data['created_by'];
                 $order = $this->orderRepository->create($orderData);
             }
@@ -138,6 +216,11 @@ class OrderService
                     'price' => $item['price'],
                     'total' => ($item['quantity'] * $item['price']),
                 ]);
+            }
+
+            // Auto-post to GHN if confirmed
+            if ($order->status == OrderStatus::CONFIRMED->value) {
+                ProcessGHNOrderJob::dispatch($order, 'post')->onQueue('post_ghn_order');
             }
 
             DB::commit();
@@ -161,9 +244,13 @@ class OrderService
             $items = $order->items->map(function ($item) {
                 return [
                     'name' => $item->product->name,
+                    'code' => $item->product->sku ?? $item->product->barcode,
                     'quantity' => $item->quantity,
                     'price' => (int) $item->price,
-                    'weight' => $item->product->weight ?? 200,
+                    'weight' => (int) ($item->product->weight ?? 200),
+                    'length' => (int) ($item->product->length ?? 10),
+                    'width' => (int) ($item->product->width ?? 10),
+                    'height' => (int) ($item->product->height ?? 5),
                 ];
             })->toArray();
 
@@ -180,16 +267,20 @@ class OrderService
                 'to_address' => $order->shipping_address ?? $order->customer->address,
                 'to_ward_code' => $this->getWardCode($order),
                 'to_district_id' => $this->getDistrictCode($order),
-                'cod_amount' => (int) ($order->total_amount - $order->deposit),
+                'cod_amount' => (int) ($order->collect_amount ?: ($order->total_amount - $order->deposit)),
                 'items' => $items,
                 'service_type_id' => $order->ghn_service_type_id ?? 2, // 2: Standard
-                'weight' => $totalWeight,
-                'length' => $order->length,
-                'width' => $order->width,
-                'height' => $order->height,
-                'insurance_value' => $order->insurance_value,
+                'weight' => (int) min(20000, ($order->weight ?? $totalWeight)),
+                'length' => (int) min(200, ($order->length ?? 10)),
+                'width' => (int) min(200, ($order->width ?? 10)),
+                'height' => (int) min(200, ($order->height ?? 5)),
+                'insurance_value' => (int) $order->insurance_value,
                 'coupon' => $order->coupon,
                 'client_order_code' => $order->code,
+                'content' => $order->ghn_content ?? $order->note,
+                'cod_failed_amount' => (int) $order->ghn_cod_failed_amount,
+                'pick_station_id' => $order->ghn_pick_station_id,
+                'deliver_station_id' => $order->ghn_deliver_station_id,
             ];
 
             // Remove null values
@@ -277,7 +368,8 @@ class OrderService
     {
         // 1. Check Warehouse Config
         if ($order->warehouse_id) {
-            $warehouseConfig = ShippingConfigForWarehouse::where('warehouse_id', $order->warehouse_id)
+            $warehouseConfig = $this->shippingConfigForWareHouseRepository->query()
+                ->where('warehouse_id', $order->warehouse_id)
                 ->where('organization_id', $order->organization_id)
                 ->first();
 
@@ -290,7 +382,9 @@ class OrderService
         }
 
         // 2. Check Organization Config
-        $orgConfig = ShippingConfig::where('organization_id', $order->organization_id)->first();
+        $orgConfig = $this->shippingConfigRepository->query()
+            ->where('organization_id', $order->organization_id)
+            ->first();
 
         if ($orgConfig && $orgConfig->api_token && $orgConfig->default_store_id) {
             return [
@@ -310,14 +404,13 @@ class OrderService
             $config = $this->getShippingConfig($order);
 
             // Initialize GHN Service
-            $ghnService = app(\App\Services\GHNService::class);
-            $ghnService->setToken($config['token'])->setShopId($config['shop_id']);
+            $this->ghnService->setToken($config['token'])->setShopId($config['shop_id']);
 
             // Use GHN order code if available, otherwise use client order code
             $orderCode = $order->ghn_order_code ?? $order->code;
 
             // Call GHN Cancel API
-            $result = $ghnService->cancelOrder($orderCode);
+            $result = $this->ghnService->cancelOrder($orderCode);
 
             // Generate new order code with -R suffix
             $newCode = $this->generateRefreshedCode($order->code);
@@ -349,22 +442,38 @@ class OrderService
 
     protected function getWardCode(Order $order): ?string
     {
+        if ($order->ghn_ward_code) {
+            return trim($order->ghn_ward_code);
+        }
+
         if (!$order->ward_id) {
             return null;
         }
 
         $ward = \App\Models\Ward::find($order->ward_id);
-        return $ward?->code;
+        if (!$ward)
+            return null;
+
+        // Ưu tiên dùng ghn_code (từ GHN API), fallback về code nội bộ
+        return $ward->ghn_code ? trim($ward->ghn_code) : trim($ward->code);
     }
 
     protected function getDistrictCode(Order $order): ?int
     {
+        if ($order->ghn_district_id) {
+            return (int) $order->ghn_district_id;
+        }
+
         if (!$order->district_id) {
             return null;
         }
 
         $district = \App\Models\District::find($order->district_id);
-        return $district ? (int) $district->code : null;
+        if (!$district)
+            return null;
+
+        // Ưu tiên dùng ghn_id (từ GHN API), fallback về code nội bộ
+        return $district->ghn_id ? (int) $district->ghn_id : (int) $district->code;
     }
 
     protected function generateRefreshedCode(string $currentCode): string

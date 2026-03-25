@@ -82,4 +82,9 @@ return [
         'inefficient_label' => 'Không hiệu quả',
         'received_label' => 'Đã nhận',
     ],
+    'notification_type' => [
+        'debt_reminder' => 'Nhắc nợ đơn hàng',
+        'system' => 'Thông báo hệ thống',
+        'order_update' => 'Cập nhật đơn hàng',
+    ],
 ];

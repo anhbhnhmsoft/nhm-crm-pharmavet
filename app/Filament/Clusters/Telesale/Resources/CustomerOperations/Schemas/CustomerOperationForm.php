@@ -4,6 +4,7 @@ namespace App\Filament\Clusters\Telesale\Resources\CustomerOperations\Schemas;
 
 use App\Common\Constants\Customer\CustomerType;
 use App\Common\Constants\Interaction\InteractionStatus;
+use App\Common\Constants\Marketing\IntegrationType;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -28,7 +29,7 @@ class CustomerOperationForm
                     ->tel()
                     ->disabled(),
                 TextInput::make('email')
-                    ->label('Email')
+                    ->label(__('telesale.form.email'))
                     ->email(),
                 DatePicker::make('birthday')
                     ->label(__('telesale.form.birthday'))
@@ -43,36 +44,27 @@ class CustomerOperationForm
                     ->searchable(),
                 Select::make('source')
                     ->label(__('telesale.table.source'))
-                    ->options([
-                        'Facebook' => 'Facebook',
-                        'Google' => 'Google',
-                        'Website' => 'Website',
-                        'Other' => 'Other',
-                    ]),
+                    ->options(IntegrationType::toOptions()),
                 Textarea::make('note')
                     ->label(__('common.table.note'))
                     ->columnSpanFull(),
 
                 Grid::make(3)->schema([
-                    Select::make('province')
+                    Select::make('province_id')
                         ->label(__('telesale.form.province'))
                         ->relationship('province', 'name')
                         ->searchable()
                         ->live()
                         ->afterStateUpdated(fn(Set $set) => $set('district_id', null)),
-                    Select::make('district')
+                    Select::make('district_id')
                         ->label(__('telesale.form.district'))
-                        ->relationship('district', 'name', fn($query, Get $get) => $query->where('province_code_v1', function ($q) use ($get) {
-                            return $q->from('provinces')->where('id', $get('province_id'));
-                        }))
+                        ->relationship('district', 'name', fn($query, Get $get) => $query->where('province_id', $get('province_id')))
                         ->searchable()
                         ->live()
                         ->afterStateUpdated(fn(Set $set) => $set('ward_id', null)),
-                    Select::make('ward')
+                    Select::make('ward_id')
                         ->label(__('telesale.form.ward'))
-                        ->relationship('ward', 'name', fn($query, Get $get) => $query->where('district_code', function ($q) use ($get) {
-                            return $q->select('code')->from('districts')->where('id', $get('district_id'));
-                        }))
+                        ->relationship('ward', 'name', fn($query, Get $get) => $query->where('district_id', $get('district_id')))
                         ->searchable(),
                 ]),
                 TextInput::make('address')
