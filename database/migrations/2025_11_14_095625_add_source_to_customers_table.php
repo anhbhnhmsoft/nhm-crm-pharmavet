@@ -11,14 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('customers', function (Blueprint $table) {
-            $table->tinyInteger('source')->nullable()->after('assigned_staff_id')->comment('Nguồn lead: Facebook Ads, Landing Page, Website, Manual, etc.');
-            $table->string('source_detail')->nullable()->after('source')->comment('Chi tiết nguồn: Tên campaign, form, etc.');
-            $table->string('source_id')->nullable()->after('source_detail')->comment('ID từ nguồn bên ngoài');
-            $table->text('note')->nullable()->after('source_id')->comment('Ghi chú');
-            $table->string('email')->nullable()->after('phone')->comment('Email khách hàng');
-            $table->index('source');
-        });
+//        Schema::table('customers', function (Blueprint $table) {
+//            $table->tinyInteger('source')->nullable()->after('assigned_staff_id')->comment('Nguồn lead: Facebook Ads, Landing Page, Website, Manual, etc.');
+//            $table->string('source_detail')->nullable()->after('source')->comment('Chi tiết nguồn: Tên campaign, form, etc.');
+//            $table->string('source_id')->nullable()->after('source_detail')->comment('ID từ nguồn bên ngoài');
+//            $table->text('note')->nullable()->after('source_id')->comment('Ghi chú');
+//            $table->string('email')->nullable()->after('phone')->comment('Email khách hàng');
+//            $table->index('source');
+//        });
     }
 
     /**
@@ -26,16 +26,16 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('customers', function (Blueprint $table) {
-            $table->dropIndex(['source']);
-
-            $table->dropColumn([
-                'source',
-                'source_detail',
-                'source_id',
-                'note',
-                'email',
-            ]);
-        });
+//        Schema::table('customers', function (Blueprint $table) {
+//            $table->dropIndex(['source']);
+//
+//            $table->dropColumn([
+//                'source',
+//                'source_detail',
+//                'source_id',
+//                'note',
+//                'email',
+//            ]);
+//        });
     }
 };

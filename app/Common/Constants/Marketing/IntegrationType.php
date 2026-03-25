@@ -5,7 +5,6 @@ namespace App\Common\Constants\Marketing;
 enum IntegrationType: int
 {
     case FACEBOOK_ADS = 1;
-    case LANDING_PAGE = 2;
     case WEBSITE = 3;
     case MANUAL_DATA = 4;
 
@@ -14,7 +13,6 @@ enum IntegrationType: int
         return match ($this) {
             self::MANUAL_DATA  => __('enum.integration_type.manual_data'),
             self::FACEBOOK_ADS => __('enum.integration_type.facebook_ads'),
-            self::LANDING_PAGE => __('enum.integration_type.landing_page'),
             self::WEBSITE      => __('enum.integration_type.website'),
         };
     }
@@ -24,7 +22,6 @@ enum IntegrationType: int
         return match ($this) {
             self::MANUAL_DATA => __('enum.integration_type.manual_data_desc'),
             self::FACEBOOK_ADS => __('enum.integration_type.facebook_ads_desc'),
-            self::LANDING_PAGE => __('enum.integration_type.landing_page_desc'),
             self::WEBSITE => __('enum.integration_type.website_desc'),
         };
     }
@@ -33,7 +30,6 @@ enum IntegrationType: int
     {
         return match ($this) {
             self::FACEBOOK_ADS => 'info',
-            self::LANDING_PAGE => 'warning',
             self::WEBSITE => 'success',
             self::MANUAL_DATA => 'danger',
         };

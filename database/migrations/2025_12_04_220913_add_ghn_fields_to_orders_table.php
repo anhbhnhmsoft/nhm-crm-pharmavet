@@ -31,13 +31,13 @@ return new class extends Migration
             $table->integer('height')->nullable()->after('width')->comment('Chiều cao (cm)');
             $table->string('insurance_value', 50)->nullable()->after('height')->comment('Giá trị bảo hiểm');
             $table->string('coupon', 50)->nullable()->after('insurance_value')->comment('Mã giảm giá');
-            $table->decimal('amount_recived_from_customer', 15, 2)->nullable()->after('warehouse_id')->comment('Tiền nhận từ khách hàng');
+//            $table->decimal('amount_recived_from_customer', 15, 2)->nullable()->after('warehouse_id')->comment('Tiền nhận từ khách hàng');
 
-            $table->string('provider_shipping', 50)->nullable();
+//            $table->string('provider_shipping', 50)->nullable();
             $table->foreignId('warehouse_id')->nullable()->constrained('warehouses')->nullOnDelete();
-            $table->string('shipping_provider_code', 100)->nullable();
-            $table->decimal('deposit', 15, 2)->default(0);
-            $table->decimal('amout_support_fee', 15, 2)->default(0);
+//            $table->string('shipping_provider_code', 100)->nullable();
+//            $table->decimal('deposit', 15, 2)->default(0);
+//            $table->decimal('amout_support_fee', 15, 2)->default(0);
         });
     }
 
@@ -64,12 +64,12 @@ return new class extends Migration
                 'height',
                 'insurance_value',
                 'coupon',
-                'amount_recived_from_customer',
-                'provider_shipping',
+//                'amount_recived_from_customer',
+//                'provider_shipping',
                 'warehouse_id',
-                'shipping_provider_code',
-                'deposit',
-                'amout_support_fee',
+//                'shipping_provider_code',
+//                'deposit',
+//                'amout_support_fee',
             ]);
         });
     }

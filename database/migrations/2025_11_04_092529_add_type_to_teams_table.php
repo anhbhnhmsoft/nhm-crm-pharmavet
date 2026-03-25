@@ -11,9 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('teams', function (Blueprint $table) {
-            $table->tinyInteger('type')->nullable()->comment('Loại đội nhóm');
-        });
+//        Schema::table('teams', function (Blueprint $table) {
+//            $table->tinyInteger('type')->nullable()->comment('Loại đội nhóm');
+//        });
     }
 
     /**
@@ -21,8 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('teams', function (Blueprint $table) {
-            $table->dropColumn('type');
-        });
+//        Schema::table('teams', function (Blueprint $table) {
+//            $table->dropColumn('type');
+//        });
     }
 };
