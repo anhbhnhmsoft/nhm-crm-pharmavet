@@ -17,7 +17,11 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 # Cài các dependency trước (tận dụng Docker Cache)
 COPY composer.json composer.lock ./
-RUN composer install --no-dev --no-interaction --prefer-dist --no-scripts --no-autoloader
+
+# Tắt IPv6 và tăng timeout lên 3600 giây (1 tiếng) để tránh đứt kết nối giữa chừng
+RUN composer config -g process-timeout 3600 \
+    && composer config -g default-ipv6 false \
+    && composer install --no-dev --no-interaction --prefer-dist --no-scripts --no-autoloader
 
 # Cài đặt Node.js và Yarn
 COPY package.json yarn.lock vite.config.js ./
