@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+    @vite(['resources/css/app.css'])
     <div class="space-y-6" x-data="{
         reportData: @entangle('receivableData')
     }">
