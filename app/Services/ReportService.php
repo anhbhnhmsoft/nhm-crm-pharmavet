@@ -6,7 +6,6 @@ use App\Common\Constants\Accounting\ExpenseCategory;
 use App\Common\Constants\Accounting\ReconciliationStatus;
 use App\Common\Constants\Order\OrderStatus;
 use App\Common\Constants\Customer\CustomerType;
-use App\Common\Constants\Warehouse\StatusTicket;
 use App\Core\ServiceReturn;
 use App\Core\Logging;
 use App\Repositories\OrderRepository;
@@ -14,6 +13,7 @@ use App\Repositories\ExpenseRepository;
 use App\Repositories\RevenueRepository;
 use App\Repositories\CustomerRepository;
 use App\Repositories\InventoryTicketRepository;
+use App\Repositories\FinancialSummaryRepository;
 use Throwable;
 
 class ReportService
@@ -24,6 +24,7 @@ class ReportService
         protected RevenueRepository $revenueRepository,
         protected CustomerRepository $customerRepository,
         protected InventoryTicketRepository $inventoryTicketRepository,
+        protected FinancialSummaryRepository $financialSummaryRepository,
     ) {
     }
 
@@ -33,59 +34,19 @@ class ReportService
     public function getBusinessReport(int $organizationId, string $fromDate, string $toDate, string $type = 'day'): ServiceReturn
     {
         try {
-            // Doanh thu từ đơn hàng
-            $orders = $this->orderRepository->query()
-                ->where('organization_id', $organizationId)
-                ->whereBetween('created_at', [$fromDate . ' 00:00:00', $toDate . ' 23:59:59'])
-                ->get();
+            $stats = $this->financialSummaryRepository->getSummaryByDateRange($organizationId, $fromDate, $toDate);
 
-            // Báo cáo Doanh thu Thuần (Theo công thức Kế toán)
-            $completedOrders = $orders->where('status', OrderStatus::COMPLETED->value);
+            $grossRevenue = (float) $stats->sum('gross_revenue');
+            $totalDiscounts = (float) $stats->sum('discounts');
+            $returns = (float) $stats->sum('returns_value');
+            $netRevenue = (float) $stats->sum('net_revenue');
+            $otherRevenues = (float) $stats->sum('other_revenues');
+            $totalExpense = (float) $stats->sum('total_expenses');
+            $cogs = (float) $stats->sum('cogs');
+            $grossProfit = (float) $stats->sum('gross_profit');
+            $netProfit = (float) $stats->sum('net_profit');
 
-            // 1. Doanh thu Gộp (Gross) = Tiền hàng trước chiết khấu
-            $grossRevenue = $completedOrders->sum('total_amount') + $completedOrders->sum('discount');
-
-            // 2. Các khoản giảm trừ: Chiết khấu
-            $totalDiscounts = $completedOrders->sum('discount');
-
-            // 3. Hàng bán bị trả lại (Sales Returns) - Lấy từ phiếu Nhập hoàn Kho
-            $returns = $this->inventoryTicketRepository->query()
-                ->where('organization_id', $organizationId)
-                ->where('is_sales_return', true)
-                ->where('status', StatusTicket::COMPLETED->value)
-                ->whereBetween('approved_at', [$fromDate . ' 00:00:00', $toDate . ' 23:59:59'])
-                ->with('order')
-                ->get()
-                ->sum(fn($t) => $t->order->total_amount ?? 0);
-
-            // 4. Doanh thu Thuần (Net)
-            $netRevenue = $grossRevenue - $totalDiscounts - $returns;
-
-            // Doanh thu khác
-            $otherRevenues = $this->revenueRepository->query()
-                ->where('organization_id', $organizationId)
-                ->whereBetween('revenue_date', [$fromDate, $toDate])
-                ->sum('amount');
-
-            $finalRevenue = $netRevenue + $otherRevenues;
-
-            // Chi phí
-            $expenses = $this->expenseRepository->query()
-                ->where('organization_id', $organizationId)
-                ->whereBetween('expense_date', [$fromDate, $toDate])
-                ->get();
-
-            $totalExpense = $expenses->sum('amount');
-
-            $expenseByCategory = $expenses->groupBy('category')->map(fn($group) => $group->sum('amount'));
-            $expenseByCategoryResult = [];
-            foreach (ExpenseCategory::cases() as $category) {
-                $expenseByCategoryResult[$category->value] = $expenseByCategory[$category->value] ?? 0;
-            }
-
-            // Lợi nhuận
-            $profit = $finalRevenue - $totalExpense;
-            $profitRate = $finalRevenue > 0 ? ($profit / $finalRevenue) * 100 : 0;
+            $profitRate = ($netRevenue + $otherRevenues) > 0 ? ($netProfit / ($netRevenue + $otherRevenues)) * 100 : 0;
 
             $report = [
                 'period' => [
@@ -99,18 +60,18 @@ class ReportService
                     'returns' => $returns,
                     'net' => $netRevenue,
                     'other' => $otherRevenues,
-                    'total' => $finalRevenue,
+                    'total' => $netRevenue + $otherRevenues,
                 ],
                 'expense' => [
                     'total' => $totalExpense,
-                    'by_category' => $expenseByCategoryResult,
+                    'cogs' => $cogs,
                 ],
                 'profit' => [
-                    'amount' => $profit,
+                    'gross' => $grossProfit,
+                    'net' => $netProfit,
                     'rate' => round($profitRate, 2),
                 ],
             ];
-
             return ServiceReturn::success(data: $report);
         } catch (Throwable $e) {
             Logging::error('Get business report error', ['error' => $e->getMessage()], $e);

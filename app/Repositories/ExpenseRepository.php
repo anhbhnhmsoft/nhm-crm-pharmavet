@@ -12,5 +12,15 @@ class ExpenseRepository extends BaseRepository
     {
         return new Expense();
     }
-}
 
+    /**
+     * Tính tổng chi phí trong khoảng thời gian
+     */
+    public function sumTotalByDateRange(int $organizationId, string $startDate, string $endDate): float
+    {
+        return (float) $this->query()
+            ->where('organization_id', $organizationId)
+            ->whereBetween('expense_date', [$startDate, $endDate])
+            ->sum('amount');
+    }
+}
