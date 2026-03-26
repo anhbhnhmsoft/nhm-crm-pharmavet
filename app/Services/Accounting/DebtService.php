@@ -6,13 +6,15 @@ use App\Common\Constants\Accounting\ExpenseCategory;
 use App\Models\Order;
 use App\Repositories\Accounting\DebtRepository;
 use App\Repositories\ExpenseRepository;
+use App\Repositories\OrderRepository;
 use App\Core\ServiceReturn;
 
 class DebtService
 {
     public function __construct(
         protected DebtRepository $debtRepository,
-        protected ExpenseRepository $expenseRepository
+        protected ExpenseRepository $expenseRepository,
+        protected OrderRepository $orderRepository
     ) {}
 
     public function provisionDebt(Order $order, float $amount, string $note = ''): ServiceReturn
@@ -37,7 +39,7 @@ class DebtService
             ]);
 
             // Update order provision status
-            $order->update([
+            $this->orderRepository->updateById($order->id, [
                 'debt_provision_amount' => $order->debt_provision_amount + $amount,
             ]);
 
@@ -56,7 +58,7 @@ class DebtService
         }
 
         try {
-            $order->update([
+            $this->orderRepository->updateById($order->id, [
                 'is_written_off' => true,
                 'write_off_at' => now(),
                 'write_off_by' => $userId,
