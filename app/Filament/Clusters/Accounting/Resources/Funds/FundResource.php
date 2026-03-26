@@ -5,6 +5,7 @@ namespace App\Filament\Clusters\Accounting\Resources\Funds;
 use App\Common\Constants\User\UserRole;
 use App\Filament\Clusters\Accounting\AccountingCluster;
 use App\Filament\Clusters\Accounting\Resources\Funds\Pages\ListFunds;
+use App\Filament\Clusters\Accounting\Resources\Funds\RelationManagers\FundLockAuditsRelationManager;
 use App\Filament\Clusters\Accounting\Resources\Funds\Schemas\FundForm;
 use App\Filament\Clusters\Accounting\Resources\Funds\Tables\FundsTable;
 use App\Filament\Clusters\Accounting\Resources\Funds\RelationManagers\FundTransactionsRelationManager;
@@ -75,6 +76,7 @@ class FundResource extends Resource
     {
         return [
             FundTransactionsRelationManager::class,
+            FundLockAuditsRelationManager::class,
         ];
     }
 

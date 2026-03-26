@@ -3,6 +3,7 @@
 namespace App\Filament\Clusters\Accounting\Resources\Funds\Tables;
 
 use App\Models\Fund;
+use App\Services\FundService;
 use Filament\Notifications\Notification;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
@@ -32,6 +33,10 @@ class FundsTable
                     ->falseIcon('heroicon-o-lock-open')
                     ->trueColor('danger')
                     ->falseColor('success'),
+                TextColumn::make('fund_type')
+                    ->label(__('accounting.fund.fund_type'))
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => __('accounting.fund.fund_types.' . $state)),
                 TextColumn::make('updated_at')
                     ->label(__('common.table.updated_at'))
                     ->dateTime()
@@ -46,7 +51,16 @@ class FundsTable
                     ->visible(fn(Fund $record) => !$record->is_locked)
                     ->requiresConfirmation()
                     ->action(function (Fund $record) {
-                        $record->update(['is_locked' => true]);
+                        /** @var FundService $service */
+                        $service = app(FundService::class);
+                        $result = $service->lockFund($record, auth()->user());
+                        if ($result->isError()) {
+                            Notification::make()
+                                ->title($result->getMessage())
+                                ->danger()
+                                ->send();
+                            return;
+                        }
                         Notification::make()
                             ->title(__('accounting.fund.notifications.locked'))
                             ->success()
@@ -59,7 +73,16 @@ class FundsTable
                     ->visible(fn(Fund $record) => $record->is_locked)
                     ->requiresConfirmation()
                     ->action(function (Fund $record) {
-                        $record->update(['is_locked' => false]);
+                        /** @var FundService $service */
+                        $service = app(FundService::class);
+                        $result = $service->unlockFund($record, auth()->user());
+                        if ($result->isError()) {
+                            Notification::make()
+                                ->title($result->getMessage())
+                                ->danger()
+                                ->send();
+                            return;
+                        }
                         Notification::make()
                             ->title(__('accounting.fund.notifications.unlocked'))
                             ->success()
