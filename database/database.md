@@ -945,6 +945,11 @@
     - Quỹ tiền theo từng tổ chức; phản ánh số dư hiện tại để hạch toán thu/chi nội bộ.
     - Số dư đầu kỳ chỉ được phép chỉnh khi chưa phát sinh giao dịch.
     - Hỗ trợ khóa nghiệp vụ theo toàn quỹ/user/team qua rule riêng.
+    - Model: `App\Models\Fund`.
+    - Nghiệp vụ chính:
+      - Quản trị quỹ đầu kỳ và trạng thái khóa toàn quỹ.
+      - Là bản ghi cha của toàn bộ thu/chi tại `fund_transactions`.
+      - Là điểm vào để áp rule khóa thao tác theo user/team.
 
     # cấu trúc
     - id: (int, primary key, auto-increment)
@@ -961,6 +966,11 @@
     # note
     - Lịch sử biến động quỹ (thu/chi/điều chỉnh) để đối chiếu tài chính.
     - Mỗi bản ghi lưu số dư sau giao dịch để truy xuất sổ quỹ theo thời điểm.
+    - Model: `App\Models\FundTransaction`.
+    - Nghiệp vụ chính:
+      - Lưu phiếu Thu/Chi đầy đủ thông tin chứng từ (ngày, đối tượng nộp/nhận, mục đích, diễn giải).
+      - Hỗ trợ đa tiền tệ qua `currency`, `exchange_rate`, `amount_base`.
+      - Cho phép sửa/xóa phiếu quá khứ và service sẽ recalculation lại `balance_after`.
 
     # cấu trúc
     - id: (int, primary key, auto-increment)
@@ -988,6 +998,11 @@
     # note
     - Cấu hình khóa thao tác quỹ theo hành động (add/edit/delete) và phạm vi (toàn quỹ/user/team).
     - Dùng để enforce quyền thao tác ở cả UI và tầng service.
+    - Model: `App\Models\FundLockRule`.
+    - Nghiệp vụ chính:
+      - Khóa chi tiết theo `action` và `scope_type`.
+      - Hỗ trợ cấu hình hàng loạt cho nhiều user/team.
+      - Là nguồn kiểm tra trước khi tạo/sửa/xóa giao dịch quỹ.
 
     # cấu trúc
     - id: (int, primary key, auto-increment)
@@ -1005,6 +1020,10 @@
 
     # note
     - Nhật ký khóa/mở quỹ immutable phục vụ thanh tra nội bộ.
+    - Model: `App\Models\FundLockAudit`.
+    - Nghiệp vụ chính:
+      - Ghi nhận ai thay đổi rule khóa, khóa gì, áp cho đối tượng nào, thời điểm nào.
+      - Là dữ liệu read-only cho màn hình audit trail của quỹ.
 
     # cấu trúc
     - id: (int, primary key, auto-increment)
@@ -1023,6 +1042,11 @@
 
     # note
     - Lưu lịch sử phiên bản chứng từ đính kèm của giao dịch quỹ, không ghi đè file cũ.
+    - Model: `App\Models\FundTransactionAttachment`.
+    - Nghiệp vụ chính:
+      - Mỗi lần cập nhật file tạo version mới (`version` tăng dần).
+      - Bảo toàn chứng từ gốc để chống thay thế/chỉnh sửa không kiểm soát.
+      - Hỗ trợ truy vết người upload và thời điểm upload.
 
     # cấu trúc
     - id: (int, primary key, auto-increment)
