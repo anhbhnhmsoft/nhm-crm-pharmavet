@@ -94,4 +94,9 @@ class InventoryTicket extends Model
     {
         return $this->hasMany(InventoryTicketDetail::class);
     }
+
+    public function logs()
+    {
+        return $this->hasMany(InventoryTicketLog::class);
+    }
 }

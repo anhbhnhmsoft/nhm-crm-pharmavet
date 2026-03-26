@@ -203,6 +203,26 @@ class InventoryTicketForm
                                         'min_value' => __('common.error.min_value'),
                                     ]),
 
+                                TextInput::make('unit_price')
+                                    ->label(__('warehouse.order.form.price'))
+                                    ->numeric()
+                                    ->default(0)
+                                    ->prefix('VND')
+                                    ->columnSpan(1)
+                                    ->visible(fn() => (bool) config('warehouse.features.advanced_inventory_v1', false)),
+
+                                TextInput::make('batch_no')
+                                    ->label(__('warehouse.ticket.form.batch_no'))
+                                    ->maxLength(100)
+                                    ->columnSpan(1)
+                                    ->visible(fn() => (bool) config('warehouse.features.advanced_inventory_v1', false)),
+
+                                TextInput::make('expired_at')
+                                    ->label(__('warehouse.ticket.form.expired_at'))
+                                    ->type('date')
+                                    ->columnSpan(1)
+                                    ->visible(fn() => (bool) config('warehouse.features.advanced_inventory_v1', false)),
+
                                 TextInput::make('current_quantity')
                                     ->label(__('warehouse.ticket.form.current_quantity'))
                                     ->numeric()
@@ -213,7 +233,7 @@ class InventoryTicketForm
                                         'numeric' => __('common.error.numeric'),
                                     ]),
                             ])
-                            ->columns(4)
+                            ->columns(6)
                             ->defaultItems(1)
                             ->addActionLabel(__('common.action.add'))
                             ->reorderable(false)

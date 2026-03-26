@@ -18,6 +18,8 @@ use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Grid;
@@ -97,6 +99,15 @@ class OrdersTable
                     ->color(fn(?string $state): string => GhnOrderStatus::color($state))
                     ->toggleable()
                     ->placeholder(__('order.table.not_posted')),
+
+                TextColumn::make('shipping_exception_reason_code')
+                    ->label(__('warehouse.order.form.reason_code'))
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('redelivery_attempt')
+                    ->label(__('warehouse.order.action.redelivery'))
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->alignCenter(),
 
                 TextColumn::make('ghn_posted_at')
                     ->label(__('order.table.ghn_posted_at'))
@@ -295,6 +306,49 @@ class OrdersTable
                             } else {
                                 Notification::make()
                                     ->title(__('order.notification.cancel_order_failed'))
+                                    ->body($result->getMessage())
+                                    ->danger()
+                                    ->send();
+                            }
+                        }),
+                    Action::make('request_redelivery')
+                        ->label(__('warehouse.order.action.redelivery'))
+                        ->icon('heroicon-o-arrow-uturn-left')
+                        ->color('warning')
+                        ->visible(fn(Order $record) => in_array((string) $record->ghn_status, [
+                            GhnOrderStatus::DELIVERY_FAIL->value,
+                            GhnOrderStatus::WAITING_TO_RETURN->value,
+                            GhnOrderStatus::RETURN->value,
+                            GhnOrderStatus::RETURNING->value,
+                        ], true))
+                        ->schema([
+                            Select::make('reason_code')
+                                ->label(__('warehouse.order.form.reason_code'))
+                                ->options(__('warehouse.shipping_exception'))
+                                ->required()
+                                ->native(false),
+                            Textarea::make('reason_note')
+                                ->label(__('warehouse.order.form.reason_note'))
+                                ->required()
+                                ->rows(3),
+                            DateTimePicker::make('redelivery_schedule_at')
+                                ->label(__('warehouse.order.form.redelivery_schedule_at'))
+                                ->seconds(false)
+                                ->required()
+                                ->default(now()->addHours(2)),
+                        ])
+                        ->action(function (Order $record, array $data) {
+                            $orderService = app(OrderService::class);
+                            $result = $orderService->requestRedelivery($record, $data);
+
+                            if ($result->isSuccess()) {
+                                Notification::make()
+                                    ->title(__('warehouse.order.action.redelivery'))
+                                    ->success()
+                                    ->send();
+                            } else {
+                                Notification::make()
+                                    ->title(__('warehouse.order.action.redelivery'))
                                     ->body($result->getMessage())
                                     ->danger()
                                     ->send();

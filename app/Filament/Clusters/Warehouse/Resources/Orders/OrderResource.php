@@ -34,6 +34,15 @@ class OrderResource extends Resource
         return __('warehouse.order.primary');
     }
 
+    public static function canAccess(): bool
+    {
+        return in_array(Auth::user()->role, [
+            UserRole::SUPER_ADMIN->value,
+            UserRole::ADMIN->value,
+            UserRole::WAREHOUSE->value,
+        ], true);
+    }
+
     protected static ?string $recordTitleAttribute = 'Order';
 
     public static function form(Schema $schema): Schema

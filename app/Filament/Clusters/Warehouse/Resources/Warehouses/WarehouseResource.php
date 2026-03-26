@@ -44,6 +44,15 @@ class WarehouseResource extends Resource
         return __('warehouse.label');
     }
 
+    public static function canAccess(): bool
+    {
+        return Helper::checkPermission([
+            UserRole::SUPER_ADMIN->value,
+            UserRole::ADMIN->value,
+            UserRole::WAREHOUSE->value,
+        ], Auth::user()->role);
+    }
+
 
     public static function form(Schema $schema): Schema
     {

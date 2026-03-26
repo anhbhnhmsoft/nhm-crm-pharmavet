@@ -34,6 +34,9 @@ class CreateInventoryTicket extends CreateRecord
                 $record->details()->create([
                     'product_id' => $detail['product_id'],
                     'quantity' => $detail['quantity'],
+                    'unit_price' => $detail['unit_price'] ?? 0,
+                    'batch_no' => $detail['batch_no'] ?? null,
+                    'expired_at' => $detail['expired_at'] ?? null,
                     'current_quantity' => $detail['current_quantity'] ?? 0,
                 ]);
             }

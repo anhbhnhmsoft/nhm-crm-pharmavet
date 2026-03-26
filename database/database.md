@@ -405,6 +405,8 @@
     - shipping_fee : (decimal(15,2), default 0) -- phí vận chuyển
     - deposit : (decimal(15,2), default 0) -- tiền đặt cọc
     - cod_fee : (decimal(15,2), default 0) -- phí dịch vụ COD
+    - cod_support_amount : (decimal(15,2), default 0) -- tiền hỗ trợ COD, trừ vào số tiền thực thu
+    - collect_amount : (decimal(15,2), default 0) -- số tiền thực thu sau đặt cọc/hỗ trợ COD
     - ck1 : (decimal(5,2), default 0) -- chiết khấu 1 (%)
     - ck2 : (decimal(5,2), default 0) -- chiết khấu 2 (%)
     - shipping_method : (varchar(50), nullable) -- đơn vị vận chuyển (ghn, ghtk)
@@ -425,6 +427,10 @@
     - ghn_total_fee: (decimal(15,2), nullable) -- tổng phí ship GHN
     - ghn_response: (text, nullable) -- response từ GHN API
     - ghn_status: (varchar(50), nullable) -- trạng thái đơn hàng trên GHN
+    - shipping_exception_reason_code: (varchar(50), nullable) -- mã lý do ngoại lệ giao vận (không nghe máy/sai địa chỉ/...)
+    - shipping_exception_note: (text, nullable) -- ghi chú ngoại lệ giao vận
+    - redelivery_attempt: (tiny integer, default 0) -- số lần yêu cầu giao lại
+    - redelivery_schedule_at: (timestamp, nullable) -- lịch hẹn giao lại lần tiếp theo
     - ghn_posted_at: (timestamp, nullable) -- thời gian đăng đơn lên GHN
     - ghn_cancelled_at: (timestamp, nullable) -- thời gian hủy đơn trên GHN
     - weight: (integer, nullable) -- khối lượng (gram)
@@ -559,6 +565,8 @@
     - warehouse_id : (int, foreign key -> warehouses.id, not null) -- kho thực hiện (cho Nhập/Xuất/Xuất hủy)
     - source_warehouse_id : (int, foreign key -> warehouses.id, nullable) -- kho nguồn (chỉ cho Chuyển kho)
     - target_warehouse_id : (int, foreign key -> warehouses.id, nullable) -- kho đích (chỉ cho Chuyển kho)
+    - order_id : (int, foreign key -> orders.id, nullable) -- đơn hàng liên quan (dùng cho nhập hoàn)
+    - is_sales_return : (boolean, default false) -- đánh dấu phiếu nhập hoàn để đồng bộ doanh thu thuần
     - note : (text, nullable) -- ghi chú
     - created_by : (int, foreign key -> users.id, nullable) -- người tạo
     - updated_by : (int, foreign key -> users.id, nullable) -- người cập nhật
@@ -583,6 +591,10 @@
     - inventory_ticket_id : (int, foreign key -> inventory_tickets.id, not null) -- phiếu kho
     - product_id : (int, foreign key -> products.id, not null) -- sản phẩm
     - quantity : (integer, not null) -- số lượng nhập/xuất
+    - unit_price : (decimal(15,2), default 0) -- đơn giá tại thời điểm nhập/xuất
+    - batch_no : (varchar(100), nullable) -- mã lô hàng
+    - expired_at : (date, nullable) -- hạn sử dụng của lô
+    - bin_location_id : (unsignedBigInteger, nullable) -- vị trí lưu kho (warehouse_bins.id)
     - current_quantity : (integer, nullable) -- số lượng tồn kho tại thời điểm tạo phiếu (để tracking)
     - timestamps
     - index [inventory_ticket_id]
@@ -600,6 +612,10 @@
     - product_id : (int, foreign key -> products.id, not null) -- sản phẩm liên quan
     - note : (varchar(255), nullable) -- ghi chú thay đổi
     - reason : (varchar(255), nullable) -- lý do thay đổi
+    - action : (varchar(50), nullable) -- loại thao tác (approve/cancel/ticket_in/ticket_out/...)
+    - old_status : (tiny integer, nullable) -- trạng thái trước khi thao tác
+    - new_status : (tiny integer, nullable) -- trạng thái sau thao tác
+    - metadata_json : (json, nullable) -- dữ liệu bổ sung của thao tác (số lượng, loại phiếu, ...)
     - user_id : (int, foreign key -> users.id, nullable) -- người thực hiện
     - created_by : (int, foreign key -> users.id, nullable) -- người tạo log
     - updated_by : (int, foreign key -> users.id, nullable) -- người cập nhật log
@@ -626,6 +642,52 @@
     - unique [product_id, warehouse_id]
     - index [product_id]
     - index [warehouse_id]
+
+# bảng inventory_movements
+
+    # note
+    - Ledger biến động kho theo từng thao tác nghiệp vụ.
+    - Là nguồn dữ liệu chuẩn để tính nhập/xuất/tồn, pending, và truy vết chống thất thoát.
+    - Mỗi dòng gắn ref nghiệp vụ (`inventory_ticket`, `order`, ...) để audit end-to-end.
+
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - organization_id: (int, foreign key -> organizations.id, not null) -- tổ chức sở hữu biến động
+    - warehouse_id: (int, foreign key -> warehouses.id, nullable) -- kho phát sinh biến động
+    - product_id: (int, foreign key -> products.id, nullable) -- sản phẩm phát sinh biến động
+    - ref_type: (varchar(50), nullable) -- loại chứng từ nguồn (inventory_ticket/order/...)
+    - ref_id: (unsignedBigInteger, nullable) -- id chứng từ nguồn
+    - movement_type: (varchar(20), not null) -- in/out/reserve/release/consume/transfer_in/transfer_out/return_in (InventoryMovementType)
+    - quantity_before: (integer, default 0) -- tồn thực tế trước biến động
+    - quantity_change: (integer, default 0) -- phần thay đổi tồn thực tế (+/-)
+    - quantity_after: (integer, default 0) -- tồn thực tế sau biến động
+    - pending_before: (integer, default 0) -- pending trước biến động
+    - pending_change: (integer, default 0) -- phần thay đổi pending (+/-)
+    - pending_after: (integer, default 0) -- pending sau biến động
+    - reason_code: (varchar(50), nullable) -- mã lý do nghiệp vụ
+    - reason_note: (varchar(255), nullable) -- ghi chú lý do nghiệp vụ
+    - actor_id: (int, foreign key -> users.id, nullable) -- người thực hiện thao tác
+    - occurred_at: (timestamp, nullable) -- thời điểm nghiệp vụ xảy ra
+    - timestamps
+    - index [organization_id, warehouse_id, product_id]
+    - index [ref_type, ref_id]
+    - index [movement_type, occurred_at]
+
+# bảng warehouse_bins
+
+    # note
+    - Quản lý vị trí vật lý trong kho (kệ/tầng/bin).
+    - Dùng để map tồn kho theo vị trí và áp rule chống mix SKU khi cần.
+
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - warehouse_id: (int, foreign key -> warehouses.id, not null) -- kho sở hữu vị trí
+    - code: (varchar(50), not null) -- mã vị trí (A1/B2/...)
+    - name: (varchar(120), not null) -- tên vị trí hiển thị
+    - allow_mix_sku: (boolean, default true) -- cho phép chứa nhiều SKU trong cùng vị trí
+    - is_active: (boolean, default true) -- trạng thái sử dụng vị trí
+    - timestamps
+    - unique [warehouse_id, code]
 
 # bảng shipping_config_for_warehouses
 

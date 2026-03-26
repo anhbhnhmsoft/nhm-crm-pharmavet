@@ -59,6 +59,7 @@ use App\Services\OrderService;
 use App\Services\ShippingConfigService;
 use App\Services\WarehouseService;
 use App\Repositories\InventoryTicketLogRepository;
+use App\Repositories\InventoryMovementRepository;
 use App\Repositories\PushsaleRuleSetRepository;
 use App\Repositories\ReportExportJobRepository;
 use App\Repositories\SaleKpiTargetRepository;
@@ -74,6 +75,10 @@ use App\Services\Telesale\PushsaleRuleService;
 use App\Services\Telesale\TelesaleKpiService;
 use App\Services\Telesale\TelesaleReportExportService;
 use App\Services\Telesale\TelesaleReportScopeService;
+use App\Services\Warehouse\InventoryMovementService;
+use App\Services\Warehouse\WarehouseExportService;
+use App\Services\Warehouse\WarehouseReportService;
+use App\Services\Warehouse\ShippingStatusSyncService;
 use Filament\Support\Assets\Js;
 use Filament\Support\Facades\FilamentAsset;
 use Illuminate\Support\Facades\URL;
@@ -138,6 +143,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ProductWarehouseRepository::class);
         $this->app->bind(WarehouseRepository::class);
         $this->app->bind(InventoryTicketLogRepository::class);
+        $this->app->bind(InventoryMovementRepository::class);
         $this->app->bind(PushsaleRuleSetRepository::class);
         $this->app->bind(ReportExportJobRepository::class);
         $this->app->bind(SaleKpiTargetRepository::class);
@@ -180,6 +186,10 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(TelesaleKpiService::class);
         $this->app->bind(TelesaleReportExportService::class);
         $this->app->bind(TelesaleReportScopeService::class);
+        $this->app->bind(InventoryMovementService::class);
+        $this->app->bind(ShippingStatusSyncService::class);
+        $this->app->bind(WarehouseReportService::class);
+        $this->app->bind(WarehouseExportService::class);
         $this->app->bind(DebtNotificationService::class);
         $this->app->bind(FinancialSummaryService::class);
     }

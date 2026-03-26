@@ -83,6 +83,8 @@ return [
             'is_return_helper_text' => 'Đánh dấu đây là hàng bán bị trả lại để tính Doanh thu Thuần',
             'order' => 'Đơn hàng',
             'product_quantity' => 'Số SP',
+            'batch_no' => 'Mã lô',
+            'expired_at' => 'Hạn sử dụng',
         ],
         'section' => [
             'basic_info' => 'Thông tin cơ bản',
@@ -97,6 +99,12 @@ return [
             'select_product' => 'Chọn sản phẩm',
             'enter_quantity' => 'Nhập số lượng',
         ],
+        'reason_codes' => [
+            'manual_adjustment' => 'Điều chỉnh thủ công',
+            'damaged_goods' => 'Hàng hư hỏng',
+            'customer_return' => 'Khách trả hàng',
+            'other' => 'Khác',
+        ],
         'action' => [
             'approve' => 'Duyệt phiếu',
             'approve_description' => 'Bạn có chắc chắn muốn duyệt phiếu này? Sau khi duyệt, phiếu sẽ không thể chỉnh sửa.',
@@ -104,6 +112,12 @@ return [
             'cancel' => 'Hủy phiếu',
             'cancel_description' => 'Bạn có chắc chắn muốn hủy phiếu này?',
             'cancelled' => 'Đã hủy',
+        ],
+        'errors' => [
+            'only_draft_can_be_approved' => 'Chỉ phiếu tạm mới có thể duyệt.',
+            'reason_required' => 'Vui lòng nhập lý do và ghi chú.',
+            'transfer_warehouse_required' => 'Phiếu chuyển kho cần kho nguồn và kho đích.',
+            'insufficient_stock_for_product' => 'Không đủ tồn kho cho sản phẩm #:id.',
         ],
     ],
 
@@ -123,10 +137,13 @@ return [
         'primary' => 'Đơn hàng',
         'action' => [
             'finalize_order' => 'Lên đơn / Chốt đơn',
+            'redelivery' => 'Yêu cầu giao lại',
         ],
         'form' => [
             'username' => 'Tên khách hàng',
             'phone' => 'Số điện thoại',
+            'from_date' => 'Từ ngày',
+            'to_date' => 'Đến ngày',
             'province' => 'Tỉnh/Thành phố',
             'district' => 'Quận/Huyện',
             'ward' => 'Phường/Xã',
@@ -164,7 +181,41 @@ return [
             'ghn_pick_station_id' => 'Điểm lấy hàng',
             'ghn_deliver_station_id' => 'Điểm giao hàng',
             'client_order_code' => 'Mã đơn hàng (Client Order Code)',
+            'reason_code' => 'Mã lý do',
+            'reason_note' => 'Ghi chú lý do',
+            'redelivery_schedule_at' => 'Thời gian hẹn giao lại',
         ],
+    ],
+
+    'shipping_exception' => [
+        'customer_unreachable' => 'Khách không nghe máy',
+        'wrong_address' => 'Sai địa chỉ',
+        'customer_refused' => 'Khách từ chối nhận',
+        'other' => 'Khác',
+    ],
+
+    'reports' => [
+        'filters' => 'Bộ lọc báo cáo',
+        'stock_navigation' => 'Chỉ số tồn kho',
+        'stock_title' => 'Báo cáo nhập xuất tồn',
+        'coverage_navigation' => 'Số ngày còn hàng',
+        'coverage_title' => 'Báo cáo độ phủ tồn kho',
+        'revenue_navigation' => 'Doanh số theo kho',
+        'revenue_title' => 'Báo cáo doanh số/cửa hàng',
+        'matrix_navigation' => 'Ma trận kho',
+        'matrix_title' => 'Báo cáo kho theo khu vực',
+        'window_days' => 'Khoảng ngày tính TB xuất',
+        'opening' => 'Tồn đầu',
+        'imports' => 'Tổng nhập',
+        'exports' => 'Tổng xuất',
+        'closing' => 'Tồn cuối',
+        'available_stock' => 'Tồn khả dụng',
+        'avg_daily_out' => 'TB xuất/ngày',
+        'days_of_stock' => 'Số ngày còn hàng',
+        'total_orders' => 'Số đơn',
+        'total_revenue' => 'Doanh số',
+        'quantity' => 'Số lượng',
+        'pending' => 'Chờ xuất',
     ],
 
 ];

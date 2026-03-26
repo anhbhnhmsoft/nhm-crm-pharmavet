@@ -75,4 +75,9 @@ class Warehouse extends Model
     {
         return $this->hasMany(ProductWarehouse::class);
     }
+
+    public function bins()
+    {
+        return $this->hasMany(WarehouseBin::class);
+    }
 }
