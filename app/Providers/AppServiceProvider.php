@@ -43,6 +43,7 @@ use App\Repositories\FundTransactionAttachmentRepository;
 use App\Services\Accounting\DebtReconciliationService;
 use App\Services\AuthService;
 use App\Services\ComboService;
+use App\Services\ExportService;
 use App\Services\CustomerService;
 use App\Services\Integrations\IntegrationService;
 use App\Services\LeadDistributionConfigService;
@@ -173,6 +174,7 @@ class AppServiceProvider extends ServiceProvider
 
     private function registerApplicationService(): void
     {
+        $this->app->bind(ExportService::class);
         $this->app->bind(AuthService::class);
         $this->app->bind(OrganizationService::class);
         $this->app->bind(ComboService::class);
@@ -213,6 +215,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(WarehouseExportService::class);
         $this->app->bind(DebtNotificationService::class);
         $this->app->bind(FinancialSummaryService::class);
+        $this->app->bind(DiscrepancyReportService::class);
     }
 
     private function registerObserver(): void

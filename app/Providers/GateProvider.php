@@ -49,6 +49,18 @@ class GateProvider extends ServiceProvider
                 true
             )
         );
+
+        Gate::define(GateKey::IS_CHIEF_ACCOUNTANT->value, function (User $user) {
+            return $user->isSuperAdmin() ||
+                $user->hasRole(UserRole::ADMIN) ||
+                ($user->hasRole(UserRole::ACCOUNTING) && $user->hasPosition(UserPosition::LEADER));
+        });
+
+        Gate::define(GateKey::IS_ACCOUNTING->value, function (User $user) {
+            return $user->isSuperAdmin() ||
+                $user->hasRole(UserRole::ADMIN) ||
+                $user->hasRole(UserRole::ACCOUNTING);
+        });
     }
 
 }

@@ -76,7 +76,49 @@ class OrderRepository extends BaseRepository
             ->where('organization_id', $organizationId)
             ->where('status', OrderStatus::COMPLETED->value)
             ->whereBetween('created_at', [$startDate, $endDate])
-            ->with('items')
+            ->with(['items', 'customer'])
             ->get();
+    }
+
+    /**
+     * Lấy danh sách đơn hàng cho đối chiếu của Khách hàng
+     */
+    public function getCustomerReconciliationOrders(int $customerId, string $startDate, string $endDate): Collection
+    {
+        return $this->query()
+            ->where('customer_id', $customerId)
+            ->where('status', OrderStatus::COMPLETED->value)
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->orderBy('created_at', 'asc')
+            ->get();
+    }
+
+    /**
+     * Lấy tổng dư nợ khách hàng trước một thời điểm
+     */
+    public function getCustomerBalanceBefore(int $customerId, string $date): float
+    {
+        return (float) $this->query()
+            ->where('customer_id', $customerId)
+            ->where('status', OrderStatus::COMPLETED->value)
+            ->where('created_at', '<', $date)
+            ->selectRaw('SUM(total_amount - deposit - amount_recived_from_customer) as balance')
+            ->value('balance') ?? 0;
+    }
+
+    /**
+     * Lấy tổng dư nợ của ĐVVC (GHN) trước một thời điểm
+     */
+    public function getLogisticBalanceBefore(int $organizationId, string $date): float
+    {
+        // Debt = Sum(Total Amount of Completed Orders) - Sum(Confirmed Reconciliation CODs)
+        $totalDebit = (float) $this->query()
+            ->where('organization_id', $organizationId)
+            ->where('status', OrderStatus::COMPLETED->value)
+            ->where('created_at', '<', $date)
+            ->whereNotNull('ghn_order_code')
+            ->sum('total_amount') ?? 0;
+
+        return $totalDebit;
     }
 }
