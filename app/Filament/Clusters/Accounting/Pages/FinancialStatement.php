@@ -17,6 +17,8 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
+use App\Common\Constants\GateKey;
 use BackedEnum;
 
 class FinancialStatement extends Page implements HasForms
@@ -39,14 +41,7 @@ class FinancialStatement extends Page implements HasForms
 
     public static function canAccess(): bool
     {
-        $user = Auth::user();
-        if (!$user) return false;
-        
-        if ($user->hasRole(UserRole::SUPER_ADMIN) || $user->hasRole(UserRole::ADMIN)) {
-            return true;
-        }
-
-        return $user->hasRole(UserRole::ACCOUNTING) && $user->hasPosition(UserPosition::LEADER);
+        return Gate::allows(GateKey::IS_CHIEF_ACCOUNTANT->value);
     }
 
     public ?array $data = [];

@@ -565,6 +565,10 @@ return new class extends Migration {
             $table->decimal('deposit', 15, 2)->default(0);
             $table->decimal('amount_recived_from_customer', 15, 2)->default(0);
             $table->decimal('amout_support_fee', 15, 2)->default(0);
+            $table->tinyInteger('invoice_status')->default(1)->comment('1: Chưa xuất, 2: Đã xuất, 3: Đã hủy');
+            $table->string('invoice_code', 100)->nullable();
+            $table->string('invoice_url', 255)->nullable();
+            $table->timestamp('invoice_at')->nullable();
 
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignId('updated_by')->nullable()->constrained('users')->nullOnDelete();

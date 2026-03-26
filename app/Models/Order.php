@@ -84,6 +84,14 @@ class Order extends Model
         'ghn_province_id',
         'ghn_district_id',
         'ghn_ward_code',
+        'invoice_code',
+        'invoice_url',
+        'invoice_status',
+        'invoice_at',
+        'debt_provision_amount',
+        'is_written_off',
+        'write_off_at',
+        'write_off_by',
     ];
 
     protected $casts = [
@@ -156,6 +164,20 @@ class Order extends Model
     public function reconciliation(): HasMany
     {
         return $this->hasMany(Reconciliation::class);
+    }
+
+    public function getRemainingDebtAttribute(): float
+    {
+        return (float)max(0, $this->collect_amount - $this->amount_recived_from_customer);
+    }
+
+    public function getDebtAgeAttribute(): int
+    {
+        if ($this->remaining_debt <= 0 || $this->is_written_off) {
+            return 0;
+        }
+
+        return (int)now()->diffInDays($this->created_at);
     }
 
     // Scopes

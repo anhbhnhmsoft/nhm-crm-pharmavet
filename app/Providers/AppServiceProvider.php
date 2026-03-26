@@ -32,6 +32,7 @@ use App\Repositories\UserAssignedStaffRepository;
 use App\Repositories\UserRepository;
 use App\Repositories\FinancialSummaryRepository;
 use App\Repositories\DiscrepancyReportRepository;
+use App\Repositories\Accounting\DebtRepository;
 use App\Services\AuthService;
 use App\Services\ComboService;
 use App\Services\CustomerService;
@@ -42,6 +43,7 @@ use App\Services\OrganizationService;
 use App\Services\AccountingService;
 use App\Services\Accounting\FinancialSummaryService;
 use App\Services\Accounting\DiscrepancyReportService;
+use App\Services\Accounting\DebtService;
 use App\Services\ExchangeRateService;
 use App\Services\ReconciliationService;
 use App\Services\ReportService;
@@ -154,6 +156,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(TelesaleNotificationAggregateRepository::class);
         $this->app->bind(FinancialSummaryRepository::class);
         $this->app->bind(DiscrepancyReportRepository::class);
+        $this->app->bind(DebtRepository::class);
     }
 
     private function registerApplicationService(): void
@@ -196,6 +199,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(DebtNotificationService::class);
         $this->app->bind(FinancialSummaryService::class);
         $this->app->bind(DiscrepancyReportService::class);
+        $this->app->bind(DebtService::class);
     }
 
     private function registerObserver(): void

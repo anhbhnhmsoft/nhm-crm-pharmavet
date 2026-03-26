@@ -449,6 +449,14 @@
     - ghn_province_id: (integer, nullable) -- ID tỉnh/thành phố (GHN)
     - ghn_district_id: (integer, nullable) -- ID quận/huyện (GHN)
     - ghn_ward_code: (varchar(20), nullable) -- mã phường/xã (GHN)
+    - invoice_status: (tinyint, default 1) -- trạng thái hóa đơn (1: Chưa xuất, 2: Đã xuất, 3: Đã hủy)
+    - invoice_code: (varchar(100), nullable) -- mã số hóa đơn
+    - invoice_url: (varchar(255), nullable) -- đường dẫn đến file PDF hóa đơn
+    - invoice_at: (timestamp, nullable) -- thời điểm phát hành hóa đơn
+    - debt_provision_amount: (decimal(15,2), default 0) -- số tiền dự phòng nợ khó đòi
+    - is_written_off: (boolean, default false) -- trạng thái xóa nợ
+    - write_off_at: (timestamp, nullable) -- thời điểm xóa nợ
+    - write_off_by: (int, foreign key -> users.id, nullable) -- người thực hiện xóa nợ
     - softDeletes
     - timestamps
     - index [status]
