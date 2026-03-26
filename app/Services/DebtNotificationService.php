@@ -10,6 +10,7 @@ use App\Models\Customer;
 use App\Models\Order;
 use App\Models\User;
 use App\Repositories\OrderRepository;
+use App\Repositories\UserRepository;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Collection;
@@ -21,7 +22,8 @@ use Illuminate\Support\Str;
 class DebtNotificationService
 {
     public function __construct(
-        protected OrderRepository $orderRepository
+        protected OrderRepository $orderRepository,
+        protected UserRepository $userRepository
     ) {}
 
     public function notifyOverdueDebts(int $thresholdDays = 3): void
@@ -117,7 +119,8 @@ class DebtNotificationService
     protected function notifyAccounting(Order $order, string $message): void
     {
         // Gửi thông báo cho Super Admin hoặc những người có role Admin/Kế toán trong cùng tổ chức
-        User::query()
+        // Gửi thông báo cho Super Admin hoặc những người có role Admin/Kế toán trong cùng tổ chức
+        $this->userRepository->query()
             ->where(function ($query) use ($order) {
                 $query->where('role', UserRole::SUPER_ADMIN->value)
                     // 2. Admin hoặc Accounting trong cùng Tổ chức

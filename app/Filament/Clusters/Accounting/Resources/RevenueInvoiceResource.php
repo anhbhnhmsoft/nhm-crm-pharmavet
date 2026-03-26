@@ -12,6 +12,7 @@ use Filament\Tables\Table;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
+use BackedEnum;
 
 class RevenueInvoiceResource extends Resource
 {
@@ -19,7 +20,7 @@ class RevenueInvoiceResource extends Resource
 
     protected static ?string $slug = 'revenue-invoices';
 
-    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-document-currency-dollar';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-currency-dollar';
 
     public static function getNavigationGroup(): \UnitEnum|string|null
     {
