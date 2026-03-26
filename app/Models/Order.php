@@ -96,6 +96,11 @@ class Order extends Model
         'collect_amount' => 'decimal:2',
         'ck1' => 'decimal:2',
         'ck2' => 'decimal:2',
+        'ghn_posted_at' => 'datetime',
+        'ghn_cancelled_at' => 'datetime',
+        'ghn_expected_delivery_time' => 'datetime',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
     ];
 
     public function organization(): BelongsTo

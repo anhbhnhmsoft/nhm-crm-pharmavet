@@ -13,72 +13,66 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // =======================================================
-        // Bảng PROVINCES (Tỉnh/Thành phố)
-        // =======================================================
-        if (!Schema::hasTable('provinces')) {
-            Schema::create('provinces', function (Blueprint $table) {
-                $table->id(); // Khóa chính tự động tăng
-
-                $table->string('code', 20)->unique(); // Mã tỉnh từ API
-                $table->string('name', 100);
-                $table->string('code_name', 100);
-                $table->string('division_type', 100);
-
-                $table->json('metadata')->nullable();
-                $table->timestamps();
-            });
-        }
-
-        // =======================================================
-        // Bảng DISTRICTS (Quận/Huyện)
-        // =======================================================
-        if (!Schema::hasTable('districts')) {
-            Schema::create('districts', function (Blueprint $table) {
-                $table->id(); // Khóa chính tự động tăng
-
-                $table->string('code', 20)->unique(); // Mã quận/huyện từ API
-                $table->string('name', 100);
-                $table->string('code_name', 150);
-                $table->string('division_type', 100);
-
-                // Khóa ngoại tham chiếu đến provinces.id
-                $table->foreignId('province_id')
-                    ->constrained('provinces')
-                    ->onDelete('cascade');
-
-                // Cột lưu province_code để tham chiếu
-                $table->string('province_code', 20)->nullable()->index();
-
-                $table->json('metadata')->nullable();
-                $table->timestamps();
-            });
-        }
-
-        // =======================================================
-        // Bảng WARDS (Phường/Xã)
-        // =======================================================
-        if (!Schema::hasTable('wards')) {
-            Schema::create('wards', function (Blueprint $table) {
-                $table->id(); // Khóa chính tự động tăng
-
-                $table->string('code', 20)->unique(); // Mã phường/xã từ API
-                $table->string('name', 100);
-                $table->string('code_name', 150);
-                $table->string('division_type', 100);
-
-                // Khóa ngoại tham chiếu đến districts.id
-                $table->foreignId('district_id')
-                    ->constrained('districts')
-                    ->onDelete('cascade');
-
-                // Cột lưu district_code để tham chiếu
-                $table->string('district_code', 20)->nullable()->index();
-
-                $table->json('metadata')->nullable();
-                $table->timestamps();
-            });
-        }
+//        // =======================================================
+//        // Bảng PROVINCES (Tỉnh/Thành phố)
+//        // =======================================================
+//        Schema::create('provinces', function (Blueprint $table) {
+//            $table->id(); // Khóa chính tự động tăng
+//
+//            $table->string('code', 20)->unique(); // Mã tỉnh từ API
+//            $table->string('name', 100);
+//            $table->string('code_name', 100);
+//            $table->string('division_type', 100);
+//
+//            $table->json('metadata')->nullable();
+//            $table->timestamps();
+//        });
+//
+//        // =======================================================
+//        // Bảng DISTRICTS (Quận/Huyện)
+//        // =======================================================
+//        Schema::create('districts', function (Blueprint $table) {
+//            $table->id(); // Khóa chính tự động tăng
+//
+//            $table->string('code', 20)->unique(); // Mã quận/huyện từ API
+//            $table->string('name', 100);
+//            $table->string('code_name', 150);
+//            $table->string('division_type', 100);
+//
+//            // Khóa ngoại tham chiếu đến provinces.id
+//            $table->foreignId('province_id')
+//                ->constrained('provinces')
+//                ->onDelete('cascade');
+//
+//            // Cột lưu province_code để tham chiếu
+//            $table->string('province_code', 20)->nullable()->index();
+//
+//            $table->json('metadata')->nullable();
+//            $table->timestamps();
+//        });
+//
+//        // =======================================================
+//        // Bảng WARDS (Phường/Xã)
+//        // =======================================================
+//        Schema::create('wards', function (Blueprint $table) {
+//            $table->id(); // Khóa chính tự động tăng
+//
+//            $table->string('code', 20)->unique(); // Mã phường/xã từ API
+//            $table->string('name', 100);
+//            $table->string('code_name', 150);
+//            $table->string('division_type', 100);
+//
+//            // Khóa ngoại tham chiếu đến districts.id
+//            $table->foreignId('district_id')
+//                ->constrained('districts')
+//                ->onDelete('cascade');
+//
+//            // Cột lưu district_code để tham chiếu
+//            $table->string('district_code', 20)->nullable()->index();
+//
+//            $table->json('metadata')->nullable();
+//            $table->timestamps();
+//        });
     }
 
     /**
@@ -86,6 +80,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // Compatibility migration: keep schema from baseline init migration.
+//        Schema::dropIfExists('wards');
+//        Schema::dropIfExists('districts');
+//        Schema::dropIfExists('provinces');
     }
 };

@@ -23,4 +23,17 @@ class ExpenseRepository extends BaseRepository
             ->whereBetween('expense_date', [$startDate, $endDate])
             ->sum('amount');
     }
+
+    /**
+     * Tính tổng chi phí theo danh mục trong khoảng thời gian
+     */
+    public function sumByCategoryDateRange(int $organizationId, string $startDate, string $endDate): \Illuminate\Support\Collection
+    {
+        return $this->query()
+            ->where('organization_id', $organizationId)
+            ->whereBetween('expense_date', [$startDate, $endDate])
+            ->selectRaw('category, SUM(amount) as total')
+            ->groupBy('category')
+            ->pluck('total', 'category');
+    }
 }
