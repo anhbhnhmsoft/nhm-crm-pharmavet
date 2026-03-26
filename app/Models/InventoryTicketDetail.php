@@ -15,7 +15,15 @@ class InventoryTicketDetail extends Model
         'inventory_ticket_id',
         'product_id',
         'quantity',
+        'unit_price',
+        'batch_no',
+        'expired_at',
+        'bin_location_id',
         'current_quantity',
+    ];
+
+    protected $casts = [
+        'expired_at' => 'date',
     ];
 
     public function ticket()
@@ -26,5 +34,10 @@ class InventoryTicketDetail extends Model
     public function product()
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function binLocation()
+    {
+        return $this->belongsTo(WarehouseBin::class, 'bin_location_id');
     }
 }

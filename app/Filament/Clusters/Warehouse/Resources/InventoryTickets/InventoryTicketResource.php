@@ -8,13 +8,11 @@ use App\Filament\Clusters\Warehouse\Resources\InventoryTickets\Pages\EditInvento
 use App\Filament\Clusters\Warehouse\Resources\InventoryTickets\Pages\ListInventoryTickets;
 use App\Filament\Clusters\Warehouse\Resources\InventoryTickets\Schemas\InventoryTicketForm;
 use App\Filament\Clusters\Warehouse\Resources\InventoryTickets\Tables\InventoryTicketsTable;
-use App\Filament\Clusters\Warehouse\WarehouseCluster;
 use App\Models\InventoryTicket;
 use App\Utils\Helper;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
-use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;

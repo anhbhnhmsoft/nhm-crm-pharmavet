@@ -11,11 +11,13 @@ use App\Models\Customer;
 use App\Models\ShippingConfig;
 use App\Models\ShippingConfigForWarehouse;
 use App\Repositories\OrderRepository;
+use App\Repositories\OrderStatusLogRepository;
 use App\Repositories\ProductRepository;
 use App\Repositories\ProductWarehouseRepository;
 use App\Repositories\ShippingConfigForWareHouseRepository;
 use App\Repositories\ShippingConfigRepository;
 use App\Services\Telesale\OrderFinanceService;
+use App\Services\Warehouse\InventoryMovementService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -28,7 +30,9 @@ class OrderService
         protected ProductWarehouseRepository $productWarehouseRepository,
         protected ProductRepository $productRepository,
         protected ShippingConfigForWareHouseRepository $shippingConfigForWareHouseRepository,
-        protected ShippingConfigRepository $shippingConfigRepository 
+        protected ShippingConfigRepository $shippingConfigRepository,
+        protected InventoryMovementService $inventoryMovementService,
+        protected OrderStatusLogRepository $orderStatusLogRepository,
     ) {}
 
     public function postOrder(Order $order, array $data): ServiceReturn
@@ -106,6 +110,7 @@ class OrderService
             $existingOrder = $this->orderRepository->query()->where('customer_id', $data['customer_id'])
                 ->latest()
                 ->first();
+            $oldStatus = $existingOrder?->status;
 
             // Calculate totals
             $items = $data['items'] ?? [];
@@ -199,6 +204,15 @@ class OrderService
             ];
 
             if ($existingOrder && in_array($existingOrder->status, [OrderStatus::PENDING->value, OrderStatus::CONFIRMED->value])) {
+                if (config('warehouse.features.stock_v2', true) && (int) $existingOrder->status === OrderStatus::CONFIRMED->value) {
+                    $this->inventoryMovementService->releaseReservation(
+                        order: $existingOrder->load('items'),
+                        actorId: (int) ($data['updated_by'] ?? $data['created_by'] ?? 0),
+                        reasonCode: 'order_rebuild',
+                        reasonNote: 'Rebuild order reservation before update',
+                    );
+                }
+
                 $existingOrder->update($orderData);
                 $existingOrder->items()->delete();
                 $order = $existingOrder;
@@ -216,6 +230,23 @@ class OrderService
                     'price' => $item['price'],
                     'total' => ($item['quantity'] * $item['price']),
                 ]);
+            }
+
+            if (config('warehouse.features.stock_v2', true)) {
+                $order->load('items');
+                if ((int) $order->status === OrderStatus::CONFIRMED->value) {
+                    $this->inventoryMovementService->reserveForOrder(
+                        order: $order,
+                        actorId: (int) ($data['updated_by'] ?? $data['created_by'] ?? 0),
+                    );
+                } elseif ((int) ($oldStatus ?? 0) === OrderStatus::CONFIRMED->value && (int) $order->status !== OrderStatus::CONFIRMED->value) {
+                    $this->inventoryMovementService->releaseReservation(
+                        order: $order,
+                        actorId: (int) ($data['updated_by'] ?? $data['created_by'] ?? 0),
+                        reasonCode: 'order_status_changed',
+                        reasonNote: 'Order moved out of confirmed state',
+                    );
+                }
             }
 
             // Auto-post to GHN if confirmed
@@ -301,6 +332,21 @@ class OrderService
                 'ghn_status' => GhnOrderStatus::READY_TO_PICK->value,
                 'ghn_posted_at' => now(),
             ]);
+
+            $this->orderStatusLogRepository->create([
+                'order_id' => $order->id,
+                'user_id' => $order->updated_by ?? $order->created_by,
+                'from_status' => OrderStatus::CONFIRMED->value,
+                'to_status' => OrderStatus::SHIPPING->value,
+                'note' => 'post_to_shipping_provider',
+            ]);
+
+            if (config('warehouse.features.stock_v2', true)) {
+                $this->inventoryMovementService->consumeOnHandover(
+                    order: $order->load('items'),
+                    actorId: (int) ($order->updated_by ?? $order->created_by ?? 0),
+                );
+            }
 
             DB::commit();
 
@@ -427,6 +473,32 @@ class OrderService
                 )),
             ]);
 
+            $this->orderStatusLogRepository->create([
+                'order_id' => $order->id,
+                'user_id' => $order->updated_by ?? $order->created_by,
+                'from_status' => OrderStatus::SHIPPING->value,
+                'to_status' => OrderStatus::CONFIRMED->value,
+                'note' => 'cancel_shipping_provider_order',
+            ]);
+
+            if (config('warehouse.features.stock_v2', true)) {
+                $this->inventoryMovementService->restockOnReturn(
+                    order: $order->load('items'),
+                    items: $order->items->map(fn($item) => [
+                        'product_id' => $item->product_id,
+                        'quantity' => $item->quantity,
+                    ])->all(),
+                    actorId: (int) ($order->updated_by ?? $order->created_by ?? 0),
+                    reasonCode: 'shipping_cancel',
+                    reasonNote: 'Restock after cancel GHN order',
+                );
+
+                $this->inventoryMovementService->reserveForOrder(
+                    order: $order,
+                    actorId: (int) ($order->updated_by ?? $order->created_by ?? 0),
+                );
+            }
+
             DB::commit();
 
             \Illuminate\Support\Facades\Log::info('Order cancelled on GHN successfully', [
@@ -487,5 +559,32 @@ class OrderService
 
         // Add -R suffix
         return $currentCode . '-R';
+    }
+
+    public function requestRedelivery(Order $order, array $data): ServiceReturn
+    {
+        try {
+            $reasonCode = (string) ($data['reason_code'] ?? '');
+            $reasonNote = (string) ($data['reason_note'] ?? '');
+
+            if ($reasonCode === '' || $reasonNote === '') {
+                return ServiceReturn::error(__('warehouse.ticket.errors.reason_required'));
+            }
+
+            $attempt = (int) ($order->redelivery_attempt ?? 0) + 1;
+            $scheduleAt = $data['redelivery_schedule_at'] ?? now()->addHours(2);
+
+            $order->update([
+                'shipping_exception_reason_code' => $reasonCode,
+                'shipping_exception_note' => $reasonNote,
+                'redelivery_attempt' => $attempt,
+                'redelivery_schedule_at' => $scheduleAt,
+            ]);
+
+            // TODO: integrate provider-level redelivery API when provider supports dedicated endpoint.
+            return ServiceReturn::success(__('warehouse.order.action.redelivery'));
+        } catch (\Throwable $exception) {
+            return ServiceReturn::error($exception->getMessage());
+        }
     }
 }

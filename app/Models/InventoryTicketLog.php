@@ -17,6 +17,17 @@ class InventoryTicketLog extends Model
         'product_id',
         'reason',
         'note',
+        'action',
+        'old_status',
+        'new_status',
+        'metadata_json',
+        'user_id',
+        'created_by',
+        'updated_by',
+    ];
+
+    protected $casts = [
+        'metadata_json' => 'array',
     ];
 
     public function inventoryTicket()
