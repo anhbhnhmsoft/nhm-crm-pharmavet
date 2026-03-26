@@ -132,6 +132,11 @@ return [
         'close_and_reopen_modal' => 'Vui lòng đóng và mở lại modal để xem dữ liệu mới',
         'period_closed' => 'Kỳ kế toán đã khóa, không được phép chỉnh sửa dữ liệu.',
     ],
+    'revenue_invoice' => [
+        'label' => 'Hóa đơn',
+        'plural_label' => 'Quản lý Hóa đơn',
+        'navigation_label' => 'Quản lý Hóa đơn',
+    ],
     'reconciliation' => [
         'label' => 'Đối soát đơn',
         'plural_label' => 'Đối soát đơn',
@@ -372,5 +377,29 @@ return [
             'completed' => 'Hoàn thành',
             'cancelled' => 'Đã hủy',
         ],
+    ],
+    'bad_debt' => [
+        'label' => 'Quản lý nợ xấu',
+        'plural_label' => 'Quản lý nợ xấu',
+        'navigation_label' => 'Nợ xấu & Dự phòng',
+        'remaining_debt' => 'Nợ còn lại',
+        'debt_age' => 'Tuổi nợ (Ngày)',
+        'provision_amount' => 'Dự phòng',
+        'is_written_off' => 'Đã xóa nợ',
+        'actions' => [
+            'provision' => 'Lập dự phòng',
+            'write_off' => 'Xóa nợ',
+            'confirm_write_off' => 'Bạn có chắc chắn muốn xóa nợ cho đơn hàng này? Hành động này không thể hoàn tác.',
+        ],
+        'aging' => [
+            'all' => 'Toàn bộ nợ',
+            'above_30' => 'Nợ > 30 ngày',
+            'above_60' => 'Nợ > 60 ngày',
+            'above_90' => 'Nợ > 90 ngày',
+        ],
+        'provision_exceeds_debt' => 'Số tiền dự phòng không được vượt quá số nợ còn lại.',
+        'already_written_off' => 'Đơn hàng này đã được xóa nợ.',
+        'write_off_note' => 'Đã xóa nợ: :note',
+        'provision_desc' => 'Dự phòng nợ khó đòi cho đơn hàng :order',
     ],
 ];

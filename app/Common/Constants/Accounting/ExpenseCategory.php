@@ -10,6 +10,7 @@ enum ExpenseCategory: int
     case OTHER = 4;          // Khác
     case COST_OF_GOODS = 5;  // Giá vốn (Optionally for internal use)
     case SHIPPING_AUTO = 6;  // Phí ship tự động
+    case BAD_DEBT = 7;       // Dự phòng nợ khó đòi
 
     public static function getOptions(): array
     {
@@ -19,6 +20,7 @@ enum ExpenseCategory: int
             self::FINANCIAL->value => 'Tài chính',
             self::OTHER->value => 'Khác',
             self::SHIPPING_AUTO->value => 'Phí ship (Tự động)',
+            self::BAD_DEBT->value => 'Dự phòng nợ khó đòi',
         ];
     }
 

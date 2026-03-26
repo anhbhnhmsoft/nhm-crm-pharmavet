@@ -93,6 +93,8 @@ return [
         'deposit' => 'Đã đặt cọc',
         'not_posted' => 'Chưa đăng đơn',
         'organization' => 'Tổ chức',
+        'collect_amount' => 'Tiền thu hộ (COD)',
+        'paid_amount' => 'Đã thanh toán',
     ],
     'filter' => [
         'organization' => 'Tổ chức',
@@ -112,5 +114,19 @@ return [
             'customer_message' => 'Khách hàng :customer của đơn :code còn nợ tiền đã lâu (:days ngày).',
             'email_subject' => '[CRM] Cảnh báo nợ đơn hàng: :code',
         ],
+    ],
+    'invoice_code' => 'Mã HĐĐT',
+    'invoice_status' => 'Trạng thái HĐ',
+    'invoice_url' => 'Hóa đơn',
+    'invoice_at' => 'Ngày xuất hóa đơn',
+    'invoice_status_options' => [
+        'unissued' => 'Chưa xuất',
+        'issued' => 'Đã xuất',
+        'cancelled' => 'Đã hủy',
+    ],
+    'invoice_action' => [
+        'update_invoice' => 'Cập nhật Hóa đơn',
+        'update_invoice_desc' => 'Nhập thông tin hóa đơn điện tử cho đơn hàng này',
+        'success' => 'Đã cập nhật hóa đơn thành công!',
     ],
 ];

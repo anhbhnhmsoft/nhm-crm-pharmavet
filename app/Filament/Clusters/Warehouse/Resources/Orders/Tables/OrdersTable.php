@@ -3,6 +3,7 @@
 namespace App\Filament\Clusters\Warehouse\Resources\Orders\Tables;
 
 use App\Common\Constants\Order\GhnOrderStatus;
+use App\Common\Constants\Order\InvoiceStatus;
 use App\Common\Constants\Order\OrderStatus;
 use App\Common\Constants\Order\PaymentType;
 use App\Common\Constants\Order\ServiceType;
@@ -24,9 +25,11 @@ use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Grid;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Enums\RecordActionsPosition;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
-
+use App\Common\Constants\User\UserRole;
+use Illuminate\Support\Facades\Auth;
 class OrdersTable
 {
     public static function configure(Table $table): Table
@@ -115,6 +118,24 @@ class OrdersTable
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
 
+                TextColumn::make('invoice_code')
+                    ->label(__('order.invoice_code'))
+                    ->searchable()
+                    ->sortable()
+                    ->url(fn(Order $record): ?string => $record->invoice_url)
+                    ->openUrlInNewTab()
+                    ->icon(fn(Order $record): ?string => $record->invoice_url ? 'heroicon-o-arrow-top-right-on-square' : null)
+                    ->placeholder(__('order.invoice_status_options.unissued'))
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('invoice_status')
+                    ->label(__('order.invoice_status'))
+                    ->badge()
+                    ->color(fn(int $state): string => InvoiceStatus::tryFrom($state)?->getColor() ?? 'gray')
+                    ->formatStateUsing(fn(int $state): string => InvoiceStatus::tryFrom($state)?->getLabel() ?? '')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+
                 TextColumn::make('shipping_address')
                     ->label(__('order.table.shipping_address'))
                     ->limit(30)
@@ -153,6 +174,11 @@ class OrdersTable
                     ->relationship('organization', 'name')
                     ->searchable()
                     ->preload(),
+                    
+                SelectFilter::make('invoice_status')
+                    ->label(__('order.invoice_status'))
+                    ->options(InvoiceStatus::toArray())
+                    ->multiple(),
             ])
             ->recordActions([
                 ActionGroup::make([
@@ -354,8 +380,37 @@ class OrdersTable
                                     ->send();
                             }
                         }),
+                    Action::make('update_invoice')
+                        ->label(__('order.invoice_action.update_invoice'))
+                        ->icon('heroicon-o-document-text')
+                        ->color('info')
+                        ->visible(fn(Order $record) => in_array(Auth::user()->role, [UserRole::SUPER_ADMIN->value, UserRole::ADMIN->value, UserRole::ACCOUNTING->value]) && $record->status == OrderStatus::COMPLETED->value)
+                        ->form([
+                            Select::make('invoice_status')
+                                ->label(__('order.invoice_status'))
+                                ->options(InvoiceStatus::toArray())
+                                ->required()
+                                ->default(fn(Order $record) => $record->invoice_status),
+                            TextInput::make('invoice_code')
+                                ->label(__('order.invoice_code'))
+                                ->default(fn(Order $record) => $record->invoice_code),
+                            TextInput::make('invoice_url')
+                                ->label(__('order.invoice_url'))
+                                ->url()
+                                ->default(fn(Order $record) => $record->invoice_url),
+                            DateTimePicker::make('invoice_at')
+                                ->label(__('order.invoice_at'))
+                                ->default(fn(Order $record) => $record->invoice_at ?? now()),
+                        ])
+                        ->action(function (Order $record, array $data) {
+                            $record->update($data);
+                            Notification::make()
+                                ->title(__('order.invoice_action.success'))
+                                ->success()
+                                ->send();
+                        }),
                 ])
-            ], position: \Filament\Tables\Enums\RecordActionsPosition::BeforeColumns)
+            ], position: RecordActionsPosition::BeforeColumns)
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()

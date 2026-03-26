@@ -15,6 +15,8 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
+use App\Common\Constants\GateKey;
 
 class DiscrepancyReportResource extends Resource
 {
@@ -41,15 +43,7 @@ class DiscrepancyReportResource extends Resource
 
     public static function canAccess(): bool
     {
-        $user = Auth::user();
-        if (!$user) return false;
-        
-        if ($user->hasRole(UserRole::SUPER_ADMIN) || $user->hasRole(UserRole::ADMIN)) {
-            return true;
-        }
-
-        // Kế toán cần kèm theo vị trí LEADER
-        return $user->hasRole(UserRole::ACCOUNTING) && $user->hasPosition(UserPosition::LEADER);
+        return Gate::allows(GateKey::IS_CHIEF_ACCOUNTANT->value);
     }
 
     public static function table(Table $table): Table
