@@ -23,10 +23,23 @@ class FundForm
                         TextInput::make('balance')
                             ->label(__('accounting.fund.balance'))
                             ->numeric()
+                            ->helperText(function (?Fund $record): ?string {
+                                if (!$record) {
+                                    return null;
+                                }
+
+                                return $record->transactions()->exists()
+                                    ? __('accounting.fund.notifications.opening_balance_locked')
+                                    : __('accounting.fund.notifications.opening_balance_editable');
+                            })
                             ->disabled(function (?Fund $record): bool {
                                 $user = Auth::user();
 
                                 if (!$user || !$record) {
+                                    return true;
+                                }
+
+                                if ($record->transactions()->exists()) {
                                     return true;
                                 }
 
@@ -41,7 +54,7 @@ class FundForm
                             })
                             ->prefix(fn (?Fund $record): string => $record?->currency ?? 'VND'),
                         Select::make('currency')
-                            ->label(__('Currency'))
+                            ->label(__('accounting.fund.currency'))
                             ->options(fn () => Currency::query()->orderBy('code')->pluck('code', 'code')->toArray())
                             ->searchable()
                             ->default('VND')
@@ -64,6 +77,15 @@ class FundForm
                                     && $user->organization_id === $record->organization_id
                                 );
                             }),
+                        Select::make('fund_type')
+                            ->label(__('accounting.fund.fund_type'))
+                            ->options([
+                                'cash' => __('accounting.fund.fund_types.cash'),
+                                'bank' => __('accounting.fund.fund_types.bank'),
+                                'other' => __('accounting.fund.fund_types.other'),
+                            ])
+                            ->default('cash')
+                            ->required(),
                         Toggle::make('is_locked')
                             ->label(__('accounting.fund.is_locked'))
                             ->onIcon('heroicon-m-lock-closed')

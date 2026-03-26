@@ -943,11 +943,16 @@
 
     # note
     - Quỹ tiền theo từng tổ chức; phản ánh số dư hiện tại để hạch toán thu/chi nội bộ.
+    - Số dư đầu kỳ chỉ được phép chỉnh khi chưa phát sinh giao dịch.
+    - Hỗ trợ khóa nghiệp vụ theo toàn quỹ/user/team qua rule riêng.
 
     # cấu trúc
     - id: (int, primary key, auto-increment)
     - organization_id: (int, foreign key -> organizations.id, not null)
     - balance: (decimal(8,2), default 0) -- số dư quỹ hiện tại
+    - currency: (varchar(3), default 'VND') -- tiền tệ quỹ
+    - fund_type: (varchar(20), default 'cash') -- loại quỹ (cash/bank/other)
+    - is_locked: (boolean, default false) -- khóa thao tác toàn quỹ
     - timestamps
     - softDeletes
 
@@ -963,12 +968,73 @@
     - type: (tinyint, not null) -- loại giao dịch (thu/chi/điều chỉnh)
     - transaction_code: (varchar(255), nullable) -- mã nghiệp vụ
     - transaction_id: (varchar(255), nullable) -- id tham chiếu ngoài hệ thống
+    - transaction_date: (date, nullable) -- ngày chứng từ
     - balance_after: (decimal(8,2), not null) -- số dư quỹ sau giao dịch
     - amount: (decimal(8,2), not null) -- giá trị giao dịch
+    - counterparty_name: (varchar(255), nullable) -- người nộp/nhận
+    - currency: (varchar(3), default 'VND') -- tiền tệ giao dịch
+    - exchange_rate: (decimal(14,6), nullable) -- tỷ giá quy đổi
+    - amount_base: (decimal(20,2), nullable) -- số tiền quy đổi bản tệ
     - description: (varchar(255), nullable) -- diễn giải giao dịch
+    - purpose: (varchar(255), nullable) -- mục đích thu/chi
+    - note: (text, nullable) -- ghi chú nghiệp vụ
     - status: (tinyint, not null) -- trạng thái giao dịch
+    - updated_by: (int, nullable) -- người cập nhật gần nhất
     - timestamps
     - softDeletes
+
+# bảng fund_lock_rules
+
+    # note
+    - Cấu hình khóa thao tác quỹ theo hành động (add/edit/delete) và phạm vi (toàn quỹ/user/team).
+    - Dùng để enforce quyền thao tác ở cả UI và tầng service.
+
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - fund_id: (int, foreign key -> funds.id, not null)
+    - action: (varchar(20), not null) -- add|edit|delete
+    - scope_type: (varchar(20), default 'global') -- global|user|team
+    - user_id: (int, nullable) -- target user nếu scope=user
+    - team_id: (int, nullable) -- target team nếu scope=team
+    - is_locked: (boolean, default true)
+    - created_by: (int, nullable)
+    - updated_by: (int, nullable)
+    - timestamps
+
+# bảng fund_lock_audits
+
+    # note
+    - Nhật ký khóa/mở quỹ immutable phục vụ thanh tra nội bộ.
+
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - fund_id: (int, foreign key -> funds.id, not null)
+    - action: (varchar(20), not null)
+    - is_locked: (boolean, not null)
+    - scope_type: (varchar(20), default 'global')
+    - target_user_id: (int, nullable)
+    - target_team_id: (int, nullable)
+    - metadata_json: (json, nullable)
+    - changed_by: (int, nullable)
+    - changed_at: (timestamp, nullable)
+    - timestamps
+
+# bảng fund_transaction_attachments
+
+    # note
+    - Lưu lịch sử phiên bản chứng từ đính kèm của giao dịch quỹ, không ghi đè file cũ.
+
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - fund_transaction_id: (int, foreign key -> fund_transactions.id, not null)
+    - version: (unsigned int, default 1)
+    - file_path: (varchar(255), not null)
+    - original_name: (varchar(255), nullable)
+    - mime_type: (varchar(255), nullable)
+    - file_size: (unsigned bigint, nullable)
+    - uploaded_by: (int, nullable)
+    - uploaded_at: (timestamp, nullable)
+    - timestamps
 
 # bảng telesale_notification_aggregates
 

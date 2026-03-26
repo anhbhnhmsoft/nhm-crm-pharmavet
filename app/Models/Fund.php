@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Fund extends Model
@@ -15,6 +16,7 @@ class Fund extends Model
     protected $fillable = [
         'balance',
         'currency',
+        'fund_type',
         'is_locked',
         'organization_id'
     ];
@@ -32,5 +34,15 @@ class Fund extends Model
     public function transactions()
     {
         return $this->hasMany(FundTransaction::class);
+    }
+
+    public function lockRules(): HasMany
+    {
+        return $this->hasMany(FundLockRule::class);
+    }
+
+    public function lockAudits(): HasMany
+    {
+        return $this->hasMany(FundLockAudit::class);
     }
 }

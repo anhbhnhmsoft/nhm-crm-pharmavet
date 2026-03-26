@@ -3,6 +3,10 @@
 namespace App\Providers;
 
 use App\Models\Organization;
+use App\Models\Fund;
+use App\Models\FundTransaction;
+use App\Observers\FundObserver;
+use App\Observers\FundTransactionObserver;
 use App\Observers\OrganizationObserver;
 use App\Repositories\ComboRepository;
 use App\Repositories\CustomerRepository;
@@ -33,6 +37,9 @@ use App\Repositories\UserRepository;
 use App\Repositories\FinancialSummaryRepository;
 use App\Repositories\DiscrepancyReportRepository;
 use App\Repositories\Accounting\DebtRepository;
+use App\Repositories\FundLockAuditRepository;
+use App\Repositories\FundLockRuleRepository;
+use App\Repositories\FundTransactionAttachmentRepository;
 use App\Services\Accounting\DebtReconciliationService;
 use App\Services\AuthService;
 use App\Services\ComboService;
@@ -46,6 +53,7 @@ use App\Services\AccountingService;
 use App\Services\Accounting\FinancialSummaryService;
 use App\Services\Accounting\DiscrepancyReportService;
 use App\Services\Accounting\DebtService;
+use App\Services\Accounting\FundLedgerReportService;
 use App\Services\ExchangeRateService;
 use App\Services\ReconciliationService;
 use App\Services\ReportService;
@@ -159,6 +167,9 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(FinancialSummaryRepository::class);
         $this->app->bind(DiscrepancyReportRepository::class);
         $this->app->bind(DebtRepository::class);
+        $this->app->bind(FundLockRuleRepository::class);
+        $this->app->bind(FundLockAuditRepository::class);
+        $this->app->bind(FundTransactionAttachmentRepository::class);
     }
 
     private function registerApplicationService(): void
@@ -174,6 +185,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(CustomerService::class);
         $this->app->bind(LeadDistributionConfigService::class);
         $this->app->bind(DebtService::class);
+        $this->app->bind(FundLedgerReportService::class);
         $this->app->bind(DebtReconciliationService::class);
         $this->app->bind(AccountingService::class);
         $this->app->bind(ExchangeRateService::class);
@@ -209,5 +221,7 @@ class AppServiceProvider extends ServiceProvider
     private function registerObserver(): void
     {
         Organization::observe(OrganizationObserver::class);
+        Fund::observe(FundObserver::class);
+        FundTransaction::observe(FundTransactionObserver::class);
     }
 }
