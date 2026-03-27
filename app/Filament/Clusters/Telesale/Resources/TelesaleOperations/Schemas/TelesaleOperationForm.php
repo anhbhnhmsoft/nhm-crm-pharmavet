@@ -31,6 +31,11 @@ class TelesaleOperationForm
 {
     public static function configure(Schema $schema): Schema
     {
+        return $schema->components(self::getComponents());
+    }
+
+    public static function getComponents(): array
+    {
         $calculateTotal = function (Get $get, Set $set) {
             $items = $get('order_items') ?? [];
             $subtotal = collect($items)->sum(fn($item) => ($item['quantity'] ?? 0) * ($item['price'] ?? 0));
@@ -51,8 +56,7 @@ class TelesaleOperationForm
             $set('total_amount', max(0, $total));
         };
 
-        return $schema
-            ->components([
+        return [
                 Group::make()
                     ->schema([
                         Section::make(__('telesale.form.customer_info'))
@@ -257,6 +261,6 @@ class TelesaleOperationForm
                         'md' => 6,
                         'default' => 3,
                     ]),
-            ]);
+        ];
     }
 }

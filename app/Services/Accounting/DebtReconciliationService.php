@@ -24,6 +24,14 @@ class DebtReconciliationService
     }
 
     /**
+     * Lấy danh sách khách hàng
+     */
+    public function getCustomersForSelect(int $organizationId, ?string $search = null): array
+    {
+        return $this->customerRepository->getForSelect($organizationId, $search);
+    }
+
+    /**
      * Lấy dữ liệu đối chiếu cho Khách hàng
      */
     public function getCustomerReconciliation(int $customerId, string $fromDate, string $toDate): ServiceReturn

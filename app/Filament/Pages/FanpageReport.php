@@ -87,10 +87,9 @@ class FanpageReport extends Page implements HasForms
             ->statePath('data');
     }
 
-    public function generateReport(): void
+    public function generateReport(ReportService $service): void
     {
         $data = $this->form->getState();
-        $service = app(ReportService::class);
         $organizationId = Auth::user()->organization_id;
 
         $fromDate = $data['from_date'];

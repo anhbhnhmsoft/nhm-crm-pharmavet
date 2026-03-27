@@ -272,4 +272,9 @@ return [
         'total_orders' => 'Số đơn hàng',
         'latest_order_status' => 'Trạng thái đơn gần nhất',
     ],
+    'registration_request' => [
+        'customer_info' => 'Thông tin Yêu cầu đăng ký',
+        'customer_info_desc' => 'Dữ liệu khách hàng đăng ký',
+        'original_request_details' => 'Chi tiết yêu cầu ban đầu (Ngành hàng, quy mô, thời gian...)',
+    ],
 ];

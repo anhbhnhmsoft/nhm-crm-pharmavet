@@ -42,6 +42,7 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TrashedFilter;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -83,8 +84,8 @@ class CustomerOperationsTable
                 TextColumn::make('source')
                     ->label(__('telesale.table.source'))
                     ->badge()
-                    ->color('info')
-                    ->formatStateUsing(fn(int $state) => IntegrationType::getLabel($state))
+                    ->color(fn ($state) => IntegrationType::tryFrom((int)$state)?->color() ?? 'gray')
+                    ->formatStateUsing(fn($state) => IntegrationType::getLabel((int) $state))
                     ->size('sm'),
 
                 TextColumn::make('customer_type')
@@ -111,7 +112,7 @@ class CustomerOperationsTable
                 TextColumn::make('interaction_status')
                     ->label(__('telesale.table.interaction_status'))
                     ->badge()
-                    ->formatStateUsing(fn($state) => InteractionStatus::getLabelStatus($state))
+                    ->formatStateUsing(fn($state) => $state ? InteractionStatus::getLabelStatus((int) $state) : '-')
                     ->size('sm'),
                 TextColumn::make('blackList')
                     ->label(__('telesale.table.blacklist'))
@@ -121,6 +122,12 @@ class CustomerOperationsTable
                     ->size('sm'),
             ])
             ->filters([
+                SelectFilter::make('customer_type')
+                    ->label(__('telesale.table.customer_type'))
+                    ->options(CustomerType::toOptions()),
+                SelectFilter::make('source')
+                    ->label(__('telesale.table.source'))
+                    ->options(IntegrationType::toOptions()),
                 TrashedFilter::make(),
             ])
             ->recordActions([
@@ -211,12 +218,12 @@ class CustomerOperationsTable
                                                 ->required(fn(Get $get) => $get('shipping_method') !== ProviderShipping::GHN->value),
                                             Select::make('ghn_province_id')
                                                 ->label(__('warehouse.order.form.province') . ' (GHN)')
-                                                ->options(function (Get $get) {
+                                                ->options(function (Get $get, \App\Repositories\ShippingConfigRepository $repo) {
                                     $orgId = $get('organization_id');
                                     if (!$orgId)
                                         return [];
                                     try {
-                                        $ghn = new \App\Services\GHNService(app(\App\Repositories\ShippingConfigRepository::class), (int) $orgId);
+                                        $ghn = new \App\Services\GHNService($repo, (int) $orgId);
                                         $provinces = $ghn->getProvinces();
                                         return collect($provinces)->pluck('ProvinceName', 'ProvinceID');
                                     } catch (\Exception $e) {
@@ -233,13 +240,13 @@ class CustomerOperationsTable
                                                 ->required(fn(Get $get) => $get('shipping_method') === ProviderShipping::GHN->value),
                                             Select::make('ghn_district_id')
                                                 ->label(__('warehouse.order.form.district') . ' (GHN)')
-                                                ->options(function (Get $get) {
+                                                ->options(function (Get $get, \App\Repositories\ShippingConfigRepository $repo) {
                                     $orgId = $get('organization_id');
                                     $provinceId = $get('ghn_province_id');
                                     if (!$orgId || !$provinceId)
                                         return [];
                                     try {
-                                        $ghn = new \App\Services\GHNService(app(\App\Repositories\ShippingConfigRepository::class), (int) $orgId);
+                                        $ghn = new \App\Services\GHNService($repo, (int) $orgId);
                                         $districts = $ghn->getDistricts((int) $provinceId);
                                         return collect($districts)->pluck('DistrictName', 'DistrictID');
                                     } catch (\Exception $e) {
@@ -253,13 +260,13 @@ class CustomerOperationsTable
                                                 ->required(fn(Get $get) => $get('shipping_method') === ProviderShipping::GHN->value),
                                             Select::make('ghn_ward_code')
                                                 ->label(__('warehouse.order.form.ward') . ' (GHN)')
-                                                ->options(function (Get $get) {
+                                                ->options(function (Get $get, \App\Repositories\ShippingConfigRepository $repo) {
                                     $orgId = $get('organization_id');
                                     $districtId = $get('ghn_district_id');
                                     if (!$orgId || !$districtId)
                                         return [];
                                     try {
-                                        $ghn = new \App\Services\GHNService(app(\App\Repositories\ShippingConfigRepository::class), (int) $orgId);
+                                        $ghn = new \App\Services\GHNService($repo, (int) $orgId);
                                         $wards = $ghn->getWards((int) $districtId);
                                         return collect($wards)->pluck('WardName', 'WardCode');
                                     } catch (\Exception $e) {
@@ -578,7 +585,7 @@ class CustomerOperationsTable
                                     }
                                 }),
                         ])
-                        ->action(function (array $data, $record) {
+                        ->action(function (array $data, $record, OrderService $orderService) {
                             Log::info('finalize_order: Action triggered', [
                                 'customer_id' => $record->id,
                                 'user_id' => Auth::id(),
@@ -591,8 +598,6 @@ class CustomerOperationsTable
                             $data['created_by'] = Auth::id();
                             $data['updated_by'] = Auth::id();
 
-                            /** @var OrderService $orderService */
-                            $orderService = app(OrderService::class);
                             $result = $orderService->finalizeOrder($data);
 
                             Log::info('finalize_order: Service result', [

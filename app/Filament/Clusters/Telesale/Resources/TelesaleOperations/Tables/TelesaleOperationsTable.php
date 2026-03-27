@@ -62,8 +62,8 @@ class TelesaleOperationsTable
                 TextColumn::make('source')
                     ->label(__('telesale.table.source'))
                     ->badge()
-                    ->color('info')
-                    ->formatStateUsing(fn(int $state) => IntegrationType::getLabel($state))
+                    ->color(fn ($state) => IntegrationType::tryFrom((int)$state)?->color() ?? 'gray')
+                    ->formatStateUsing(fn($state) => IntegrationType::getLabel((int) $state))
                     ->size('sm'),
 
                 TextColumn::make('assignedStaff.name')

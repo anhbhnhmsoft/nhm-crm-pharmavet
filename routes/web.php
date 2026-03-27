@@ -44,3 +44,8 @@ Route::post('/webhooks/ghn', [GHNWebhookController::class, 'handle'])
     ->name('webhooks.ghn');
 
 // Route::get('/')->name('login');
+
+Route::get('/register', function () {
+    return view('auth.partner-registration');
+})->name('partner.register');
+

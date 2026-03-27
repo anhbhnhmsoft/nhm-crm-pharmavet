@@ -24,19 +24,24 @@ class ListReconciliations extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        $shippingConfigRepo = app(ShippingConfigRepository::class);
-        $config = $shippingConfigRepo->query()
-            ->where('organization_id', Auth::user()->organization_id)
-            ->first();
-
-        $hasConfig = $config && !empty($config->api_token) && !empty($config->default_store_id);
-
         return [
             Action::make('sync_ghn')
                 ->label(__('accounting.reconciliation.sync_from_ghn'))
                 ->icon('heroicon-o-arrow-path')
-                ->disabled(!$hasConfig)
-                ->tooltip(!$hasConfig ? __('accounting.reconciliation.config_not_found') : null)
+                ->disabled(function (ShippingConfigRepository $shippingConfigRepo) {
+                    $config = $shippingConfigRepo->query()
+                        ->where('organization_id', Auth::user()->organization_id)
+                        ->first();
+
+                    return !($config && !empty($config->api_token) && !empty($config->default_store_id));
+                })
+                ->tooltip(function (ShippingConfigRepository $shippingConfigRepo) {
+                    $config = $shippingConfigRepo->query()
+                        ->where('organization_id', Auth::user()->organization_id)
+                        ->first();
+                    $hasConfig = $config && !empty($config->api_token) && !empty($config->default_store_id);
+                    return !$hasConfig ? __('accounting.reconciliation.config_not_found') : null;
+                })
                 ->form([
                     DatePicker::make('from_date')
                         ->label(__('accounting.reconciliation.from_date'))
@@ -48,8 +53,7 @@ class ListReconciliations extends ListRecords
                         ->default(now())
                         ->after('from_date'),
                 ])
-                ->action(function (array $data) {
-                    $service = app(ReconciliationService::class);
+                ->action(function (array $data, ReconciliationService $service) {
                     $result = $service->syncReconciliationFromGHN(
                         organizationId: Auth::user()->organization_id,
                         fromDate: $data['from_date'],
@@ -92,7 +96,7 @@ class ListReconciliations extends ListRecords
                     Placeholder::make('note')
                         ->content('File Excel cần có đầy đủ các cột nghiệp vụ để đối soát chính xác: "Mã vận đơn", "Mã đơn hàng", "Ngày đối soát", "Trạng thái đối soát", "Thành tiền/Tiền thu hộ", "Giá dịch vụ VC", "Tổng tiền", "Ghi chú kế toán", "Họ tên", "Số điện thoại", "Địa chỉ".')
                 ])
-                ->action(function (array $data) {
+                ->action(function (array $data, ReconciliationService $service) {
                     $disk = 'local';
                     $filePath = Storage::disk($disk)->path($data['file']);
 
@@ -111,7 +115,7 @@ class ListReconciliations extends ListRecords
                         $header = array_shift($sheet);
                         $normalizedHeader = array_map(fn($h) => trim(mb_strtolower($h)), $header);
 
-                        // Validate columns - Bắt buộc đầy đủ các cột nghiệp vụ
+                        // Validate columns
                         $requiredHeaders = [
                             'ghn_code' => ['mã vận đơn', 'ma van don', 'tracking code', 'ghn order code'],
                             'order_code' => ['mã đơn hàng', 'ma don hang', 'order code'],
@@ -138,28 +142,17 @@ class ListReconciliations extends ListRecords
                         }
 
                         $missing = [];
-                        if (!isset($colMapping['ghn_code']))
-                            $missing[] = '"Mã vận đơn"';
-                        if (!isset($colMapping['order_code']))
-                            $missing[] = '"Mã đơn hàng"';
-                        if (!isset($colMapping['reconciliation_date']))
-                            $missing[] = '"Ngày đối soát"';
-                        if (!isset($colMapping['status']))
-                            $missing[] = '"Trạng thái đối soát"';
-                        if (!isset($colMapping['cod']))
-                            $missing[] = '"Thành tiền/Tiền thu hộ"';
-                        if (!isset($colMapping['shipping']))
-                            $missing[] = '"Giá dịch vụ VC"';
-                        if (!isset($colMapping['total']))
-                            $missing[] = '"Tổng tiền"';
-                        if (!isset($colMapping['note']))
-                            $missing[] = '"Ghi chú kế toán"';
-                        if (!isset($colMapping['name']))
-                            $missing[] = '"Họ tên"';
-                        if (!isset($colMapping['phone']))
-                            $missing[] = '"Số điện thoại"';
-                        if (!isset($colMapping['address']))
-                            $missing[] = '"Địa chỉ"';
+                        if (!isset($colMapping['ghn_code'])) $missing[] = '"Mã vận đơn"';
+                        if (!isset($colMapping['order_code'])) $missing[] = '"Mã đơn hàng"';
+                        if (!isset($colMapping['reconciliation_date'])) $missing[] = '"Ngày đối soát"';
+                        if (!isset($colMapping['status'])) $missing[] = '"Trạng thái đối soát"';
+                        if (!isset($colMapping['cod'])) $missing[] = '"Thành tiền/Tiền thu hộ"';
+                        if (!isset($colMapping['shipping'])) $missing[] = '"Giá dịch vụ VC"';
+                        if (!isset($colMapping['total'])) $missing[] = '"Tổng tiền"';
+                        if (!isset($colMapping['note'])) $missing[] = '"Ghi chú kế toán"';
+                        if (!isset($colMapping['name'])) $missing[] = '"Họ tên"';
+                        if (!isset($colMapping['phone'])) $missing[] = '"Số điện thoại"';
+                        if (!isset($colMapping['address'])) $missing[] = '"Địa chỉ"';
 
                         if (!empty($missing)) {
                             throw new \Exception('File thiếu các cột bắt buộc: ' . implode(', ', $missing));
@@ -170,8 +163,7 @@ class ListReconciliations extends ListRecords
                             $code = trim($row[$colMapping['ghn_code']] ?? '');
                             $statusText = trim(mb_strtolower($row[$colMapping['status']] ?? ''));
 
-                            if (empty($code))
-                                continue;
+                            if (empty($code)) continue;
 
                             $targetStatus = null;
                             if (str_contains($statusText, 'đối soát') || str_contains($statusText, 'confirmed') || str_contains($statusText, 'xác nhận')) {
@@ -200,7 +192,6 @@ class ListReconciliations extends ListRecords
                             throw new \Exception('Không tìm thấy dữ liệu hợp lệ nào trong file (Mã vận đơn trống hoặc trạng thái không hợp lệ)');
                         }
 
-                        $service = app(ReconciliationService::class);
                         $result = $service->processBatchReconciliation(
                             organizationId: Auth::user()->organization_id,
                             items: $items
