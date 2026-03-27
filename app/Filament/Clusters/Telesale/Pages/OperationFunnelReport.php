@@ -38,7 +38,7 @@ class OperationFunnelReport extends Page implements HasForms
 
     public array $rows = [];
 
-    public function mount(): void
+    public function mount(TelesaleReportScopeService $scopeService): void
     {
         $this->form->fill([
             'from_date' => now()->startOfMonth()->toDateString(),
@@ -48,7 +48,7 @@ class OperationFunnelReport extends Page implements HasForms
             'unlimited_close_date' => false,
         ]);
 
-        $this->generateReport();
+        $this->generateReport($scopeService);
     }
 
     public static function getNavigationLabel(): string
@@ -110,7 +110,7 @@ class OperationFunnelReport extends Page implements HasForms
             ->statePath('data');
     }
 
-    public function generateReport(): void
+    public function generateReport(TelesaleReportScopeService $scopeService): void
     {
         $state = $this->form->getState();
         $from = ($state['from_date'] ?? now()->startOfMonth()->toDateString()) . ' 00:00:00';
@@ -175,8 +175,6 @@ class OperationFunnelReport extends Page implements HasForms
                 $ordersQuery->whereBetween('created_at', [$from, $to]);
             }
 
-            /** @var TelesaleReportScopeService $scopeService */
-            $scopeService = app(TelesaleReportScopeService::class);
             $scopeService->applyOrderScope($ordersQuery, $user);
 
             if (!empty($staffId)) {
@@ -203,10 +201,8 @@ class OperationFunnelReport extends Page implements HasForms
         $this->rows = $rows;
     }
 
-    public function exportReport(): void
+    public function exportReport(TelesaleReportExportService $exportService): void
     {
-        /** @var TelesaleReportExportService $exportService */
-        $exportService = app(TelesaleReportExportService::class);
         $job = $exportService->enqueueExport(
             user: Auth::user(),
             reportType: 'operation_funnel',

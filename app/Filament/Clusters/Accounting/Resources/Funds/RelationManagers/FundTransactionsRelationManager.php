@@ -3,10 +3,12 @@
 namespace App\Filament\Clusters\Accounting\Resources\Funds\RelationManagers;
 
 use App\Common\Constants\Organization\FundLockAction;
+use App\Common\Constants\Organization\FundLockScope;
 use App\Common\Constants\Organization\FundTransactionStatus;
 use App\Common\Constants\Organization\FundTransactionType;
 use App\Models\Team;
 use App\Models\User;
+use App\Models\FundTransaction;
 use App\Services\FundService;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
@@ -132,9 +134,8 @@ class FundTransactionsRelationManager extends RelationManager
             ])
             ->headerActions([
                 CreateAction::make()
-                    ->action(function (array $data) {
-                        /** @var FundService $service */
-                        $service = app(FundService::class);
+                    ->visible(fn () => !$this->getOwnerRecord()->is_locked)
+                    ->action(function (array $data, FundService $service) {
                         $result = $service->createTransaction($this->getOwnerRecord(), $data, Auth::user());
 
                         if ($result->isError()) {
@@ -150,11 +151,11 @@ class FundTransactionsRelationManager extends RelationManager
                     ->form([
                         Select::make('action')
                             ->label(__('accounting.fund_lock.action'))
-                            ->options(\App\Common\Constants\Organization\FundLockAction::options())
+                            ->options(FundLockAction::options())
                             ->required(),
                         Select::make('scope_type')
                             ->label(__('accounting.fund_lock.scope'))
-                            ->options(\App\Common\Constants\Organization\FundLockScope::options())
+                            ->options(FundLockScope::options())
                             ->live()
                             ->required(),
                         Select::make('user_ids')
@@ -166,7 +167,7 @@ class FundTransactionsRelationManager extends RelationManager
                                 ->pluck('name', 'id')
                                 ->toArray())
                             ->searchable()
-                            ->visible(fn ($get) => $get('scope_type') === \App\Common\Constants\Organization\FundLockScope::USER->value),
+                            ->visible(fn ($get) => $get('scope_type') === FundLockScope::USER->value),
                         Select::make('team_ids')
                             ->label(__('accounting.fund_lock.teams'))
                             ->multiple()
@@ -176,7 +177,7 @@ class FundTransactionsRelationManager extends RelationManager
                                 ->pluck('name', 'id')
                                 ->toArray())
                             ->searchable()
-                            ->visible(fn ($get) => $get('scope_type') === \App\Common\Constants\Organization\FundLockScope::TEAM->value),
+                            ->visible(fn ($get) => $get('scope_type') === FundLockScope::TEAM->value),
                         Select::make('is_locked')
                             ->label(__('accounting.fund_lock.status'))
                             ->options([
@@ -186,9 +187,7 @@ class FundTransactionsRelationManager extends RelationManager
                             ->default(1)
                             ->required(),
                     ])
-                    ->action(function (array $data) {
-                        /** @var FundService $service */
-                        $service = app(FundService::class);
+                    ->action(function (array $data, FundService $service) {
                         $result = $service->upsertLockRule($this->getOwnerRecord(), $data, Auth::user());
                         if ($result->isError()) {
                             Notification::make()->title($result->getMessage())->danger()->send();
@@ -200,9 +199,7 @@ class FundTransactionsRelationManager extends RelationManager
             ])
             ->actions([
                 EditAction::make()
-                    ->action(function (array $data, $record) {
-                        /** @var FundService $service */
-                        $service = app(FundService::class);
+                    ->action(function (array $data, FundTransaction $record, FundService $service) {
                         if (!$service->canPerformAction($this->getOwnerRecord(), Auth::user(), FundLockAction::EDIT)) {
                             Notification::make()->title($service->getDeniedMessage(FundLockAction::EDIT))->danger()->send();
                             return;
@@ -218,9 +215,7 @@ class FundTransactionsRelationManager extends RelationManager
                         Notification::make()->title(__('common.notification.success'))->success()->send();
                     }),
                 DeleteAction::make()
-                    ->action(function ($record) {
-                        /** @var FundService $service */
-                        $service = app(FundService::class);
+                    ->action(function (FundTransaction $record, FundService $service) {
                         if (!$service->canPerformAction($this->getOwnerRecord(), Auth::user(), FundLockAction::DELETE)) {
                             Notification::make()->title($service->getDeniedMessage(FundLockAction::DELETE))->danger()->send();
                             return;

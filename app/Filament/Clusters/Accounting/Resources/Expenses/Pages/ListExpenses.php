@@ -94,7 +94,7 @@ class ListExpenses extends ListRecords
                     Placeholder::make('note')
                         ->content('File Excel cần có đầy đủ các cột: "Ngày phát sinh", "Danh mục", "Đơn giá", "Số lượng", "Mô tả", "Ghi chú".')
                 ])
-                ->action(function (array $data) {
+                ->action(function (array $data, ExpenseService $service) {
                     $disk = 'local';
                     $filePath = Storage::disk($disk)->path($data['file']);
 
@@ -169,7 +169,6 @@ class ListExpenses extends ListRecords
                             throw new \Exception('Không tìm thấy dữ liệu hợp lệ trong file.');
                         }
 
-                        $service = app(ExpenseService::class);
                         $result = $service->processBatchExpenses(
                             organizationId: Auth::user()->organization_id,
                             items: $items

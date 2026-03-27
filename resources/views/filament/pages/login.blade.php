@@ -41,6 +41,13 @@
 
     <form wire:submit.prevent="authenticate" class="space-y-6">
         {{ $this->form }}
+        
+        <div class="flex justify-end text-sm">
+            <a href="{{ route('partner.register') }}" class="text-primary-600 hover:text-primary-500 font-medium">
+                {{ __('auth.login.no_account') }}
+            </a>
+        </div>
+
         <x-filament::actions :actions="$this->getFormActions()" alignment="right" class="flex justify-center" />
     </form>
 

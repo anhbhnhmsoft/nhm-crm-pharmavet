@@ -9,6 +9,16 @@ use App\Repositories\ProductRepository;
 class ProductService
 {
     public function __construct(protected ProductRepository $productRepository) {}
+    
+    public function getAllProducts()
+    {
+        return $this->productRepository->all();
+    }
+
+    public function getProductById(int $id)
+    {
+        return $this->productRepository->find($id);
+    }
     /**
      * Đồng bộ user assignments qua pivot table
      */

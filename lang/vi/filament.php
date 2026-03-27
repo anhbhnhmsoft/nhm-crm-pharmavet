@@ -508,6 +508,7 @@ return [
             'new' => 'Số mới',
             'new_duplicate' => 'Số mới trùng',
             'old_customer' => 'Số cũ',
+            'partner_request' => 'Yêu cầu đối tác',
             'label' => 'Loại data'
         ],
         'distribution' => [

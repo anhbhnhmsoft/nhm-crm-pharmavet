@@ -1,0 +1,77 @@
+<?php
+
+return [
+    'registration' => [
+        'title' => 'Đăng ký Đối tác',
+        'subtitle' => 'Gửi yêu cầu hợp tác để chuyển viên tư vấn hỗ trợ bạn sớm nhất.',
+        'success_title' => 'Đăng ký thành công!',
+        'success_body' => 'Cảm ơn bạn, chuyên viên tư vấn của Pharmavet sẽ liên hệ với bạn trong khung giờ đã chọn.',
+        'submit' => 'Gửi yêu cầu đăng ký',
+        'submitting' => 'Đang gửi...',
+        'back_to_login' => 'Quay lại trang đăng nhập',
+        'error' => 'Đã có lỗi xảy ra. :error',
+        'fields' => [
+            'name' => 'Họ tên',
+            'phone' => 'Số điện thoại - Zalo',
+            'email' => 'Email',
+            'industry' => 'Ngành hàng',
+            'industry_placeholder' => '-- Chọn ngành hàng --',
+            'industry_other' => 'Khác (tự điền)',
+            'custom_industry_placeholder' => 'Nhập ngành hàng của bạn',
+            'employee_count' => 'Số lượng nhân sự',
+            'employee_count_placeholder' => 'Chọn quy mô',
+            'preferred_time' => 'Giờ gọi tư vấn',
+            'preferred_time_placeholder' => 'Chọn khung giờ',
+            'number_employee' => [
+                'select_1'=> '1 - 50 người',
+                'select_2' => '51 - 100 người',
+                'select_3' => '101 - 200 người',
+                'select_4' => '201 - 500 người',
+                'select_5' => '501 - 1000 người',
+                'select_6' => 'Trên 1000 người',
+            ]
+        ],
+        'validation' => [
+            'name_required' => 'Vui lòng nhập họ tên của bạn.',
+            'name_min' => 'Họ tên phải có ít nhất 3 ký tự.',
+            'phone_required' => 'Vui lòng nhập số điện thoại để tư vấn viên liên hệ.',
+            'phone_regex' => 'Số điện thoại không đúng định dạng.',
+            'phone_min' => 'Số điện thoại phải có ít nhất 10 số.',
+            'email_required' => 'Vui lòng nhập địa chỉ email.',
+            'email_email' => 'Địa chỉ email không hợp lệ.',
+            'industry_required' => 'Vui lòng chọn ngành hàng hoặc lĩnh vực kinh doanh.',
+            'custom_industry_required' => 'Vui lòng nhập tên ngành hàng của bạn.',
+            'employee_count_required' => 'Vui lòng chọn quy mô nhân sự.',
+            'preferred_time_required' => 'Vui lòng chọn khung giờ bạn có thể nghe máy.',
+        ],
+        'placeholder' => [
+            'name' => 'Nhập họ tên của bạn',
+            'phone' => 'Nhập số điện thoại của bạn',
+            'email' => 'Nhập email của bạn',
+            'industry' => 'Chọn ngành hàng',
+            'employee_count' => 'Chọn quy mô nhân sự',
+            'preferred_time' => 'Chọn khung giờ',
+        ],
+        'options' => [
+            'preferred_time' => [
+                'anytime' => 'Bất cứ lúc nào',
+                'morning' => 'Sáng (8h - 11h)',
+                'afternoon' => 'Chiều (14h - 17h)',
+                'evening' => 'Tối (19h - 21h)',
+            ],
+        ],
+        'note_template' => [
+            'header' => '--- YÊU CẦU ĐĂNG KÝ ĐỐI TÁC ---',
+            'industry' => 'Ngành hàng',
+            'employee_count' => 'Số nhân sự',
+            'preferred_time' => 'Khung giờ nghe máy',
+            'sent_at' => 'Thời gian gửi',
+            'anytime' => 'Bất cứ lúc nào',
+        ],
+    ],
+    'login' => [
+        'no_account' => 'Bạn chưa có tài khoản? Đăng ký ngay',
+        'new_lead_notification' => 'Bạn có Lead mới từ Web!',
+        'new_lead_body' => 'Khách hàng: :name - SĐT: :phone',
+    ]
+];

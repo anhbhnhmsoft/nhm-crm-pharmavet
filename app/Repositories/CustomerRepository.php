@@ -12,4 +12,17 @@ class CustomerRepository extends BaseRepository
     {
         return new Customer();
     }
+
+    /**
+     * Lấy danh sách khách hàng
+     */
+    public function getForSelect(int $organizationId, ?string $search = null, int $limit = 50): array
+    {
+        return $this->query()
+            ->where('organization_id', $organizationId)
+            ->when($search, fn($q) => $q->where('username', 'like', "%{$search}%"))
+            ->limit($limit)
+            ->pluck('username', 'id')
+            ->toArray();
+    }
 }

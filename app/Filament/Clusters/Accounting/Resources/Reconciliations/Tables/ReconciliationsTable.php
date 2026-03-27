@@ -184,7 +184,7 @@ class ReconciliationsTable
                     })
                     ->alignLeft(),
 
-                TextColumn::make('cod_amount') // Dùng cod_amount làm gốc cho Thành tiền khi ko có order
+                TextColumn::make('cod_amount')
                     ->label(__('accounting.reconciliation.total_amount'))
                     ->money('VND')
                     ->formatStateUsing(fn($state, $record) => $record->order?->total_amount ?? $record->cod_amount)
@@ -213,7 +213,7 @@ class ReconciliationsTable
                     ->money('VND')
                     ->alignEnd(),
 
-                TextColumn::make('id_received') // Dummy
+                TextColumn::make('id_received')
                     ->label('Tiền thu của khách')
                     ->money('VND')
                     ->formatStateUsing(function ($state, $record) {
@@ -403,7 +403,7 @@ class ReconciliationsTable
                     ->label('Chọn trưởng nhóm sale')
                     ->options(fn() => User::where('role', UserRole::SALE->value)->where('position', UserPosition::LEADER->value)->pluck('name', 'id'))
                     ->searchable()
-                    ->query(fn($query, $data) => $query->when($data['value'], fn($q, $val) => $q->whereHas('order.createdBy', fn($u) => $u->where('id', $val)))), // Placeholder: leader is order creator for now if filtering by person
+                    ->query(fn($query, $data) => $query->when($data['value'], fn($q, $val) => $q->whereHas('order.createdBy', fn($u) => $u->where('id', $val)))),
 
                 SelectFilter::make('sale_team_id')
                     ->label('Chọn nhóm sale')
@@ -461,8 +461,7 @@ class ReconciliationsTable
                     ->color('info')
                     ->modalHeading(__('accounting.reconciliation.order_detail_modal_title'))
                     ->modalWidth('4xl')
-                    ->mountUsing(function ($form, $record) {
-                        $service = app(ReconciliationService::class);
+                    ->mountUsing(function ($form, $record, ReconciliationService $service) {
                         $result = $service->getOrderDetailFromGHN($record->id);
 
                         if ($result->isError()) {
@@ -473,7 +472,6 @@ class ReconciliationsTable
                         $orderDetail = $result->getData();
                         $fee = $orderDetail['fee'] ?? [];
 
-                        // Cache order detail để dùng khi submit (15 phút = 900 giây = 15 minutes)
                         Caching::setCache(CacheKey::GHN_ORDER_DETAIL, $orderDetail, (string) $record->id, 15);
 
                         $form->fill([
@@ -504,8 +502,7 @@ class ReconciliationsTable
                             ->label(__('accounting.reconciliation.sync_from_ghn'))
                             ->icon('heroicon-o-arrow-path')
                             ->color('info')
-                            ->action(function ($record) {
-                                $service = app(ReconciliationService::class);
+                            ->action(function ($record, ReconciliationService $service) {
                                 $result = $service->getOrderDetailFromGHN($record->id);
 
                                 if ($result->isError()) {
@@ -518,9 +515,6 @@ class ReconciliationsTable
                                 }
 
                                 $orderDetail = $result->getData();
-                                $fee = $orderDetail['fee'] ?? [];
-
-                                // Cache order detail (15 phút)
                                 Caching::setCache(CacheKey::GHN_ORDER_DETAIL, $orderDetail, (string) $record->id, 15);
 
                                 Notification::make()
@@ -628,9 +622,7 @@ class ReconciliationsTable
                             ->disabled()
                             ->visible(fn($get) => !empty($get('error'))),
                     ])
-                    ->action(function ($record, array $data) {
-                        $service = app(ReconciliationService::class);
-
+                    ->action(function ($record, array $data, ReconciliationService $service) {
                         $orderDetail = Caching::getCache(CacheKey::GHN_ORDER_DETAIL, (string) $record->id);
 
                         $fields = [
@@ -694,8 +686,7 @@ class ReconciliationsTable
                     ->color('success')
                     ->requiresConfirmation()
                     ->visible(fn($record) => $record->status === ReconciliationStatus::PENDING->value)
-                    ->action(function ($record) {
-                        $service = app(ReconciliationService::class);
+                    ->action(function ($record, ReconciliationService $service) {
                         $result = $service->confirmReconciliation($record->id);
 
                         if ($result->isError()) {
@@ -719,8 +710,7 @@ class ReconciliationsTable
                     ->color('success')
                     ->requiresConfirmation()
                     ->visible(fn($livewire) => $livewire->activeTab === 'pending' || $livewire->activeTab === 'all')
-                    ->action(function (\Illuminate\Database\Eloquent\Collection $records) {
-                        $service = app(ReconciliationService::class);
+                    ->action(function (\Illuminate\Database\Eloquent\Collection $records, ReconciliationService $service) {
                         $count = 0;
                         $skipped = 0;
 
@@ -735,7 +725,6 @@ class ReconciliationsTable
                         foreach ($records as $record) {
                             $ghnStatus = $record->order?->ghn_status;
 
-                            // Chỉ cho phép đối soát các đơn đã ở trạng thái kết thúc
                             if (in_array($ghnStatus, $finalStatuses) && $record->status === ReconciliationStatus::PENDING->value) {
                                 $result = $service->confirmReconciliation($record->id);
                                 if (!$result->isError()) {
@@ -780,4 +769,3 @@ class ReconciliationsTable
             ->defaultSort('reconciliation_date', 'desc');
     }
 }
-

@@ -50,7 +50,9 @@ return [
         'website' => 'Website',
         'website_desc' => 'Nhận lead từ website của bạn thông qua webhook',
         'manual_data' => 'Dữ liệu nhập tay',
-        'manual_data_desc' => 'Nhận lead từ dữ liệu nhập tay',
+        'manual_data_desc' => 'Dữ liệu nhập từ file hoặc Form nội bộ',
+        'partner_registration' => 'Yêu cầu đăng ký',
+        'partner_registration_desc' => 'Yêu cầu từ Form đăng ký đối tác trên Website',
         'unknown' => 'Không xác định',
 
     ],
