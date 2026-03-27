@@ -16,6 +16,7 @@ use Filament\Schemas\Components\Tabs\Tab;
 use Illuminate\Database\Eloquent\Builder;
 use App\Common\Constants\Accounting\ReconciliationStatus;
 use App\Core\Logging;
+use Maatwebsite\Excel\Facades\Excel;
 use Storage;
 
 class ListReconciliations extends ListRecords
@@ -94,7 +95,7 @@ class ListReconciliations extends ListRecords
                         ->disk('local')
                         ->directory('temp_imports'),
                     Placeholder::make('note')
-                        ->content('File Excel cần có đầy đủ các cột nghiệp vụ để đối soát chính xác: "Mã vận đơn", "Mã đơn hàng", "Ngày đối soát", "Trạng thái đối soát", "Thành tiền/Tiền thu hộ", "Giá dịch vụ VC", "Tổng tiền", "Ghi chú kế toán", "Họ tên", "Số điện thoại", "Địa chỉ".')
+                        ->content(__('accounting.reconciliation.import.upload_placeholder'))
                 ])
                 ->action(function (array $data, ReconciliationService $service) {
                     $disk = 'local';
@@ -102,38 +103,25 @@ class ListReconciliations extends ListRecords
 
                     try {
                         if (!Storage::disk($disk)->exists($data['file'])) {
-                            throw new \Exception('Không tìm thấy file trên server sau khi upload.');
+                            throw new \Exception(__('accounting.reconciliation.import.file_not_found'));
                         }
 
-                        $rows = \Maatwebsite\Excel\Facades\Excel::toArray(new class {}, $filePath);
+                        $rows = Excel::toArray(new class {}, $filePath);
                         $sheet = $rows[0] ?? [];
 
                         if (empty($sheet)) {
-                            throw new \Exception('File Excel trống');
+                            throw new \Exception(__('accounting.reconciliation.import.file_empty'));
                         }
 
                         $header = array_shift($sheet);
-                        $normalizedHeader = array_map(fn($h) => trim(mb_strtolower($h)), $header);
+                        $normalizedHeader = array_map(fn($h) => trim(mb_strtolower((string) $h)), $header);
 
-                        // Validate columns
-                        $requiredHeaders = [
-                            'ghn_code' => ['mã vận đơn', 'ma van don', 'tracking code', 'ghn order code'],
-                            'order_code' => ['mã đơn hàng', 'ma don hang', 'order code'],
-                            'reconciliation_date' => ['ngày đối soát', 'ngay doi soat', 'reconciliation date'],
-                            'status' => ['trạng thái đối soát', 'trang thai doi soat', 'status'],
-                            'cod' => ['tiền thu hộ', 'tien thu ho', 'cod amount', 'thu hộ', 'thành tiền'],
-                            'shipping' => ['giá dịch vụ vc', 'gia dich vu vc', 'shipping fee', 'phí dịch vụ'],
-                            'total' => ['tổng cộng', 'tong cong', 'total fee', 'tổng tiền'],
-                            'note' => ['ghi chú kế toán', 'ghi chu ke toan', 'employee note'],
-                            'name' => ['họ tên', 'ho ten', 'customer name', 'tên khách'],
-                            'phone' => ['số điện thoại', 'so dien thoai', 'phone', 'sđt'],
-                            'address' => ['địa chỉ', 'dia chi', 'address']
-                        ];
+                        $requiredHeaders = __('accounting.reconciliation.import.headers');
 
                         $colMapping = [];
                         foreach ($requiredHeaders as $key => $aliases) {
                             foreach ($aliases as $alias) {
-                                $idx = array_search($alias, $normalizedHeader);
+                                $idx = array_search(trim(mb_strtolower($alias)), $normalizedHeader);
                                 if ($idx !== false) {
                                     $colMapping[$key] = $idx;
                                     break;
@@ -142,34 +130,42 @@ class ListReconciliations extends ListRecords
                         }
 
                         $missing = [];
-                        if (!isset($colMapping['ghn_code'])) $missing[] = '"Mã vận đơn"';
-                        if (!isset($colMapping['order_code'])) $missing[] = '"Mã đơn hàng"';
-                        if (!isset($colMapping['reconciliation_date'])) $missing[] = '"Ngày đối soát"';
-                        if (!isset($colMapping['status'])) $missing[] = '"Trạng thái đối soát"';
-                        if (!isset($colMapping['cod'])) $missing[] = '"Thành tiền/Tiền thu hộ"';
-                        if (!isset($colMapping['shipping'])) $missing[] = '"Giá dịch vụ VC"';
-                        if (!isset($colMapping['total'])) $missing[] = '"Tổng tiền"';
-                        if (!isset($colMapping['note'])) $missing[] = '"Ghi chú kế toán"';
-                        if (!isset($colMapping['name'])) $missing[] = '"Họ tên"';
-                        if (!isset($colMapping['phone'])) $missing[] = '"Số điện thoại"';
-                        if (!isset($colMapping['address'])) $missing[] = '"Địa chỉ"';
+                        foreach ($requiredHeaders as $key => $aliases) {
+                            if (!isset($colMapping[$key])) {
+                                $missing[] = '"' . ($aliases[0] ?? $key) . '"';
+                            }
+                        }
 
                         if (!empty($missing)) {
-                            throw new \Exception('File thiếu các cột bắt buộc: ' . implode(', ', $missing));
+                            throw new \Exception(__('accounting.reconciliation.import.missing_columns', ['columns' => implode(', ', $missing)]));
                         }
 
                         $items = [];
-                        foreach ($sheet as $row) {
-                            $code = trim($row[$colMapping['ghn_code']] ?? '');
-                            $statusText = trim(mb_strtolower($row[$colMapping['status']] ?? ''));
+                        $statusKeywords = __('accounting.reconciliation.import.status_keywords');
 
-                            if (empty($code)) continue;
+                        foreach ($sheet as $row) {
+                            $code = trim((string) ($row[$colMapping['ghn_code']] ?? ''));
+                            $statusText = trim(mb_strtolower((string) ($row[$colMapping['status']] ?? '')));
+
+                            if (empty($code)) {
+                                continue;
+                            }
 
                             $targetStatus = null;
-                            if (str_contains($statusText, 'đối soát') || str_contains($statusText, 'confirmed') || str_contains($statusText, 'xác nhận')) {
-                                $targetStatus = ReconciliationStatus::CONFIRMED->value;
-                            } elseif (str_contains($statusText, 'thanh toán') || str_contains($statusText, 'paid')) {
-                                $targetStatus = ReconciliationStatus::PAID->value;
+                            foreach ($statusKeywords['confirmed'] as $kw) {
+                                if (str_contains($statusText, mb_strtolower($kw))) {
+                                    $targetStatus = ReconciliationStatus::CONFIRMED->value;
+                                    break;
+                                }
+                            }
+
+                            if (!$targetStatus) {
+                                foreach ($statusKeywords['paid'] as $kw) {
+                                    if (str_contains($statusText, mb_strtolower($kw))) {
+                                        $targetStatus = ReconciliationStatus::PAID->value;
+                                        break;
+                                    }
+                                }
                             }
 
                             if ($targetStatus) {
@@ -179,17 +175,17 @@ class ListReconciliations extends ListRecords
                                     'cod_amount' => (float) str_replace([',', '.'], '', $row[$colMapping['cod']] ?? 0),
                                     'shipping_fee' => (float) str_replace([',', '.'], '', $row[$colMapping['shipping']] ?? 0),
                                     'total_fee' => (float) str_replace([',', '.'], '', $row[$colMapping['total']] ?? 0),
-                                    'reconciliation_date' => trim($row[$colMapping['reconciliation_date']] ?? ''),
-                                    'ghn_employee_note' => trim($row[$colMapping['note']] ?? ''),
-                                    'ghn_to_name' => trim($row[$colMapping['name']] ?? ''),
-                                    'ghn_to_phone' => trim($row[$colMapping['phone']] ?? ''),
-                                    'ghn_to_address' => trim($row[$colMapping['address']] ?? ''),
+                                    'reconciliation_date' => trim((string) ($row[$colMapping['reconciliation_date']] ?? '')),
+                                    'ghn_employee_note' => trim((string) ($row[$colMapping['note']] ?? '')),
+                                    'ghn_to_name' => trim((string) ($row[$colMapping['name']] ?? '')),
+                                    'ghn_to_phone' => trim((string) ($row[$colMapping['phone']] ?? '')),
+                                    'ghn_to_address' => trim((string) ($row[$colMapping['address']] ?? '')),
                                 ];
                             }
                         }
 
                         if (empty($items)) {
-                            throw new \Exception('Không tìm thấy dữ liệu hợp lệ nào trong file (Mã vận đơn trống hoặc trạng thái không hợp lệ)');
+                            throw new \Exception(__('accounting.reconciliation.import.no_valid_data'));
                         }
 
                         $result = $service->processBatchReconciliation(
@@ -208,7 +204,11 @@ class ListReconciliations extends ListRecords
                             Notification::make()
                                 ->success()
                                 ->title(__('accounting.reconciliation.batch_success', ['count' => $resData['updated']]))
-                                ->body("Thành công: {$resData['updated']} đơn. Bỏ qua: {$resData['skipped']} đơn (trùng/đã xử lý). Không tìm thấy: " . count($resData['not_found']) . " đơn.")
+                                ->body(__('accounting.reconciliation.import.batch_summary_body', [
+                                    'updated' => $resData['updated'],
+                                    'skipped' => $resData['skipped'],
+                                    'not_found' => count($resData['not_found']),
+                                ]))
                                 ->send();
 
                             if (!empty($resData['not_found'])) {
@@ -222,7 +222,7 @@ class ListReconciliations extends ListRecords
                     } catch (\Exception $e) {
                         Notification::make()
                             ->danger()
-                            ->title('Lỗi xử lý file')
+                            ->title(__('accounting.reconciliation.import.process_error'))
                             ->body($e->getMessage())
                             ->send();
                     } finally {
@@ -237,14 +237,14 @@ class ListReconciliations extends ListRecords
     public function getTabs(): array
     {
         return [
-            'all' => Tab::make('Tất cả'),
-            'pending' => Tab::make('Chờ xác nhận')
+            'all' => Tab::make(__('accounting.reconciliation_status.all')),
+            'pending' => Tab::make(__('accounting.reconciliation_status.pending'))
                 ->modifyQueryUsing(fn(Builder $query) => $query->where('status', ReconciliationStatus::PENDING->value)),
-            'confirmed' => Tab::make('Đã xác nhận')
+            'confirmed' => Tab::make(__('accounting.reconciliation_status.confirmed'))
                 ->modifyQueryUsing(fn(Builder $query) => $query->where('status', ReconciliationStatus::CONFIRMED->value)),
-            'cancelled' => Tab::make('Đã hủy')
+            'cancelled' => Tab::make(__('accounting.reconciliation_status.cancelled'))
                 ->modifyQueryUsing(fn(Builder $query) => $query->where('status', ReconciliationStatus::CANCELLED->value)),
-            'paid' => Tab::make('Đã thanh toán')
+            'paid' => Tab::make(__('accounting.reconciliation_status.paid'))
                 ->modifyQueryUsing(fn(Builder $query) => $query->where('status', ReconciliationStatus::PAID->value)),
         ];
     }
