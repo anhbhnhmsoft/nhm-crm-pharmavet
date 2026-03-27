@@ -46,6 +46,7 @@ return [
         'date_before' => 'Ngày phải trước :date.',
         'date_after' => 'Ngày phải sau :date.',
         'url' => 'URL không hợp lệ.',
+        'phone_invalid' => 'Số điện thoại không đúng định dạng VN.',
         'min' => [
             'numeric' => 'Trường :attribute phải tối thiểu là :min.',
             'file' => 'Trường :attribute phải tối thiểu là :min kilobytes.',
