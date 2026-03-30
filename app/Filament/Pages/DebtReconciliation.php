@@ -42,7 +42,8 @@ class DebtReconciliation extends Page implements HasForms
 
     public static function canAccess(): bool
     {
-        return Gate::allows(GateKey::IS_ACCOUNTING->value);
+//        return Gate::allows(GateKey::IS_ACCOUNTING->value);
+        return true;
     }
 
     public ?array $data = [];

@@ -1,11 +1,11 @@
 <?php
 
-namespace App\Filament\Resources\Users\Pages;
+namespace App\Filament\Clusters\Organization\Resources\Users\Pages;
 
-use App\Filament\Resources\Users\UserResource;
-use Filament\Resources\Pages\CreateRecord;
+use App\Filament\Clusters\Organization\Resources\Users\UserResource;
 use App\Services\OrganizationService;
 use Filament\Notifications\Notification;
+use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\Auth;
 
 class CreateUser extends CreateRecord
