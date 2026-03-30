@@ -62,6 +62,7 @@ return [
         'exists' => 'Giá trị đã chọn trong trường :attribute không hợp lệ.',
         'update_error' => 'Cập nhật dữ liệu thất bại',
         'in' => 'Giá trị đã chọn trong trường :attribute không hợp lệ.',
+        'password' => 'Mật khẩu không hợp lệ, ít nhất 8 ký tự, 1 chữ Hoa, 1 chữ thường, 1 ký tự đặc biệt.',
     ],
     'form' => [
         'location_search_placeholder' => 'Tìm kiếm địa điểm',

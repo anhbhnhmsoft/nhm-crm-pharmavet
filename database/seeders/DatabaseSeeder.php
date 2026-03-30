@@ -50,7 +50,7 @@ class DatabaseSeeder extends Seeder
                 "organization_id" => $organization->id,
                 "role" => UserRole::SUPER_ADMIN->value,
                 'disable' => false,
-                'position' => UserPosition::ADMIN->value,
+                'position' => UserPosition::LEADER->value,
             ]);
             DB::commit();
             return true;

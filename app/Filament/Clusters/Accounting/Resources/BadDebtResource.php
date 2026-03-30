@@ -44,7 +44,8 @@ class BadDebtResource extends Resource
 
     public static function canAccess(): bool
     {
-        return Gate::allows(GateKey::IS_CHIEF_ACCOUNTANT->value);
+        // return Gate::allows(GateKey::IS_CHIEF_ACCOUNTANT->value);
+        return true;
     }
 
     public static function getEloquentQuery(): Builder

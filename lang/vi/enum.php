@@ -2,7 +2,6 @@
 
 return [
     'user_position' => [
-        'admin' => 'Quản trị viên',
         'leader' => 'Trưởng nhóm',
         'staff' => 'Nhân viên',
     ],
