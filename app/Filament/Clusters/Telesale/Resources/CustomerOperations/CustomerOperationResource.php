@@ -2,6 +2,7 @@
 
 namespace App\Filament\Clusters\Telesale\Resources\CustomerOperations;
 
+use App\Common\Constants\Customer\CustomerType;
 use App\Common\Constants\User\UserRole;
 use App\Filament\Clusters\Telesale\Resources\CustomerOperations\Pages\ListCustomerOperations;
 use App\Filament\Clusters\Telesale\Resources\CustomerOperations\Tables\CustomerOperationsTable;
@@ -22,6 +23,8 @@ class CustomerOperationResource extends Resource
     protected static ?string $model = Customer::class;
 
     protected static string|BackedEnum|null $navigationIcon = '';
+
+    protected static ?int $navigationSort = 1;
 
     public static function getNavigationGroup(): \UnitEnum|string|null
     {
@@ -73,22 +76,24 @@ class CustomerOperationResource extends Resource
 
         // Xem hết
         if ($user->role === UserRole::SUPER_ADMIN->value) {
-            return $query;
+            return $query->where('customer_type', '!=', CustomerType::PARTNER_REQUEST->value);
         }
 
         // Xem vừa
         if ($user->role === UserRole::ADMIN->value) {
-            return $query->where('organization_id', $user->organization_id);
+            return $query->where('organization_id', $user->organization_id)
+                ->where('customer_type', '!=', CustomerType::PARTNER_REQUEST->value);
         }
 
         // Xem ít
         $userId = $user->id;
-        return $query->where(function (Builder $subQuery) use ($userId) {
-            $subQuery->where('assigned_staff_id', $userId)
-                ->orWhereHas('assignedStaff', function (Builder $relQuery) use ($userId) {
-                    $relQuery->where('user_assigned_staff.staff_id', $userId);
-                });
-        });
+        return $query->where('customer_type', '!=', CustomerType::PARTNER_REQUEST->value)
+            ->where(function (Builder $subQuery) use ($userId) {
+                $subQuery->where('assigned_staff_id', $userId)
+                    ->orWhereHas('assignedStaff', function (Builder $relQuery) use ($userId) {
+                        $relQuery->where('user_assigned_staff.staff_id', $userId);
+                    });
+            });
     }
 
     public static function getRelations(): array

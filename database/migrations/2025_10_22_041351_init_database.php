@@ -953,7 +953,7 @@ return new class extends Migration {
             $table->timestamps();
 
             $table->foreign('organization_id')->references('id')->on('organizations')->onDelete('cascade');
-            $table->unique(['shop_id', 'organization_id']); // Không trùng cặp ShopID + Organization
+            $table->unique(['shop_id', 'organization_id']);
         });
 
         Schema::create('notifications', function (Blueprint $table) {

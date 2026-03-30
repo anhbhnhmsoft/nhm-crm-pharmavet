@@ -72,6 +72,7 @@ enum ProductField: int
      * Dược phẩm
      */
     case PHARMACEUTICAL = 17;
+    case OTHER = 99;
 
     public function label(): string
     {
@@ -93,6 +94,7 @@ enum ProductField: int
             self::COSMETICS => __('enum.product_field.cosmetics'),
             self::ONLINE_COURSE => __('enum.product_field.online_course'),
             self::PHARMACEUTICAL => __('enum.product_field.pharmaceutical'),
+            self::OTHER => __('enum.product_field.other'),
         };
     }
 

@@ -22,7 +22,7 @@
             </div>
         @endif
 
-        <form wire:submit.prevent="submit" x-data="{ productId: @entangle('product_id') }" class="space-y-5">
+        <form wire:submit.prevent="submit" x-data="{ industryId: @entangle('industry_id') }" class="space-y-5">
             {{-- Họ tên --}}
             <div>
                 <label for="name" class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-2">{{ __('auth.registration.fields.name') }} <span class="text-red-500">*</span></label>
@@ -49,18 +49,17 @@
 
             {{-- Ngành hàng --}}
             <div>
-                <label for="product_id" class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-2">{{ __('auth.registration.fields.industry') }} <span class="text-red-500">*</span></label>
-                <select wire:model.live="product_id" id="product_id" 
-                    class="w-full px-4 py-3 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white transition-all outline-none @error('product_id') border-red-500 @enderror">
+                <label for="industry_id" class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-2">{{ __('auth.registration.fields.industry') }} <span class="text-red-500">*</span></label>
+                <select wire:model.live="industry_id" id="industry_id" 
+                    class="w-full px-4 py-3 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white transition-all outline-none @error('industry_id') border-red-500 @enderror">
                     <option value="">{{ __('auth.registration.fields.industry_placeholder') }}</option>
-                    @foreach($products as $product)
-                        <option value="{{ $product->id }}">{{ $product->name }}</option>
+                    @foreach($industriesList as $key => $name)
+                        <option value="{{ $key }}">{{ $name }}</option>
                     @endforeach
-                    <option value="other">{{ __('auth.registration.fields.industry_other') }}</option>
                 </select>
-                @error('product_id') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                @error('industry_id') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
                 
-                <div x-show="productId === 'other'" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+                <div x-show="industryId == {{ App\Common\Constants\Organization\ProductField::OTHER->value }}" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
                     <input wire:model="custom_industry" type="text" placeholder="{{ __('auth.registration.fields.custom_industry_placeholder') }}" 
                         class="w-full mt-2 px-4 py-3 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white transition-all outline-none @error('custom_industry') border-red-500 @enderror">
                     @error('custom_industry') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror

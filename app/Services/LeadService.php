@@ -36,12 +36,13 @@ class LeadService
                 'customer_type' => CustomerType::PARTNER_REQUEST->value,
                 'organization_id' => DefaultConstant::DEFAULT_ORGANIZATION_ID,
                 'source' => IntegrationType::PARTNER_REGISTRATION->value,
+                'product_field_id' => isset($data['product_id']) && is_numeric($data['product_id']) ? (int)$data['product_id'] : null,
                 'note_temp' => $this->formatNoteTemp($data),
             ];
 
             $lead = $this->customerRepository->create($customerData);
 
-            $productId = (int) ($data['product_id'] ?? DefaultConstant::DEFAULT_PRODUCT_ID); 
+            $productId = (int) ($customerData['product_field_id'] ?? DefaultConstant::DEFAULT_PRODUCT_ID); 
             $assignedStaff = $this->leadDistributionService->assignLead($lead, $productId, DefaultConstant::DEFAULT_ORGANIZATION_ID);
 
             if ($assignedStaff) {

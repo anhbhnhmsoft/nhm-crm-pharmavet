@@ -2,7 +2,7 @@
 
 return [
     'registration' => [
-        'title' => 'Đăng ký Đối tác',
+        'title' => 'Đăng ký Tổ chức',
         'subtitle' => 'Gửi yêu cầu hợp tác để chuyển viên tư vấn hỗ trợ bạn sớm nhất.',
         'success_title' => 'Đăng ký thành công!',
         'success_body' => 'Cảm ơn bạn, chuyên viên tư vấn của Pharmavet sẽ liên hệ với bạn trong khung giờ đã chọn.',
@@ -11,7 +11,7 @@ return [
         'back_to_login' => 'Quay lại trang đăng nhập',
         'error' => 'Đã có lỗi xảy ra. :error',
         'fields' => [
-            'name' => 'Họ tên',
+            'name' => 'Tên tổ chứ',
             'phone' => 'Số điện thoại - Zalo',
             'email' => 'Email',
             'industry' => 'Ngành hàng',
@@ -45,9 +45,9 @@ return [
             'preferred_time_required' => 'Vui lòng chọn khung giờ bạn có thể nghe máy.',
         ],
         'placeholder' => [
-            'name' => 'Nhập họ tên của bạn',
-            'phone' => 'Nhập số điện thoại của bạn',
-            'email' => 'Nhập email của bạn',
+            'name' => 'Nhập tên tổ chức của bạn',
+            'phone' => 'Nhập số điện thoại liên hệ',
+            'email' => 'Nhập email liên hệ',
             'industry' => 'Chọn ngành hàng',
             'employee_count' => 'Chọn quy mô nhân sự',
             'preferred_time' => 'Chọn khung giờ',
@@ -70,8 +70,28 @@ return [
         ],
     ],
     'login' => [
-        'no_account' => 'Bạn chưa có tài khoản? Đăng ký ngay',
+        'no_account' => 'Bạn chưa có tài khoản?',
+        'register_now' => 'Đăng ký ngay',
         'new_lead_notification' => 'Bạn có Lead mới từ Web!',
         'new_lead_body' => 'Khách hàng: :name - SĐT: :phone',
-    ]
+    ],
+
+    'industries' => [
+        'fashion' => 'Thời trang / May mặc',
+        'spa' => 'Spa / Làm đẹp',
+        'real_estate' => 'Bất động sản',
+        'medical_device' => 'Thiết bị y tế',
+        'pharmacy' => 'Dược phẩm / Thuốc',
+        'cosmetic' => 'Mỹ phẩm',
+        'construction' => 'Vật liệu xây dựng',
+        'furniture' => 'Nội thất',
+        'education' => 'Giáo dục / Đào tạo',
+        'f_and_b' => 'Dịch vụ ăn uống (F&B)',
+        'travel' => 'Du lịch / Khách sạn',
+        'agriculture' => 'Nông nghiệp',
+        'pet_care' => 'Thú y / Chăm sóc thú cưng',
+        'technology' => 'Công nghệ / Phần mềm',
+        'logistics' => 'Vận tải / Logistics',
+        'other' => 'Khác (Tự nhập)',
+    ],
 ];

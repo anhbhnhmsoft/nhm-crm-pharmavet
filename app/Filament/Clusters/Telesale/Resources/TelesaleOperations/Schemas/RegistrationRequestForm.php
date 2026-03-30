@@ -14,6 +14,7 @@ use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
+use App\Common\Constants\Organization\ProductField;
 use App\Models\Product;
 use App\Common\Constants\User\UserRole;
 use Illuminate\Support\Facades\Auth;
@@ -47,10 +48,19 @@ class RegistrationRequestForm
                                     ->copyable()
                                     ->disabled()
                                     ->columnSpan(1),
-                                Select::make('product_id')
-                                    ->label(__('telesale.form.product'))
-                                    ->prefixIcon('heroicon-o-cube')
-                                    ->options(Product::where('is_business_product', true)->pluck('name', 'id'))
+                                TextInput::make('product_id_display')
+                                    ->label(__('telesale.registration_request.industry'))
+                                    ->prefixIcon('heroicon-o-briefcase')
+                                    ->afterStateHydrated(function ($component, $record) {
+                                        if (!$record) return;
+                                        if ($record->product_field_id) {
+                                            $component->state(ProductField::getLabel((int)$record->product_field_id));
+                                        } else {
+                                            // Fallback: Tìm trong note_temp nếu product_field_id bị null cho trường tợp "khác"
+                                            preg_match('/Ngành hàng: (.*)/', $record->note_temp, $matches);
+                                            $component->state($matches[1] ?? __('telesale.registration_request.custom_industry'));
+                                        }
+                                    })
                                     ->disabled()
                                     ->columnSpan(1),
                             ])->columns(2),

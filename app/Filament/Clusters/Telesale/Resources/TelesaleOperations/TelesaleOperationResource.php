@@ -24,7 +24,9 @@ use Illuminate\Support\Facades\Auth;
 
 class TelesaleOperationResource extends Resource
 {
-    protected static ?string $model = \App\Models\Customer::class;
+    protected static ?string $model = Customer::class;
+
+    protected static ?int $navigationSort = 2;
 
     protected static string|BackedEnum|null $navigationIcon = '';
 
@@ -78,11 +80,12 @@ class TelesaleOperationResource extends Resource
             ]);
 
         if (Auth::user()->role === UserRole::SUPER_ADMIN->value) {
-            return $query;
+            return $query->where('customer_type', '!=', CustomerType::PARTNER_REQUEST->value);
         }
 
         $organizationId = Auth::user()->organization_id;
-        return $query->where('organization_id', $organizationId);
+        return $query->where('organization_id', $organizationId)
+            ->where('customer_type', '!=', CustomerType::PARTNER_REQUEST->value);
     }
 
     public static function canAccess(): bool
