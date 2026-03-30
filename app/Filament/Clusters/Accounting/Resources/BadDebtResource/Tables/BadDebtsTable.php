@@ -75,7 +75,7 @@ class BadDebtsTable
                     ->action(function (Order $record, array $data, DebtService $service) {
                         $result = $service->provisionDebt($record, (float)$data['amount'], $data['note'] ?? '');
                         if ($result->isSuccess()) {
-                            Notification::make()->success()->title(__('common_success.add_success'))->send();
+                            Notification::make()->success()->title(__('common.add_success'))->send();
                         } else {
                             Notification::make()->danger()->title($result->getMessage())->send();
                         }
@@ -96,7 +96,7 @@ class BadDebtsTable
                     ->action(function (Order $record, array $data, DebtService $service) {
                         $result = $service->writeOffDebt($record, Auth::id(), $data['note'] ?? '');
                         if ($result->isSuccess()) {
-                            Notification::make()->success()->title(__('common_success.update_success'))->send();
+                            Notification::make()->success()->title(__('common.update_success'))->send();
                         } else {
                             Notification::make()->danger()->title($result->getMessage())->send();
                         }

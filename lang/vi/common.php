@@ -109,8 +109,6 @@ return [
         'download_template' => 'Tải mẫu xuống',
         'save' => 'Lưu',
         'cancel' => 'Hủy',
-        'add' => 'Thêm'
-
     ],
     'modal' => [
         'delete_title' => 'Xóa ',

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Common\Constants\Interaction\InteractionType;
 use App\Repositories\LeadDistributionConfigRepository;
 use App\Repositories\UserAssignedStaffRepository;
 use App\Common\Constants\Customer\CustomerType;
@@ -9,13 +10,15 @@ use App\Common\Constants\Customer\DistributionMethod;
 use App\Common\Constants\Interaction\InteractionStatus;
 use App\Common\Constants\Marketing\IntegrationType;
 use App\Repositories\CustomerRepository;
+use App\Models\Customer;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use App\Common\Constants\StatusProgress;
 use App\Common\Constants\Team\TeamType;
 use App\Jobs\SingleDataDistributionJob;
 use App\Repositories\UserRepository;
 use App\Core\ServiceReturn;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
 use Throwable;
 
@@ -455,6 +458,34 @@ class CustomerService
                 'error' => $th->getMessage(),
             ]);
             return ServiceReturn::error(__('message_service.error.queue_customer_distribution') . $th->getMessage());
+        }
+    }
+
+    public function saveInteraction(Customer $customer, array $data): ServiceReturn
+    {
+        try {
+            DB::beginTransaction();
+
+            $interaction = $customer->interactions()->create([
+                'type' => InteractionType::NOTE->value,
+                'user_id' => Auth::id(),
+                'status' => $data['new_interaction_status'],
+                'content' => $data['new_interaction_content'],
+                'interacted_at' => now(),
+            ]);
+
+            $customer->update([
+                'interaction_status' => $data['new_interaction_status'],
+                'next_action_at' => $data['next_action_at'] ?? $customer->next_action_at,
+            ]);
+
+            DB::commit();
+
+            return ServiceReturn::success($interaction);
+        } catch (Throwable $th) {
+            DB::rollBack();
+            Log::error('Save interaction error: ' . $th->getMessage());
+            return ServiceReturn::error($th->getMessage());
         }
     }
 }

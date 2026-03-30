@@ -42,9 +42,10 @@
     <form wire:submit.prevent="authenticate" class="space-y-6">
         {{ $this->form }}
         
-        <div class="flex justify-end text-sm">
-            <a href="{{ route('partner.register') }}" class="text-primary-600 hover:text-primary-500 font-medium">
-                {{ __('auth.login.no_account') }}
+        <div class="flex justify-end text-sm gap-1">
+            <span class="text-gray-600">{{ __('auth.login.no_account') }}</span>
+            <a href="{{ route('partner.register') }}" class="text-primary-600 hover:text-sky-500 hover:underline font-medium transition-all duration-200">
+                {{ __('auth.login.register_now') }}
             </a>
         </div>
 
