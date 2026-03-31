@@ -9,6 +9,8 @@ return [
     'operation_page_title' => 'Tác nghiệp',
     'operation_page_label' => 'Màn hình tác nghiệp',
     'operation_navigation_label' => 'Tác nghiệp',
+    'registration_request_navigation' => 'Danh sách đăng ký',
+    'registration_request_title' => 'Yêu cầu đăng ký',
 
     // Table columns
     'table' => [
@@ -141,6 +143,8 @@ return [
         'start_call' => 'Bắt đầu gọi',
         'hangup' => 'Tắt gọi',
         'customer_360' => 'Customer 360',
+        'back' => 'Quay lại',
+        'edit' => 'Chỉnh sửa',
     ],
 
     // Filters
@@ -271,5 +275,12 @@ return [
         'debt_amount' => 'Công nợ',
         'total_orders' => 'Số đơn hàng',
         'latest_order_status' => 'Trạng thái đơn gần nhất',
+    ],
+    'registration_request' => [
+        'customer_info' => 'Thông tin Yêu cầu đăng ký',
+        'customer_info_desc' => 'Dữ liệu khách hàng đăng ký',
+        'original_request_details' => 'Chi tiết yêu cầu ban đầu (Ngành hàng, quy mô, thời gian...)',
+        'industry' => 'Ngành hàng kinh doanh',
+        'custom_industry' => 'Ngành hàng tự nhập (Khác)',
     ],
 ];

@@ -29,14 +29,13 @@ class ReceivableReport extends Page
 
     public ?array $receivableData = [];
 
-    public function mount(): void
+    public function mount(ReportService $service): void
     {
-        $this->loadData();
+        $this->loadData($service);
     }
 
-    public function loadData(): void
+    public function loadData(ReportService $service): void
     {
-        $service = app(ReportService::class);
         $organizationId = Auth::user()->organization_id;
 
         $result = $service->getReceivableReport($organizationId);

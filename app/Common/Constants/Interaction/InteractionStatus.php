@@ -17,6 +17,9 @@ enum InteractionStatus: int
     case UN_CARE = 11;
     case INEFFICIENT = 12;
     case RECEIVED = 13;
+    case COMPLETED = 14;
+    case MISSED = 15;
+    case FAILED = 16;
 
     public static function label(int $type)
     {
@@ -34,6 +37,9 @@ enum InteractionStatus: int
             self::UN_CARE->value => __('enum.interaction_type.un_care'),
             self::INEFFICIENT->value => __('enum.interaction_type.inefficient'),
             self::RECEIVED->value => __('enum.interaction_type.received'),
+            self::COMPLETED->value => __('enum.interaction_type.completed'),
+            self::MISSED->value => __('enum.interaction_type.missed'),
+            self::FAILED->value => __('enum.interaction_type.failed'),
         };
     }
 
@@ -62,6 +68,9 @@ enum InteractionStatus: int
             self::UN_CARE->value => __('enum.interaction_type.un_care'),
             self::INEFFICIENT->value => __('enum.interaction_type.inefficient'),
             self::RECEIVED->value => __('enum.interaction_type.received'),
+            self::COMPLETED->value => __('enum.interaction_type.completed'),
+            self::MISSED->value => __('enum.interaction_type.missed'),
+            self::FAILED->value => __('enum.interaction_type.failed'),
         };
     }
 
@@ -79,8 +88,20 @@ enum InteractionStatus: int
             self::THIRD_CARE->value => __('enum.interaction_type.third_care_label'),
             self::PASS->value => __('enum.interaction_type.pass_label'),
             self::UN_CARE->value => __('enum.interaction_type.un_care_label'),
-            self::INEFFICIENT->value => __('enum.interaction_type.inefficient_label'),
             self::RECEIVED->value => __('enum.interaction_type.received'),
+            self::COMPLETED->value => __('enum.interaction_type.completed_label'),
+            self::MISSED->value => __('enum.interaction_type.missed_label'),
+            self::FAILED->value => __('enum.interaction_type.failed_label'),
+        };
+     }
+
+    public static function getStyle(?int $type): string
+    {
+        return match ($type) {
+            self::COMPLETED->value => 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+            self::MISSED->value => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+            self::FAILED->value => 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+            default => 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200',
         };
     }
-}
+ }

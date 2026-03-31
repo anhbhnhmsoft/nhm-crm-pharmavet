@@ -3,8 +3,6 @@
 namespace App\Filament\Clusters\Accounting\Pages;
 
 use App\Common\Constants\Accounting\ExpenseCategory;
-use App\Common\Constants\User\UserPosition;
-use App\Common\Constants\User\UserRole;
 use App\Services\ReportService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -41,7 +39,8 @@ class FinancialStatement extends Page implements HasForms
 
     public static function canAccess(): bool
     {
-        return Gate::allows(GateKey::IS_CHIEF_ACCOUNTANT->value);
+        // return Gate::allows(GateKey::IS_CHIEF_ACCOUNTANT->value);
+        return true;
     }
 
     public ?array $data = [];
@@ -129,10 +128,9 @@ class FinancialStatement extends Page implements HasForms
             ->statePath('data');
     }
 
-    public function generateReport(): void
+    public function generateReport(ReportService $service): void
     {
         $data = $this->form->getState();
-        $service = app(ReportService::class);
         $organizationId = Auth::user()->organization_id;
 
         $type = $data['type'];

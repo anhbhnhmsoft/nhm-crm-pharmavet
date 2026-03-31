@@ -2,13 +2,16 @@
 
 namespace App\Filament\Clusters\Telesale\Resources\TelesaleOperations;
 
+use App\Common\Constants\Customer\CustomerType;
 use App\Common\Constants\User\UserRole;
 use App\Filament\Clusters\Telesale\Resources\TelesaleOperations\Pages\CreateTelesaleOperation;
 use App\Filament\Clusters\Telesale\Resources\TelesaleOperations\Pages\EditTelesaleOperation;
 use App\Filament\Clusters\Telesale\Resources\TelesaleOperations\Pages\ListTelesaleOperations;
+use App\Filament\Clusters\Telesale\Resources\TelesaleOperations\Schemas\RegistrationRequestForm;
 use App\Filament\Clusters\Telesale\Resources\TelesaleOperations\Schemas\TelesaleOperationForm;
 use App\Filament\Clusters\Telesale\Resources\TelesaleOperations\Tables\TelesaleOperationsTable;
 use App\Filament\Clusters\Telesale\TelesaleCluster;
+use App\Models\Customer;
 use App\Utils\Helper;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -21,7 +24,9 @@ use Illuminate\Support\Facades\Auth;
 
 class TelesaleOperationResource extends Resource
 {
-    protected static ?string $model = \App\Models\Customer::class;
+    protected static ?string $model = Customer::class;
+
+    protected static ?int $navigationSort = 2;
 
     protected static string|BackedEnum|null $navigationIcon = '';
 
@@ -47,7 +52,12 @@ class TelesaleOperationResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
-        return TelesaleOperationForm::configure($schema);
+        return $schema->components(function (Customer $record = null) {
+            if ($record && $record->customer_type === CustomerType::PARTNER_REQUEST->value) {
+                return RegistrationRequestForm::getComponents();
+            }
+            return TelesaleOperationForm::getComponents();
+        });
     }
 
     public static function table(Table $table): Table
@@ -70,11 +80,12 @@ class TelesaleOperationResource extends Resource
             ]);
 
         if (Auth::user()->role === UserRole::SUPER_ADMIN->value) {
-            return $query;
+            return $query->where('customer_type', '!=', CustomerType::PARTNER_REQUEST->value);
         }
 
         $organizationId = Auth::user()->organization_id;
-        return $query->where('organization_id', $organizationId);
+        return $query->where('organization_id', $organizationId)
+            ->where('customer_type', '!=', CustomerType::PARTNER_REQUEST->value);
     }
 
     public static function canAccess(): bool

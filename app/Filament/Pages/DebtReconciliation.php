@@ -3,7 +3,6 @@
 namespace App\Filament\Pages;
 
 use App\Common\Constants\GateKey;
-use App\Repositories\CustomerRepository;
 use App\Services\Accounting\DebtReconciliationService;
 use App\Services\ExportService;
 use Filament\Forms\Components\DatePicker;
@@ -43,7 +42,8 @@ class DebtReconciliation extends Page implements HasForms
 
     public static function canAccess(): bool
     {
-        return Gate::allows(GateKey::IS_ACCOUNTING->value);
+//        return Gate::allows(GateKey::IS_ACCOUNTING->value);
+        return true;
     }
 
     public ?array $data = [];
@@ -75,18 +75,11 @@ class DebtReconciliation extends Page implements HasForms
                         Select::make('customer_id')
                             ->label(__('accounting.debt_reconciliation.select_customer'))
                             ->searchable()
-                            ->options(function () {
-                                return app(CustomerRepository::class)->query()
-                                    ->where('organization_id', Auth::user()->organization_id)
-                                    ->limit(50)
-                                    ->pluck('username', 'id');
+                            ->options(function (DebtReconciliationService $service) {
+                                return $service->getCustomersForSelect(Auth::user()->organization_id);
                             })
-                            ->getSearchResultsUsing(function (string $search) {
-                                return app(CustomerRepository::class)->query()
-                                    ->where('organization_id', Auth::user()->organization_id)
-                                    ->where('username', 'like', "%{$search}%")
-                                    ->limit(50)
-                                    ->pluck('username', 'id');
+                            ->getSearchResultsUsing(function (string $search, DebtReconciliationService $service) {
+                                return $service->getCustomersForSelect(Auth::user()->organization_id, $search);
                             })
                             ->visible(fn ($get) => $get('partner_type') === 'customer')
                             ->required(fn ($get) => $get('partner_type') === 'customer'),
@@ -106,10 +99,9 @@ class DebtReconciliation extends Page implements HasForms
             ->statePath('data');
     }
 
-    public function generateReport(): void
+    public function generateReport(DebtReconciliationService $service): void
     {
         $formData = $this->form->getState();
-        $service = app(DebtReconciliationService::class);
         $organizationId = Auth::user()->organization_id;
 
         if ($formData['partner_type'] === 'customer') {

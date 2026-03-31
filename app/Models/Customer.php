@@ -40,12 +40,14 @@ class Customer extends Model
         'avatar',
         'note_temp',
         'product_id',
+        'product_field_id',
     ];
 
     protected $casts = [
         'customer_type' => 'integer',
         'birthday' => 'date',
         'next_action_at' => 'datetime',
+        'product_field_id' => 'integer',
     ];
 
     public function organization(): BelongsTo

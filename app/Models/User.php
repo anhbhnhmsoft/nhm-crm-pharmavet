@@ -76,12 +76,30 @@ class User extends Authenticatable implements FilamentUser
     {
         return $this->role == $role->value;
     }
+    public function hasAnyRole(UserRole ...$roles): bool
+    {
+        foreach ($roles as $role) {
+            if ($this->role === $role->value) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     public function hasPosition(UserPosition $position): bool
     {
         return $this->position === $position->value;
     }
 
+    public function hasAnyPosition(UserPosition ...$positions): bool
+    {
+        foreach ($positions as $position) {
+            if ($this->position === $position->value) {
+                return true;
+            }
+        }
+        return false;
+    }
     public function isSuperAdmin(): bool
     {
         return $this->hasRole(UserRole::SUPER_ADMIN);

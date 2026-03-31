@@ -38,7 +38,7 @@ class TopSaleRankingReport extends Page implements HasForms
 
     public array $rows = [];
 
-    public function mount(): void
+    public function mount(TelesaleReportScopeService $scopeService, PushsaleRuleService $pushsaleRuleService): void
     {
         $this->form->fill([
             'from_date' => now()->startOfMonth()->toDateString(),
@@ -47,7 +47,7 @@ class TopSaleRankingReport extends Page implements HasForms
             'pushsale_rule_set_id' => null,
         ]);
 
-        $this->generateReport();
+        $this->generateReport($scopeService, $pushsaleRuleService);
     }
 
     public static function getNavigationLabel(): string
@@ -115,7 +115,7 @@ class TopSaleRankingReport extends Page implements HasForms
             ->statePath('data');
     }
 
-    public function generateReport(): void
+    public function generateReport(TelesaleReportScopeService $scopeService, PushsaleRuleService $pushsaleRuleService): void
     {
         $state = $this->form->getState();
         $from = ($state['from_date'] ?? now()->startOfMonth()->toDateString()) . ' 00:00:00';
@@ -148,8 +148,6 @@ class TopSaleRankingReport extends Page implements HasForms
             ->groupBy('orders.created_by', 'users.name')
             ->orderByDesc('total_revenue');
 
-        /** @var TelesaleReportScopeService $scopeService */
-        $scopeService = app(TelesaleReportScopeService::class);
         $scopeService->applyOrderScope($query, $user);
 
         if (!empty($staffId)) {
@@ -160,8 +158,6 @@ class TopSaleRankingReport extends Page implements HasForms
             $query->where('orders.created_by', $user->id);
         }
 
-        /** @var PushsaleRuleService $pushsaleRuleService */
-        $pushsaleRuleService = app(PushsaleRuleService::class);
         $ruleSetId = (int) ($state['pushsale_rule_set_id'] ?? 0);
 
         $this->rows = $query->get()
@@ -183,10 +179,8 @@ class TopSaleRankingReport extends Page implements HasForms
             ->toArray();
     }
 
-    public function exportReport(): void
+    public function exportReport(TelesaleReportExportService $exportService): void
     {
-        /** @var TelesaleReportExportService $exportService */
-        $exportService = app(TelesaleReportExportService::class);
         $job = $exportService->enqueueExport(
             user: Auth::user(),
             reportType: 'top_sale_ranking',

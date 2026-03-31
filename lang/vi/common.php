@@ -46,6 +46,7 @@ return [
         'date_before' => 'Ngày phải trước :date.',
         'date_after' => 'Ngày phải sau :date.',
         'url' => 'URL không hợp lệ.',
+        'phone_invalid' => 'Số điện thoại không đúng định dạng VN.',
         'min' => [
             'numeric' => 'Trường :attribute phải tối thiểu là :min.',
             'file' => 'Trường :attribute phải tối thiểu là :min kilobytes.',
@@ -61,6 +62,7 @@ return [
         'exists' => 'Giá trị đã chọn trong trường :attribute không hợp lệ.',
         'update_error' => 'Cập nhật dữ liệu thất bại',
         'in' => 'Giá trị đã chọn trong trường :attribute không hợp lệ.',
+        'password' => 'Mật khẩu không hợp lệ, ít nhất 8 ký tự, 1 chữ Hoa, 1 chữ thường, 1 ký tự đặc biệt.',
     ],
     'form' => [
         'location_search_placeholder' => 'Tìm kiếm địa điểm',
@@ -108,8 +110,6 @@ return [
         'download_template' => 'Tải mẫu xuống',
         'save' => 'Lưu',
         'cancel' => 'Hủy',
-        'add' => 'Thêm'
-
     ],
     'modal' => [
         'delete_title' => 'Xóa ',

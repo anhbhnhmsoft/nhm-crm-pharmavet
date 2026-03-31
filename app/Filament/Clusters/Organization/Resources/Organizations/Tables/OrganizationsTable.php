@@ -19,12 +19,16 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class OrganizationsTable
 {
     public static function configure(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(function (Builder $query) {
+                $query->withCount('users');
+            })
             ->columns([
                 TextColumn::make('name')
                     ->label(__('common.table.name'))
@@ -37,29 +41,31 @@ class OrganizationsTable
                     ->sortable(),
 
                 TextColumn::make('product_field')
-                    ->label(__('filament.organization.table.product_field'))
+                    ->label(__('organization.table.product_field'))
                     ->formatStateUsing(fn($state) => ProductField::getLabel($state))
                     ->sortable(),
 
                 TextColumn::make('maximum_employees')
-                    ->label(__('filament.organization.form.maximum_employees'))
+                    ->label(__('organization.form.maximum_employees'))
                     ->sortable(),
 
                 TextColumn::make('users_count')
-                    ->label(__('filament.organization.table.quantity_members'))
-                    ->counts('users')
+                    ->label(__('organization.table.quantity_members'))
                     ->sortable(),
+
                 IconColumn::make('is_foreign')
-                    ->label(__('filament.organization.table.is_foreign'))
+                    ->label(__('organization.table.is_foreign'))
                     ->boolean()
+                    ->alignCenter()
                     ->trueIcon('heroicon-o-check-circle')
                     ->falseIcon('heroicon-o-x-circle')
                     ->trueColor('danger')
                     ->falseColor('success'),
 
                 IconColumn::make('disable')
-                    ->label(__('filament.organization.form.status'))
+                    ->label(__('organization.form.status'))
                     ->boolean()
+                    ->alignCenter()
                     ->trueIcon('heroicon-o-check-circle')
                     ->falseIcon('heroicon-o-x-circle')
                     ->trueColor('danger')
@@ -72,7 +78,8 @@ class OrganizationsTable
             ])
             ->filters([
                 SelectFilter::make('product_field')
-                    ->label(__('filament.organization.table.product_field'))
+                    ->searchable()
+                    ->label(__('organization.table.product_field'))
                     ->options(ProductField::toOptions()),
 
                 TernaryFilter::make('disable')

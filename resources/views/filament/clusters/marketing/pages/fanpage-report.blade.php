@@ -1,5 +1,11 @@
     <x-filament-panels::page>
     @vite(['resources/css/app.css'])
+    @php
+        $user = auth()->user();
+        $canSeeRevenue = in_array($user->role, [App\Common\Constants\User\UserRole::SUPER_ADMIN->value, App\Common\Constants\User\UserRole::ADMIN->value])
+            || ($user->position === App\Common\Constants\User\UserPosition::LEADER->value)
+            || ($user->role === App\Common\Constants\User\UserRole::MARKETING->value);
+    @endphp
     <div class="space-y-6">
         <form wire:submit="generateReport" class="space-y-4">
             {{ $this->form }}
@@ -48,15 +54,7 @@
                                         {{ __('marketing.report.conversion_rate') }}
                                     </th>
 
-                                    @php
-                                        use App\Common\Constants\User\UserRole;
-                                        use App\Common\Constants\User\UserPosition;
 
-                                        $user = auth()->user();
-                                        $canSeeRevenue = in_array($user->role, [UserRole::SUPER_ADMIN->value, UserRole::ADMIN->value])
-                                            || $user->position === UserPosition::LEADER->value
-                                            || $user->role === UserRole::MARKETING->value;
-                                    @endphp
                                     @if($canSeeRevenue)
                                         <th
                                             x-show="viewMode !== 'care'"
