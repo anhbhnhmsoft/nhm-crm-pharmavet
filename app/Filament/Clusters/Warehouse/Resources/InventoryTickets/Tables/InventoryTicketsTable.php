@@ -55,7 +55,6 @@ class InventoryTicketsTable
 
                 IconColumn::make('is_sales_return')
                     ->label(__('warehouse.ticket.form.is_sales_return'))
-                    ->isBool()
                     ->alignCenter()
                     ->toggleable(),
 

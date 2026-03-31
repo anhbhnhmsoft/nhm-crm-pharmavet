@@ -5,9 +5,11 @@ namespace App\Services\Telesale;
 use App\Common\Constants\Order\OrderStatus;
 use App\Common\Constants\Team\TeamType;
 use App\Common\Constants\User\UserRole;
+use App\Services\Marketing\MarketingRankingService;
 use App\Models\User;
 use App\Repositories\CustomerRepository;
 use App\Repositories\OrderRepository;
+use App\Repositories\UserRepository;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +19,8 @@ class HonorBoardService
     public function __construct(
         private OrderRepository $orderRepository,
         private CustomerRepository $customerRepository,
+        private UserRepository $userRepository,
+        private MarketingRankingService $marketingRankingService,
         private PushsaleRuleService $pushsaleRuleService,
         private TelesaleReportScopeService $reportScopeService,
     ) {
@@ -48,14 +52,17 @@ class HonorBoardService
             'sale' => [
                 'top3' => $sale['top3'],
                 'list' => $sale['list'],
+                'total' => $sale['total'],
             ],
             'telesale' => [
                 'top3' => $telesale['top3'],
                 'list' => $telesale['list'],
+                'total' => $telesale['total'],
             ],
             'marketing' => [
                 'top3' => $marketing['top3'],
                 'list' => $marketing['list'],
+                'total' => $marketing['total'],
             ],
             'suggestions' => $suggestions,
         ];
@@ -63,7 +70,7 @@ class HonorBoardService
 
     public function buildSaleTeamRanking(array $filters, User $viewer, ?array $scopedStaffIds = null): array
     {
-        $query = $this->baseOrderRevenueQuery($filters, $viewer, $scopedStaffIds)
+        $query = $this->baseOrderRevenueQuery($filters, $viewer, $scopedStaffIds, true)
             ->join('users as order_staff', 'order_staff.id', '=', 'orders.created_by')
             ->join('teams as sale_teams', function ($join) {
                 $join->on('sale_teams.id', '=', 'order_staff.team_id')
@@ -78,6 +85,10 @@ class HonorBoardService
         $search = trim((string) ($filters['q'] ?? ''));
         if ($search !== '') {
             $query->where('sale_teams.name', 'like', '%' . $search . '%');
+        }
+
+        if (!empty($filters['team_id'])) {
+            $query->where('sale_teams.id', (int) $filters['team_id']);
         }
 
         /** @var Collection<int, object> $orderRows */
@@ -107,10 +118,20 @@ class HonorBoardService
             $contactQuery->where('t.name', 'like', '%' . $search . '%');
         }
 
+        if (!empty($filters['team_id'])) {
+            $contactQuery->where('t.id', (int) $filters['team_id']);
+        }
+
         /** @var Collection<int, object> $contactRows */
         $contactRows = $contactQuery->get();
 
-        return $this->buildRankedColumnData($orderRows, $contactRows, (int) ($filters['pushsale_rule_set_id'] ?? 0));
+        return $this->buildRankedColumnData(
+            $orderRows,
+            $contactRows,
+            (int) ($filters['pushsale_rule_set_id'] ?? 0),
+            (int) ($filters['scoring_rule_set_id'] ?? 0),
+            (int) ($viewer->organization_id ?? 0)
+        );
     }
 
     public function buildTelesaleUserRanking(array $filters, User $viewer, ?array $scopedStaffIds = null): array
@@ -143,7 +164,7 @@ class HonorBoardService
         /** @var Collection<int, object> $contactRows */
         $contactRows = $contactsQuery->get();
 
-        $orders = $this->baseOrderRevenueQuery($filters, $viewer, $scopedStaffIds)
+        $orders = $this->baseOrderRevenueQuery($filters, $viewer, $scopedStaffIds, true)
             ->select('orders.id', 'orders.customer_id', 'orders.created_at')
             ->selectRaw($this->buildRevenueExpression($filters['revenue_mode']) . ' as raw_revenue')
             ->get();
@@ -153,7 +174,9 @@ class HonorBoardService
         return $this->buildRankedColumnData(
             collect($orderRows),
             $contactRows,
-            (int) ($filters['pushsale_rule_set_id'] ?? 0)
+            (int) ($filters['pushsale_rule_set_id'] ?? 0),
+            (int) ($filters['scoring_rule_set_id'] ?? 0),
+            (int) ($viewer->organization_id ?? 0)
         );
     }
 
@@ -161,7 +184,7 @@ class HonorBoardService
     {
         $search = trim((string) ($filters['q'] ?? ''));
 
-        $query = $this->baseOrderRevenueQuery($filters, $viewer, $scopedStaffIds)
+        $query = $this->baseOrderRevenueQuery($filters, $viewer, $scopedStaffIds, true)
             ->join('customers as c', 'c.id', '=', 'orders.customer_id')
             ->selectRaw('COALESCE(NULLIF(c.source, ""), ?) as entity_name', [__('marketing.honor_board.unknown_source')])
             ->selectRaw('COALESCE(NULLIF(c.source, ""), "__unknown__") as entity_id')
@@ -194,10 +217,21 @@ class HonorBoardService
         /** @var Collection<int, object> $contactRows */
         $contactRows = $contactsQuery->get();
 
-        return $this->buildRankedColumnData($orderRows, $contactRows, (int) ($filters['pushsale_rule_set_id'] ?? 0));
+        return $this->buildRankedColumnData(
+            $orderRows,
+            $contactRows,
+            (int) ($filters['pushsale_rule_set_id'] ?? 0),
+            (int) ($filters['scoring_rule_set_id'] ?? 0),
+            (int) ($viewer->organization_id ?? 0)
+        );
     }
 
-    private function baseOrderRevenueQuery(array $filters, User $viewer, ?array $scopedStaffIds = null)
+    private function baseOrderRevenueQuery(
+        array $filters,
+        User $viewer,
+        ?array $scopedStaffIds = null,
+        bool $applyExtraFilters = false
+    )
     {
         $itemTotals = DB::table('order_items')
             ->selectRaw('order_id, SUM(total) as item_total')
@@ -220,6 +254,10 @@ class HonorBoardService
 
         if (is_array($scopedStaffIds)) {
             $query->whereIn('orders.created_by', $scopedStaffIds);
+        }
+
+        if ($applyExtraFilters) {
+            $query = $this->applyAdditionalScopeFilters($query, $filters);
         }
 
         return $query;
@@ -314,7 +352,13 @@ class HonorBoardService
      * @param Collection<int, object|array> $orderRows
      * @param Collection<int, object|array> $contactRows
      */
-    private function buildRankedColumnData(Collection $orderRows, Collection $contactRows, int $pushsaleRuleSetId): array
+    private function buildRankedColumnData(
+        Collection $orderRows,
+        Collection $contactRows,
+        int $pushsaleRuleSetId,
+        int $scoringRuleSetId = 0,
+        int $organizationId = 0
+    ): array
     {
         $rows = [];
 
@@ -361,7 +405,17 @@ class HonorBoardService
 
                 return $row;
             })
-            ->sort(function (array $a, array $b): int {
+            ->values()
+            ->all();
+
+        if (config('marketing.features.ranking_v2', false)) {
+            $ranked = $this->marketingRankingService->scoreRows(
+                $ranked,
+                $scoringRuleSetId ?: null,
+                $organizationId ?: null
+            );
+        } else {
+            usort($ranked, function (array $a, array $b): int {
                 if ($a['adjusted_revenue'] !== $b['adjusted_revenue']) {
                     return $a['adjusted_revenue'] < $b['adjusted_revenue'] ? 1 : -1;
                 }
@@ -371,18 +425,31 @@ class HonorBoardService
                 }
 
                 return strcasecmp($a['name'], $b['name']);
-            })
-            ->values()
-            ->map(function (array $row, int $index) {
-                $row['rank'] = $index + 1;
-
-                return $row;
             });
 
+            foreach ($ranked as $index => &$row) {
+                $row['rank'] = $index + 1;
+            }
+            unset($row);
+        }
+
+        $rankedCollection = collect($ranked)->values();
+        $totalContacts = (int) $rankedCollection->sum('contacts');
+        $totalOrders = (int) $rankedCollection->sum('orders');
+        $totalRevenue = round((float) $rankedCollection->sum('adjusted_revenue'), 2);
+
         return [
-            'rows' => $ranked->all(),
-            'top3' => $ranked->take(3)->values()->all(),
-            'list' => $ranked->slice(3)->values()->all(),
+            'rows' => $rankedCollection->all(),
+            'top3' => $rankedCollection->take(3)->values()->all(),
+            'list' => $rankedCollection->slice(3)->values()->all(),
+            'total' => [
+                'name' => __('marketing.honor_board.table.total'),
+                'contacts' => $totalContacts,
+                'orders' => $totalOrders,
+                'adjusted_revenue' => $totalRevenue,
+                'conversion_rate' => $totalContacts > 0 ? round(($totalOrders / $totalContacts) * 100, 2) : 0.0,
+                'score' => round((float) $rankedCollection->sum('score'), 2),
+            ],
         ];
     }
 
@@ -407,6 +474,7 @@ class HonorBoardService
 
         return [
             'pushsale_rule_set_id' => !empty($filters['pushsale_rule_set_id']) ? (int) $filters['pushsale_rule_set_id'] : null,
+            'scoring_rule_set_id' => !empty($filters['scoring_rule_set_id']) ? (int) $filters['scoring_rule_set_id'] : null,
             'revenue_mode' => $revenueMode,
             'from_date' => $fromDate,
             'to_date' => $toDate,
@@ -414,6 +482,8 @@ class HonorBoardService
             'to_at' => $toDate . ' 23:59:59',
             'q' => trim((string) ($filters['q'] ?? '')),
             'date_preset' => $datePreset,
+            'team_id' => !empty($filters['team_id']) ? (int) $filters['team_id'] : null,
+            'staff_id' => !empty($filters['staff_id']) ? (int) $filters['staff_id'] : null,
         ];
     }
 
@@ -471,5 +541,27 @@ class HonorBoardService
     private function isSuperAdmin(User $viewer): bool
     {
         return (int) $viewer->role === UserRole::SUPER_ADMIN->value;
+    }
+
+    private function applyAdditionalScopeFilters($query, array $filters)
+    {
+        if (!empty($filters['staff_id'])) {
+            $query->where('orders.created_by', (int) $filters['staff_id']);
+        }
+
+        if (!empty($filters['team_id'])) {
+            $teamUserIds = $this->userRepository->query()
+                ->where('team_id', (int) $filters['team_id'])
+                ->pluck('id')
+                ->all();
+
+            if (empty($teamUserIds)) {
+                $query->whereRaw('1 = 0');
+            } else {
+                $query->whereIn('orders.created_by', $teamUserIds);
+            }
+        }
+
+        return $query;
     }
 }

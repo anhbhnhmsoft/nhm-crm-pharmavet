@@ -52,7 +52,7 @@ class TopSaleRankingReport extends Page implements HasForms
 
     public static function getNavigationLabel(): string
     {
-        if (config('telesale.reports.honor_board_v1', false)) {
+        if (config('telesale.reports.honor_board_v1', false) || config('marketing.features.ranking_v2', false)) {
             return __('telesale.reports.top_sale_navigation') . ' (' . __('telesale.reports.legacy_suffix') . ')';
         }
 

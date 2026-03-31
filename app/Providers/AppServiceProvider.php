@@ -40,6 +40,13 @@ use App\Repositories\Accounting\DebtRepository;
 use App\Repositories\FundLockAuditRepository;
 use App\Repositories\FundLockRuleRepository;
 use App\Repositories\FundTransactionAttachmentRepository;
+use App\Repositories\FacebookEventLogRepository;
+use App\Repositories\MarketingAlertLogRepository;
+use App\Repositories\MarketingBudgetRepository;
+use App\Repositories\MarketingScoringRuleSetRepository;
+use App\Repositories\MarketingSpendAttachmentRepository;
+use App\Repositories\MarketingSpendRepository;
+use App\Repositories\WebsiteLeadIngestLogRepository;
 use App\Services\Accounting\DebtReconciliationService;
 use App\Services\AuthService;
 use App\Services\ComboService;
@@ -93,6 +100,13 @@ use App\Services\Warehouse\InventoryMovementService;
 use App\Services\Warehouse\WarehouseExportService;
 use App\Services\Warehouse\WarehouseReportService;
 use App\Services\Warehouse\ShippingStatusSyncService;
+use App\Services\Marketing\FanpagePerformanceService;
+use App\Services\Marketing\MarketingAlertService;
+use App\Services\Marketing\MarketingBudgetService;
+use App\Services\Marketing\MarketingConversionService;
+use App\Services\Marketing\MarketingKpiService;
+use App\Services\Marketing\MarketingRankingService;
+use App\Services\Marketing\WebsiteLeadIngestService;
 use Filament\Support\Assets\Js;
 use Filament\Support\Facades\FilamentAsset;
 use Illuminate\Support\Facades\URL;
@@ -170,6 +184,13 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(FundLockRuleRepository::class);
         $this->app->bind(FundLockAuditRepository::class);
         $this->app->bind(FundTransactionAttachmentRepository::class);
+        $this->app->bind(FacebookEventLogRepository::class);
+        $this->app->bind(WebsiteLeadIngestLogRepository::class);
+        $this->app->bind(MarketingScoringRuleSetRepository::class);
+        $this->app->bind(MarketingBudgetRepository::class);
+        $this->app->bind(MarketingSpendRepository::class);
+        $this->app->bind(MarketingSpendAttachmentRepository::class);
+        $this->app->bind(MarketingAlertLogRepository::class);
     }
 
     private function registerApplicationService(): void
@@ -216,6 +237,13 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(DebtNotificationService::class);
         $this->app->bind(FinancialSummaryService::class);
         $this->app->bind(DiscrepancyReportService::class);
+        $this->app->bind(MarketingConversionService::class);
+        $this->app->bind(WebsiteLeadIngestService::class);
+        $this->app->bind(FanpagePerformanceService::class);
+        $this->app->bind(MarketingRankingService::class);
+        $this->app->bind(MarketingBudgetService::class);
+        $this->app->bind(MarketingKpiService::class);
+        $this->app->bind(MarketingAlertService::class);
     }
 
     private function registerObserver(): void

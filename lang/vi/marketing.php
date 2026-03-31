@@ -19,6 +19,11 @@ return [
         'conversion_rate' => 'Tỉ lệ sinh số',
         'revenue' => 'Doanh số',
         'no_data' => 'Không có dữ liệu trong thời gian này.',
+        'unknown_page' => 'Khác',
+        'unknown_source' => 'Hệ thống',
+        'view_mode' => 'Chế độ xem',
+        'view_mode_full' => 'Đầy đủ',
+        'view_mode_care' => 'Care Page',
     ],
 
     'honor_board' => [
@@ -38,8 +43,14 @@ return [
 
         'filters' => [
             'title' => 'Bộ lọc vinh danh',
+            'team' => 'Team',
+            'all_team' => 'Tất cả team',
+            'staff' => 'Nhân sự',
+            'all_staff' => 'Tất cả nhân sự',
             'pushsale_rule_set' => 'Chuẩn Pushsale',
             'all_pushsale' => 'Tất cả chuẩn',
+            'scoring_rule_set' => 'Bộ quy đổi điểm',
+            'all_scoring_rule_set' => 'Tất cả bộ điểm',
             'revenue_mode' => 'Chế độ doanh số',
             'date_preset' => 'Khoảng thời gian',
             'from_date' => 'Từ ngày',
@@ -81,6 +92,8 @@ return [
             'orders' => 'Đơn',
             'revenue' => 'Doanh số Pushsale',
             'conversion_rate' => 'Tỉ lệ chốt',
+            'score' => 'Điểm',
+            'total' => 'Tổng cộng',
         ],
 
         'empty' => [
@@ -95,5 +108,97 @@ return [
             'pushsale_formula' => 'Doanh số Pushsale = Doanh số x Hệ số KPI của chuẩn Pushsale.',
             'telesale_attribution' => 'Telesale tính theo tương tác cuối cùng (last-touch) trước thời điểm chốt đơn.',
         ],
+    ],
+
+    'budget' => [
+        'navigation' => 'Ngân sách Marketing',
+        'title' => 'Ngân sách & Chi tiêu Marketing',
+        'filters' => [
+            'from_date' => 'Từ ngày',
+            'to_date' => 'Đến ngày',
+            'channel' => 'Kênh',
+            'campaign' => 'Chiến dịch',
+        ],
+        'form' => [
+            'date' => 'Ngày',
+            'channel' => 'Kênh',
+            'campaign' => 'Chiến dịch',
+            'budget_amount' => 'Ngân sách',
+            'actual_spend' => 'Chi tiêu thực tế',
+            'fee_amount' => 'Phí',
+            'note' => 'Ghi chú',
+            'attachment' => 'Chứng từ',
+            'save' => 'Lưu ngân sách',
+        ],
+        'table' => [
+            'date' => 'Ngày',
+            'channel' => 'Kênh',
+            'campaign' => 'Chiến dịch',
+            'budget' => 'Ngân sách',
+            'spend' => 'Chi tiêu',
+            'fee' => 'Phí',
+            'valid_leads' => 'Lead hợp lệ',
+            'cost_per_lead' => 'Chi phí/lead',
+            'new_revenue' => 'Doanh thu mới',
+            'old_revenue' => 'Doanh thu cũ',
+            'close_rate' => 'Tỉ lệ chốt',
+            'cancel_rate' => '% hoàn/hủy',
+            'aov' => 'AOV',
+            'roi' => 'ROI',
+            'status' => 'Trạng thái',
+        ],
+        'status' => [
+            'ok' => 'Ổn định',
+            'over_budget' => 'Vượt ngân sách',
+            'roi_low' => 'ROI thấp',
+        ],
+    ],
+
+    'kpi' => [
+        'navigation' => 'KPI Marketing',
+        'title' => 'Dashboard KPI Marketing',
+        'filters' => [
+            'from_date' => 'Từ ngày',
+            'to_date' => 'Đến ngày',
+            'channel' => 'Kênh',
+            'campaign' => 'Chiến dịch',
+        ],
+        'cards' => [
+            'total_spend' => 'Tổng chi tiêu',
+            'valid_leads' => 'Lead hợp lệ',
+            'cost_per_lead' => 'Chi phí ra số',
+            'new_revenue' => 'Doanh thu mới',
+            'old_revenue' => 'Doanh thu cũ',
+            'close_rate' => 'Tỉ lệ chốt',
+            'cancel_rate' => '% hoàn/hủy',
+            'aov' => 'AOV',
+            'roi' => 'ROI',
+        ],
+        'variance' => [
+            'up' => 'Tăng',
+            'down' => 'Giảm',
+            'flat' => 'Không đổi',
+        ],
+    ],
+
+    'cancel_return' => [
+        'navigation' => 'Phân tích hủy/hoàn',
+        'title' => 'Phân tích lý do hủy/hoàn theo kênh',
+        'filters' => [
+            'from_date' => 'Từ ngày',
+            'to_date' => 'Đến ngày',
+            'source' => 'Nguồn',
+        ],
+        'table' => [
+            'source' => 'Nguồn',
+            'reason' => 'Lý do',
+            'orders' => 'Số đơn',
+            'ratio' => 'Tỉ lệ',
+        ],
+    ],
+
+    'common' => [
+        'updated_success' => 'Cập nhật thành công',
+        'no_data' => 'Không có dữ liệu phù hợp',
     ],
 ];
