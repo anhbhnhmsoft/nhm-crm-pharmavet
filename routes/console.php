@@ -3,6 +3,8 @@
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
+use App\Jobs\Marketing\RetryFacebookEventJob;
+use App\Jobs\Marketing\RunMarketingBudgetAlertsJob;
 use App\Jobs\Warehouse\SyncShippingStatusesJob;
 
 
@@ -26,4 +28,22 @@ Schedule::call(function () {
 })
     ->name('sync_shipping_statuses')
     ->everyFiveMinutes()
+    ->withoutOverlapping();
+
+Schedule::call(function () {
+    if (config('marketing.features.integration_v2', true)) {
+        RetryFacebookEventJob::dispatch()->onQueue('marketing_capi');
+    }
+})
+    ->name('retry_facebook_capi_events')
+    ->everyFiveMinutes()
+    ->withoutOverlapping();
+
+Schedule::call(function () {
+    if (config('marketing.features.budget_kpi_v1', true)) {
+        RunMarketingBudgetAlertsJob::dispatch()->onQueue('marketing_alerts');
+    }
+})
+    ->name('marketing_budget_alerts')
+    ->hourly()
     ->withoutOverlapping();

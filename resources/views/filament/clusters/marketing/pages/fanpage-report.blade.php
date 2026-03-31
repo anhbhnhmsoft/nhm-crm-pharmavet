@@ -1,4 +1,4 @@
-<x-filament-panels::page>
+    <x-filament-panels::page>
     @vite(['resources/css/app.css'])
     <div class="space-y-6">
         <form wire:submit="generateReport" class="space-y-4">
@@ -11,7 +11,7 @@
             </div>
         </form>
 
-        <div x-data="{ reportData: null }" x-on:report-generated.window="reportData = $event.detail[0]">
+        <div x-data="{ reportData: null, viewMode: 'full' }" x-on:report-generated.window="reportData = $event.detail[0]; viewMode = $event.detail[1] ?? 'full'">
             <template x-if="reportData && reportData.length > 0">
                 <x-filament::section>
                     <x-slot name="heading">{{ __('marketing.report.chart_and_report') }}</x-slot>
@@ -59,6 +59,7 @@
                                     @endphp
                                     @if($canSeeRevenue)
                                         <th
+                                            x-show="viewMode !== 'care'"
                                             class="p-3 border-b border-gray-200 dark:border-gray-700 font-bold text-right text-green-600">
                                             {{ __('marketing.report.revenue') }}
                                         </th>
@@ -87,6 +88,7 @@
 
                                         @if($canSeeRevenue)
                                             <td class="p-3 text-right font-black text-green-700 dark:text-green-400"
+                                                x-show="viewMode !== 'care'"
                                                 x-text="new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(item.revenue)">
                                             </td>
                                         @endif

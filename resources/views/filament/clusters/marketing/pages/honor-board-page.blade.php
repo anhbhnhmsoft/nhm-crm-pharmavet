@@ -145,6 +145,9 @@
                                         <p class="line-clamp-2 text-xs font-bold text-slate-700">{{ $row['name'] }}</p>
                                         <p class="mt-2 text-xs font-semibold text-slate-500">{{ number_format($row['adjusted_revenue']) }}</p>
                                         <p class="text-[11px] text-slate-500">{{ $row['conversion_rate'] }}%</p>
+                                        @if (isset($row['score']))
+                                            <p class="text-[11px] font-semibold text-slate-600">{{ __('marketing.honor_board.table.score') }}: {{ number_format($row['score'], 2) }}</p>
+                                        @endif
                                     @else
                                         <div class="text-xs text-slate-400">-</div>
                                     @endif
@@ -162,6 +165,7 @@
                                         <th class="px-3 py-2 text-center">{{ __('marketing.honor_board.table.orders') }}</th>
                                         <th class="px-3 py-2 text-right">{{ __('marketing.honor_board.table.revenue') }}</th>
                                         <th class="px-3 py-2 text-right">{{ __('marketing.honor_board.table.conversion_rate') }}</th>
+                                        <th class="px-3 py-2 text-right">{{ __('marketing.honor_board.table.score') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -173,8 +177,22 @@
                                             <td class="px-3 py-2 text-center text-slate-600">{{ $row['orders'] }}</td>
                                             <td class="px-3 py-2 text-right font-semibold text-slate-700">{{ number_format($row['adjusted_revenue']) }}</td>
                                             <td class="px-3 py-2 text-right text-slate-600">{{ $row['conversion_rate'] }}%</td>
+                                            <td class="px-3 py-2 text-right text-slate-600">{{ number_format((float) ($row['score'] ?? 0), 2) }}</td>
                                         </tr>
                                     @endforeach
+
+                                    @if (!empty($board[$column['key']]['total']))
+                                        @php $total = $board[$column['key']]['total']; @endphp
+                                        <tr class="sticky bottom-0 bg-slate-200/80 font-semibold text-slate-800 backdrop-blur">
+                                            <td class="px-3 py-2">—</td>
+                                            <td class="px-3 py-2">{{ $total['name'] }}</td>
+                                            <td class="px-3 py-2 text-center">{{ $total['contacts'] }}</td>
+                                            <td class="px-3 py-2 text-center">{{ $total['orders'] }}</td>
+                                            <td class="px-3 py-2 text-right">{{ number_format($total['adjusted_revenue']) }}</td>
+                                            <td class="px-3 py-2 text-right">{{ $total['conversion_rate'] }}%</td>
+                                            <td class="px-3 py-2 text-right">{{ number_format((float) ($total['score'] ?? 0), 2) }}</td>
+                                        </tr>
+                                    @endif
                                 </tbody>
                             </table>
                         </div>

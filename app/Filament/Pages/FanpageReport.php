@@ -2,7 +2,7 @@
 
 namespace App\Filament\Pages;
 
-use App\Services\ReportService;
+use App\Services\Marketing\FanpagePerformanceService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Schemas\Components\Section;
@@ -58,6 +58,7 @@ class FanpageReport extends Page implements HasForms
         $this->form->fill([
             'from_date' => now()->startOfMonth()->toDateString(),
             'to_date' => now()->toDateString(),
+            'view_mode' => 'full',
         ]);
     }
 
@@ -81,22 +82,28 @@ class FanpageReport extends Page implements HasForms
                             ->displayFormat('d/m/Y')
                             ->maxDate(now())
                             ->afterOrEqual('from_date'),
+                        Select::make('view_mode')
+                            ->label(__('marketing.report.view_mode'))
+                            ->options([
+                                'full' => __('marketing.report.view_mode_full'),
+                                'care' => __('marketing.report.view_mode_care'),
+                            ])
+                            ->default('full'),
                     ])
-                    ->columns(2),
+                    ->columns(3),
             ])
             ->statePath('data');
     }
 
-    public function generateReport(): void
+    public function generateReport(FanpagePerformanceService $service): void
     {
         $data = $this->form->getState();
-        $service = app(ReportService::class);
         $organizationId = Auth::user()->organization_id;
 
         $fromDate = $data['from_date'];
         $toDate = $data['to_date'];
 
-        $result = $service->getFanpageReport($organizationId, $fromDate, $toDate);
+        $result = $service->getReport($organizationId, $fromDate, $toDate);
 
         if ($result->isError()) {
             Notification::make()
@@ -106,8 +113,9 @@ class FanpageReport extends Page implements HasForms
                 ->send();
         } else {
             $fanpageData = $result->getData();
+            $viewMode = (string) ($data['view_mode'] ?? 'full');
 
-            $this->dispatch('report-generated', $fanpageData);
+            $this->dispatch('report-generated', $fanpageData, $viewMode);
             Notification::make()
                 ->success()
                 ->title(__('marketing.report.success_generate'))

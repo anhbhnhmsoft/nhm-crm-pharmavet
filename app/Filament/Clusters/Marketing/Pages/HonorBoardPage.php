@@ -3,7 +3,10 @@
 namespace App\Filament\Clusters\Marketing\Pages;
 
 use App\Common\Constants\User\UserRole;
+use App\Models\MarketingScoringRuleSet;
 use App\Models\PushsaleRuleSet;
+use App\Models\Team;
+use App\Models\User;
 use App\Services\Telesale\HonorBoardService;
 use BackedEnum;
 use Filament\Forms\Components\DatePicker;
@@ -48,7 +51,7 @@ class HonorBoardPage extends Page implements HasForms
 
     public static function shouldRegisterNavigation(): bool
     {
-        return (bool) config('telesale.reports.honor_board_v1', false);
+        return (bool) config('marketing.features.ranking_v2', false);
     }
 
     public static function getNavigationGroup(): \UnitEnum|string|null
@@ -68,7 +71,7 @@ class HonorBoardPage extends Page implements HasForms
 
     public static function canAccess(): bool
     {
-        return config('telesale.reports.honor_board_v1', false)
+        return config('marketing.features.ranking_v2', false)
             && Auth::check()
             && in_array(Auth::user()->role, [
             UserRole::SUPER_ADMIN->value,
@@ -99,6 +102,26 @@ class HonorBoardPage extends Page implements HasForms
             ->schema([
                 Section::make(__('marketing.honor_board.filters.title'))
                     ->schema([
+                        Select::make('team_id')
+                            ->label(__('marketing.honor_board.filters.team'))
+                            ->options(fn() => Team::query()
+                                ->where('organization_id', Auth::user()->organization_id)
+                                ->orderBy('name')
+                                ->pluck('name', 'id')
+                                ->all())
+                            ->placeholder(__('marketing.honor_board.filters.all_team'))
+                            ->searchable()
+                            ->live(),
+                        Select::make('staff_id')
+                            ->label(__('marketing.honor_board.filters.staff'))
+                            ->options(fn() => User::query()
+                                ->where('organization_id', Auth::user()->organization_id)
+                                ->orderBy('name')
+                                ->pluck('name', 'id')
+                                ->all())
+                            ->placeholder(__('marketing.honor_board.filters.all_staff'))
+                            ->searchable()
+                            ->live(),
                         Select::make('pushsale_rule_set_id')
                             ->label(__('marketing.honor_board.filters.pushsale_rule_set'))
                             ->options(fn() => PushsaleRuleSet::query()
@@ -107,6 +130,18 @@ class HonorBoardPage extends Page implements HasForms
                                 ->pluck('name', 'id')
                                 ->all())
                             ->placeholder(__('marketing.honor_board.filters.all_pushsale'))
+                            ->searchable()
+                            ->live(),
+                        Select::make('scoring_rule_set_id')
+                            ->label(__('marketing.honor_board.filters.scoring_rule_set'))
+                            ->options(fn() => MarketingScoringRuleSet::query()
+                                ->where('organization_id', Auth::user()->organization_id)
+                                ->where('is_active', true)
+                                ->orderByDesc('is_default')
+                                ->orderBy('name')
+                                ->pluck('name', 'id')
+                                ->all())
+                            ->placeholder(__('marketing.honor_board.filters.all_scoring_rule_set'))
                             ->searchable()
                             ->live(),
                         Select::make('revenue_mode')
@@ -201,7 +236,10 @@ class HonorBoardPage extends Page implements HasForms
     private function defaultFilters(): array
     {
         return [
+            'team_id' => null,
+            'staff_id' => null,
             'pushsale_rule_set_id' => null,
+            'scoring_rule_set_id' => null,
             'revenue_mode' => 'after_discount',
             'date_preset' => 'this_month',
             'from_date' => now()->startOfMonth()->toDateString(),

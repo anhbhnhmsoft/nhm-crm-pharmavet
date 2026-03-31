@@ -1189,3 +1189,145 @@
     - status: (boolean, default true) -- trạng thái
     - timestamps
     - unique [shop_id, organization_id]
+
+# bảng facebook_event_logs
+
+    # note
+    - Nhật ký gửi Facebook Pixel/CAPI server-side cho các event AddToCart/Lead/Purchase.
+    - Model: `App\Models\FacebookEventLog`.
+    - Nghiệp vụ chính:
+      - Lưu payload gốc + payload đã hash SHA256 trước khi gửi.
+      - Theo dõi retry_count, next_retry_at, last_error để retry có backoff.
+      - Truy vết theo integration và tổ chức khi cần debug.
+
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - organization_id: (int, indexed)
+    - integration_id: (int, nullable, indexed)
+    - entity_id: (int, nullable, indexed)
+    - event_name: (varchar(50), not null)
+    - event_id: (varchar(120), nullable, indexed)
+    - payload_json: (json, not null)
+    - hashed_payload_json: (json, nullable)
+    - status: (varchar(20), default 'pending', indexed) -- pending/retrying/processed/failed
+    - retry_count: (unsigned int, default 0)
+    - last_error: (text, nullable)
+    - next_retry_at: (timestamp, nullable, indexed)
+    - processed_at: (timestamp, nullable)
+    - timestamps
+
+# bảng website_lead_ingest_logs
+
+    # note
+    - Log ingest lead từ Website V2 endpoint strict JSON schema.
+    - Model: `App\Models\WebsiteLeadIngestLog`.
+    - Nghiệp vụ chính:
+      - Ghi nhận request payload, normalized payload, và lỗi field-level nếu fail schema.
+      - Dùng cho debug tích hợp web và ping test MKT_13.
+
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - organization_id: (int, indexed)
+    - integration_id: (int, nullable, indexed)
+    - site_id: (varchar(100), indexed)
+    - request_id: (varchar(120), nullable, indexed)
+    - status: (varchar(20), default 'received', indexed) -- received/validated/processed/invalid
+    - payload_json: (json, not null)
+    - normalized_json: (json, nullable)
+    - error_json: (json, nullable)
+    - received_at: (timestamp, nullable, indexed)
+    - timestamps
+
+# bảng marketing_scoring_rule_sets
+
+    # note
+    - Bộ quy đổi điểm xếp hạng Marketing (MKT_17).
+    - Model: `App\Models\MarketingScoringRuleSet`.
+    - Nghiệp vụ chính:
+      - Cấu hình trọng số đơn/contact/doanh số và bonus conversion.
+      - Cho phép chọn rule set trên Phong thần bảng để tính rank công bằng.
+
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - organization_id: (int, indexed)
+    - name: (varchar(255), not null)
+    - rules_json: (json, nullable)
+    - is_default: (boolean, default false)
+    - is_active: (boolean, default true)
+    - timestamps
+
+# bảng marketing_budgets
+
+    # note
+    - Ngân sách Marketing theo ngày/kênh/chiến dịch (MKT_07, MKT_14).
+    - Model: `App\Models\MarketingBudget`.
+    - Nghiệp vụ chính:
+      - Là baseline để so sánh chi tiêu thực tế và trigger cảnh báo vượt ngân sách.
+
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - organization_id: (int, indexed)
+    - date: (date, indexed)
+    - channel: (varchar(100), indexed)
+    - campaign: (varchar(150), indexed)
+    - budget_amount: (decimal(20,2), default 0)
+    - timestamps
+    - unique [organization_id, date, channel, campaign]
+
+# bảng marketing_spends
+
+    # note
+    - Chi tiêu thực tế Marketing theo ngày/kênh/chiến dịch.
+    - Model: `App\Models\MarketingSpend`.
+    - Nghiệp vụ chính:
+      - Lưu actual spend + fee để tính CPL, ROI, KPI vận hành (MKT_08/MKT_10).
+
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - organization_id: (int, indexed)
+    - date: (date, indexed)
+    - channel: (varchar(100), indexed)
+    - campaign: (varchar(150), indexed)
+    - actual_spend: (decimal(20,2), default 0)
+    - fee_amount: (decimal(20,2), default 0)
+    - note: (text, nullable)
+    - timestamps
+
+# bảng marketing_spend_attachments
+
+    # note
+    - Version file chứng từ chi phí marketing (MKT_15).
+    - Model: `App\Models\MarketingSpendAttachment`.
+    - Nghiệp vụ chính:
+      - Mỗi lần upload tạo version mới, không ghi đè file cũ.
+      - Audit được ai upload và thời điểm upload.
+
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - marketing_spend_id: (int, indexed)
+    - version: (unsigned int, default 1)
+    - file_path: (varchar(255), not null)
+    - uploaded_by: (int, nullable)
+    - uploaded_at: (timestamp, nullable)
+    - timestamps
+    - unique [marketing_spend_id, version]
+
+# bảng marketing_alert_logs
+
+    # note
+    - Nhật ký cảnh báo vượt ngân sách / ROI thấp / chi tiêu bất thường (MKT_14).
+    - Model: `App\Models\MarketingAlertLog`.
+    - Nghiệp vụ chính:
+      - Lưu trace cảnh báo theo channel/campaign và payload phân tích tại thời điểm trigger.
+
+    # cấu trúc
+    - id: (int, primary key, auto-increment)
+    - organization_id: (int, indexed)
+    - alert_type: (varchar(50), indexed)
+    - severity: (varchar(30), indexed) -- warning/high
+    - channel: (varchar(100), nullable, indexed)
+    - campaign: (varchar(150), nullable, indexed)
+    - payload_json: (json, nullable)
+    - triggered_at: (timestamp, nullable, indexed)
+    - resolved_at: (timestamp, nullable, indexed)
+    - timestamps
