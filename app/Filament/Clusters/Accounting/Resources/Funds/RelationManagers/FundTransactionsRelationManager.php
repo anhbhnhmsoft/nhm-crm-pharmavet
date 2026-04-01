@@ -22,6 +22,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
+use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
@@ -59,7 +60,9 @@ class FundTransactionsRelationManager extends RelationManager
                     ->label(__('accounting.fund_transaction.amount'))
                     ->numeric()
                     ->required()
-                    ->minValue(0.01),
+                    ->minValue(0.01)
+                    ->maxValue(999999999999999.99)
+                    ->validationAttribute(__('accounting.fund_transaction.amount')),
                 Select::make('currency')
                     ->label(__('accounting.fund_transaction.currency'))
                     ->options(fn () => \App\Models\Currency::query()->orderBy('code')->pluck('code', 'code')->toArray())
@@ -84,7 +87,13 @@ class FundTransactionsRelationManager extends RelationManager
                     ->multiple()
                     ->disk('public')
                     ->directory('fund-transactions')
-                    ->visibility('public'),
+                    ->visibility('public')
+                    ->image()
+                    ->imageEditor()
+                    ->previewable(true)
+                    ->formatStateUsing(function (?FundTransaction $record): array {
+                        return $record ? $record->attachments->pluck('file_path')->toArray() : [];
+                    }),
             ]);
     }
 
@@ -134,6 +143,8 @@ class FundTransactionsRelationManager extends RelationManager
             ])
             ->headerActions([
                 CreateAction::make()
+                    ->label(__('accounting.fund_transaction.actions.create'))
+                    ->modalHeading(__('accounting.fund_transaction.actions.create'))
                     ->visible(fn () => !$this->getOwnerRecord()->is_locked)
                     ->action(function (array $data, FundService $service) {
                         $result = $service->createTransaction($this->getOwnerRecord(), $data, Auth::user());
@@ -142,9 +153,8 @@ class FundTransactionsRelationManager extends RelationManager
                             Notification::make()->title($result->getMessage())->danger()->send();
                             return;
                         }
-
-                        Notification::make()->title(__('common.notification.success'))->success()->send();
-                    }),
+                    })
+                    ->after(fn () => redirect(request()->header('Referer'))),
                 Action::make('configureLockRule')
                     ->label(__('accounting.fund_lock.configure'))
                     ->icon('heroicon-o-lock-closed')
@@ -193,8 +203,6 @@ class FundTransactionsRelationManager extends RelationManager
                             Notification::make()->title($result->getMessage())->danger()->send();
                             return;
                         }
-
-                        Notification::make()->title(__('common.notification.success'))->success()->send();
                     }),
             ])
             ->actions([
@@ -211,9 +219,8 @@ class FundTransactionsRelationManager extends RelationManager
                             Notification::make()->title($result->getMessage())->danger()->send();
                             return;
                         }
-
-                        Notification::make()->title(__('common.notification.success'))->success()->send();
-                    }),
+                    })
+                    ->after(fn () => redirect(request()->header('Referer'))),
                 DeleteAction::make()
                     ->action(function (FundTransaction $record, FundService $service) {
                         if (!$service->canPerformAction($this->getOwnerRecord(), Auth::user(), FundLockAction::DELETE)) {
@@ -225,8 +232,8 @@ class FundTransactionsRelationManager extends RelationManager
                             Notification::make()->title($result->getMessage())->danger()->send();
                             return;
                         }
-                        Notification::make()->title(__('common.notification.success'))->success()->send();
-                    }),
+                    })
+                    ->after(fn () => redirect(request()->header('Referer'))),
                 Action::make('attachmentHistory')
                     ->label(__('accounting.fund_transaction.attachment_history'))
                     ->icon('heroicon-o-paper-clip')
@@ -240,6 +247,8 @@ class FundTransactionsRelationManager extends RelationManager
                         ]);
                     }),
             ])
+            ->emptyStateHeading(__('accounting.fund_transaction.notifications.empty_state_title'))
+            ->emptyStateDescription(__('accounting.fund_transaction.notifications.empty_state_description'))
             ->defaultSort('transaction_date', 'desc');
     }
 }

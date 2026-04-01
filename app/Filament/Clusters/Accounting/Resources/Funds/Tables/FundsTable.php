@@ -18,9 +18,10 @@ class FundsTable
         return $table
             ->columns([
                 TextColumn::make('organization.name')
-                    ->label(__('Organization'))
+                    ->label(__('accounting.fund.organization_name'))
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->placeholder(__('accounting.fund.no_organization_assigned')),
                 TextColumn::make('balance')
                     ->label(__('accounting.fund.balance'))
                     ->formatStateUsing(fn ($state, Fund $record) => number_format((float) $state, 2) . ' ' . ($record->currency ?? 'VND'))

@@ -4,7 +4,9 @@ namespace App\Filament\Clusters\Accounting\Resources\Funds;
 
 use App\Common\Constants\User\UserRole;
 use App\Filament\Clusters\Accounting\AccountingCluster;
+use App\Filament\Clusters\Accounting\Resources\Funds\Pages\EditFund;
 use App\Filament\Clusters\Accounting\Resources\Funds\Pages\ListFunds;
+use App\Filament\Clusters\Accounting\Resources\Funds\Pages\ViewFund;
 use App\Filament\Clusters\Accounting\Resources\Funds\RelationManagers\FundLockAuditsRelationManager;
 use App\Filament\Clusters\Accounting\Resources\Funds\Schemas\FundForm;
 use App\Filament\Clusters\Accounting\Resources\Funds\Tables\FundsTable;
@@ -84,6 +86,8 @@ class FundResource extends Resource
     {
         return [
             'index' => ListFunds::route('/'),
+            'view' => ViewFund::route('/{record}'),
+            'edit' => EditFund::route('/{record}/edit'),
         ];
     }
 
