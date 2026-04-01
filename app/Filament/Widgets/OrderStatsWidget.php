@@ -42,21 +42,21 @@ class OrderStatsWidget extends BaseWidget
                 ->color('success')
                 ->chart($data['revenueChart']),
 
-            Stat::make(__('dashboard.order_stats.total_orders'), $data['totalOrders'])
+            Stat::make(__('dashboard.order_stats.total_orders'), number_format($data['totalOrders'], 0, ',', '.'))
                 ->description(__('dashboard.order_stats.in_period'))
                 ->descriptionIcon('heroicon-m-shopping-bag')
-                ->color('primary')
+                ->color('info')
                 ->chart($data['ordersChart']),
 
-            Stat::make(__('dashboard.order_stats.pending_orders'), $data['pendingOrders'])
+            Stat::make(__('dashboard.order_stats.pending_orders'), number_format($data['pendingOrders'], 0, ',', '.'))
                 ->description($data['shippingOrders'] . ' ' . __('dashboard.order_stats.shipping_orders'))
                 ->descriptionIcon('heroicon-m-clock')
-                ->color($data['pendingOrders'] > 0 ? 'warning' : 'success'),
+                ->color($data['pendingOrders'] > 0 ? 'warning' : 'gray'),
 
-            Stat::make(__('dashboard.order_stats.cancelled_orders'), $data['cancelledOrders'])
+            Stat::make(__('dashboard.order_stats.cancelled_orders'), number_format($data['cancelledOrders'], 0, ',', '.'))
                 ->description(__('dashboard.order_stats.in_period'))
-                ->descriptionIcon('heroicon-m-x-circle')
-                ->color($data['cancelledOrders'] > 0 ? 'danger' : 'success'),
+                ->descriptionIcon('heroicon-m-backspace')
+                ->color($data['cancelledOrders'] > 0 ? 'danger' : 'gray'),
         ];
     }
 }

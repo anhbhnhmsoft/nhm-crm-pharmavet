@@ -79,6 +79,7 @@ class ReconciliationService
                         continue;
                     }
 
+                    /** @var \App\Models\Order $order */
                     $order = $this->orderRepository->query()
                         ->where(function ($q) use ($ghnOrderCode, $clientOrderCode) {
                             $q->where('ghn_order_code', $ghnOrderCode);
@@ -92,6 +93,7 @@ class ReconciliationService
                         $order->update(['ghn_order_code' => $ghnOrderCode]);
                     }
 
+                    /** @var \App\Models\Reconciliation $reconciliation */
                     $reconciliation = $this->reconciliationRepository->query()
                         ->where('organization_id', $organizationId)
                         ->where('ghn_order_code', $ghnOrderCode)
@@ -126,7 +128,7 @@ class ReconciliationService
                             $shippingFee = (float) $socData['payment'][0]['value'];
                         }
 
-                        $totalFee = $codAmount + $shippingFee;
+                        $totalFee = $codAmount - $shippingFee - $storageFee;
 
                         $reconciliationData = [
                             'organization_id' => $organizationId,
@@ -277,6 +279,7 @@ class ReconciliationService
     public function syncOrderDetailFromGHN(int $reconciliationId): ServiceReturn
     {
         try {
+            /** @var \App\Models\Reconciliation $reconciliation */
             $reconciliation = $this->reconciliationRepository->find($reconciliationId);
 
             if (!$reconciliation) {
@@ -324,7 +327,7 @@ class ReconciliationService
                 $shippingFee = (float) $socData['payment'][0]['value'];
             }
 
-            $totalFee = $codAmount + $shippingFee;
+            $totalFee = $codAmount - $shippingFee - $storageFee;
 
             $updateData = [
                 'cod_amount' => $codAmount,
@@ -360,6 +363,7 @@ class ReconciliationService
     public function updateOrderOnGHN(int $reconciliationId, array $updateData): ServiceReturn
     {
         try {
+            /** @var \App\Models\Reconciliation $reconciliation */
             $reconciliation = $this->reconciliationRepository->find($reconciliationId);
 
             if (!$reconciliation) {
@@ -416,7 +420,7 @@ class ReconciliationService
             $codAmount = $orderDetail['cod_amount'] ?? $reconciliation->cod_amount;
             $shippingFee = $fee['main_service'] ?? $reconciliation->shipping_fee;
             $storageFee = $fee['station_do'] ?? $reconciliation->storage_fee;
-            $totalFee = ($fee['main_service'] ?? 0) + ($fee['cod_fee'] ?? 0) + ($fee['station_do'] ?? 0) + ($fee['insurance'] ?? 0);
+            $totalFee = $codAmount - (($fee['main_service'] ?? 0) + ($fee['cod_fee'] ?? 0) + ($fee['station_do'] ?? 0) + ($fee['insurance'] ?? 0));
 
             $reconciliationUpdateData = [
                 'cod_amount' => $codAmount,
@@ -454,6 +458,7 @@ class ReconciliationService
     public function confirmReconciliation(int $reconciliationId): ServiceReturn
     {
         try {
+            /** @var \App\Models\Reconciliation $reconciliation */
             $reconciliation = $this->reconciliationRepository->find($reconciliationId);
 
             if (!$reconciliation) {
@@ -494,6 +499,7 @@ class ReconciliationService
                     continue;
                 }
 
+                /** @var \App\Models\Reconciliation $reconciliation */
                 $reconciliation = $this->reconciliationRepository->query()
                     ->where('organization_id', $organizationId)
                     ->where('ghn_order_code', $code)
@@ -580,6 +586,7 @@ class ReconciliationService
             ->orderBy('id')
             ->chunkById(200, function ($reconciliations) use (&$updatedCount, $organizationId) {
                 foreach ($reconciliations as $reconciliation) {
+                    /** @var \App\Models\Reconciliation $reconciliation */
                     $payload = [
                         'reconciliation_date' => $this->normalizeDate((string) $reconciliation->reconciliation_date),
                         'cod_amount' => (float) $reconciliation->cod_amount,

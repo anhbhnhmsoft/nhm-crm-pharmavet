@@ -10,6 +10,7 @@ use App\Core\Caching;
 use App\Services\ReconciliationService;
 use Carbon\Carbon;
 use Filament\Actions\Action;
+use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
@@ -234,7 +235,32 @@ class ReconciliationsTable
                 TextColumn::make('ghn_employee_note')
                     ->label('Ghi chú kế toán')
                     ->limit(30)
-                    ->alignLeft(),
+                    ->alignLeft()
+                    ->html()
+                    ->placeholder('Chưa có ghi chú...')
+                    ->action(
+                        Action::make('edit_note_inline')
+                            ->label(__('accounting.reconciliation.accounting_note'))
+                            ->icon('heroicon-o-pencil-square')
+                            ->slideOver()
+                            ->modalWidth('4xl')
+                            ->form([
+                                RichEditor::make('ghn_employee_note')
+                                    ->label(__('accounting.reconciliation.accounting_note'))
+                                    ->required()
+                                    ->columnSpanFull()
+                                    ->extraAttributes(['style' => 'min-height: 500px;']),
+                            ])
+                            ->fillForm(fn ($record) => ['ghn_employee_note' => $record->ghn_employee_note])
+                            ->action(function ($record, array $data) {
+                                $record->update(['ghn_employee_note' => $data['ghn_employee_note']]);
+                                
+                                Notification::make()
+                                    ->success()
+                                    ->title(__('accounting.reconciliation.order_updated'))
+                                    ->send();
+                            })
+                    ),
 
                 TextColumn::make('ghn_to_phone')
                     ->label(new HtmlString('<div class="text-center font-semibold">' .
@@ -616,6 +642,14 @@ class ReconciliationsTable
                                     ->disabled(),
                             ])
                             ->columns(3),
+
+                        Section::make(__('accounting.reconciliation.notes'))
+                            ->schema([
+                                RichEditor::make('ghn_employee_note')
+                                    ->label(__('accounting.reconciliation.accounting_note'))
+                                    ->columnSpanFull()
+                                    ->extraAttributes(['style' => 'min-height: 300px;']),
+                            ]),
 
                         Textarea::make('error')
                             ->label(__('accounting.reconciliation.error'))

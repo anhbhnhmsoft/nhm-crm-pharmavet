@@ -84,4 +84,13 @@ return [
         'old_customers' => 'Khách cũ quay lại',
         'y_axis' => 'Số lượng',
     ],
+    'recent_orders' => [
+        'heading' => 'Đơn hàng mới nhất',
+        'time' => 'Thời gian',
+        'code' => 'Mã đơn',
+        'customer' => 'Khách hàng',
+        'amount' => 'Thành tiền',
+        'status' => 'Trạng thái',
+        'view' => 'Chi tiết',
+    ],
 ];

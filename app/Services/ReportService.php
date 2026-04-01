@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Common\Constants\Accounting\ExpenseCategory;
 use App\Common\Constants\Accounting\ReconciliationStatus;
+use Carbon\Carbon;
 use App\Common\Constants\Order\OrderStatus;
 use App\Common\Constants\Customer\CustomerType;
 use App\Core\ServiceReturn;
@@ -16,6 +17,7 @@ use App\Repositories\InventoryTicketRepository;
 use App\Repositories\FinancialSummaryRepository;
 use App\Repositories\FundRepository;
 use App\Repositories\FundTransactionRepository;
+use App\Repositories\ReconciliationRepository;
 use App\Common\Constants\Organization\FundTransactionType;
 use Throwable;
 
@@ -30,6 +32,7 @@ class ReportService
         protected FinancialSummaryRepository $financialSummaryRepository,
         protected FundRepository $fundRepository,
         protected FundTransactionRepository $fundTransactionRepository,
+        protected ReconciliationRepository $reconciliationRepository,
     ) {
     }
 
@@ -76,6 +79,7 @@ class ReportService
                     'net' => $netProfit,
                     'rate' => round($profitRate, 2),
                 ],
+                'reconciliation' => $this->getReconciliationComparison($organizationId, $fromDate, $toDate),
             ];
             return ServiceReturn::success(data: $report);
         } catch (Throwable $e) {
@@ -95,11 +99,12 @@ class ReportService
             $cancelledStatus = OrderStatus::CANCELLED->value;
 
             // Lấy tất cả các đơn hàng thuộc organization trong khoảng thời gian
-            $orders = $this->orderRepository->query()
-                ->where('organization_id', $organizationId)
-                ->whereBetween('created_at', [$fromDate . ' 00:00:00', $toDate . ' 23:59:59'])
-                ->with('createdBy:id,name')
-                ->get();
+            $orders = $this->orderRepository->findByOrganizationAndDateRange(
+                $organizationId, 
+                $fromDate . ' 00:00:00', 
+                $toDate . ' 23:59:59',
+                ['createdBy:id,name']
+            );
 
             // Group theo nhân viên (Sale)
             $saleData = $orders->groupBy('created_by')->map(function ($staffOrders) use ($completedStatus, $shippingStatus, $cancelledStatus) {
@@ -185,12 +190,12 @@ class ReportService
             $shippingStatus = OrderStatus::SHIPPING->value;
             $cancelledStatus = OrderStatus::CANCELLED->value;
 
-            $orders = $this->orderRepository->query()
-                ->where('orders.organization_id', $organizationId)
-                ->whereBetween('orders.created_at', [$fromDate . ' 00:00:00', $toDate . ' 23:59:59'])
-                ->join('customers', 'orders.customer_id', '=', 'customers.id')
-                ->select('orders.*', 'customers.source as customer_source')
-                ->get();
+            $orders = $this->orderRepository->findByOrganizationAndDateRange(
+                $organizationId, 
+                $fromDate . ' 00:00:00', 
+                $toDate . ' 23:59:59',
+                ['customer:id,source']
+            );
 
             $marketingData = $orders->groupBy('customer_source')->map(function ($sourceOrders) use ($completedStatus, $shippingStatus, $cancelledStatus) {
                 $total = $sourceOrders->count();
@@ -211,7 +216,7 @@ class ReportService
                 $deliveringCod = $deliveringOrders->sum(fn($o) => $o->total_amount - $o->deposit);
 
                 return [
-                    'source' => $sourceOrders->first()->customer_source ?: 'Unknown',
+                    'source' => $sourceOrders->first()->customer?->source ?: 'Unknown',
                     'total_count' => $total,
                     'success' => [
                         'count' => $successCount,
@@ -248,12 +253,13 @@ class ReportService
             $shippingStatus = OrderStatus::SHIPPING->value;
             $cancelledStatus = OrderStatus::CANCELLED->value;
 
-            $customers = $this->customerRepository->query()
-                ->where('organization_id', $organizationId)
-                ->whereBetween('created_at', [$fromDate . ' 00:00:00', $toDate . ' 23:59:59'])
-                ->get();
+            $customers = $this->customerRepository->findByOrganizationAndDateRange(
+                $organizationId, 
+                $fromDate . ' 00:00:00', 
+                $toDate . ' 23:59:59'
+            );
 
-            $fanpageData = $customers->groupBy('source_detail')->map(function ($pageCustomers) use ($completedStatus, $shippingStatus, $cancelledStatus) {
+            $fanpageData = $customers->groupBy('source_detail')->map(function ($pageCustomers) use ($completedStatus, $shippingStatus, $cancelledStatus, $organizationId, $fromDate, $toDate) {
                 $pageName = $pageCustomers->first()->source_detail ?: 'Khác';
                 $marketerName = $pageCustomers->first()->source ?: 'Hệ thống'; // Sử dụng source hoặc tạo cơ chế map với created_by sau
 
@@ -261,10 +267,11 @@ class ReportService
                 $totalLeads = $pageCustomers->whereNotNull('phone')->count();
 
                 $customerIds = $pageCustomers->pluck('id')->toArray();
-                $orders = $this->orderRepository->query()
-                    ->whereIn('customer_id', $customerIds)
-                    ->whereNotIn('status', [$cancelledStatus])
-                    ->get();
+                $orders = $this->orderRepository->findByOrganizationAndDateRange(
+                    $organizationId,
+                    $fromDate . ' 00:00:00',
+                    $toDate . ' 23:59:59'
+                )->whereIn('customer_id', $customerIds)->whereNotIn('status', [$cancelledStatus]);
 
                 $totalOrders = $orders->count();
                 $revenue = $orders->sum(fn($o) => $o->total_amount - $o->deposit);
@@ -298,12 +305,12 @@ class ReportService
         try {
             $completedStatus = OrderStatus::COMPLETED->value;
 
-            $orders = $this->orderRepository->query()
-                ->where('orders.organization_id', $organizationId)
-                ->whereBetween('orders.created_at', [$fromDate . ' 00:00:00', $toDate . ' 23:59:59'])
-                ->join('customers', 'orders.customer_id', '=', 'customers.id')
-                ->select('orders.*', 'customers.customer_type as type')
-                ->get();
+            $orders = $this->orderRepository->findByOrganizationAndDateRange(
+                $organizationId, 
+                $fromDate . ' 00:00:00', 
+                $toDate . ' 23:59:59',
+                ['customer:id,customer_type']
+            );
 
             $customerData = $orders->groupBy('type')->map(function ($typeOrders) use ($completedStatus) {
                 $completedOrders = $typeOrders->where('status', $completedStatus);
@@ -311,7 +318,7 @@ class ReportService
                 $count = $typeOrders->count();
 
                 return [
-                    'type_id' => $typeOrders->first()->type,
+                    'type_id' => $typeOrders->first()->customer?->customer_type,
                     'count' => $count,
                     'revenue' => $revenue,
                 ];
@@ -331,16 +338,7 @@ class ReportService
     {
         try {
             // 1. Phải thu PTGH (Logistics Partner - GHN)
-            // Đơn COMPLETED, có COD > 0, chưa có đối soát status=PAID
-            $logisticsReceivables = $this->orderRepository->query()
-                ->where('organization_id', $organizationId)
-                ->where('status', OrderStatus::COMPLETED->value)
-                ->where('total_amount', '>', 0)
-                ->whereDoesntHave('reconciliation', function ($query) {
-                    $query->where('status', ReconciliationStatus::PAID->value);
-                })
-                ->with(['createdBy', 'customer'])
-                ->get()
+            $logisticsReceivables = $this->orderRepository->getLogisticsReceivables($organizationId)
                 ->map(function ($order) {
                     $age = now()->diffInDays($order->ghn_posted_at ?? $order->updated_at, true);
                     return [
@@ -355,20 +353,14 @@ class ReportService
                 });
 
             // 2. Phải thu KH (Customer Direct)
-            // Đơn COMPLETED, tiền nhận từ khách < tổng tiền
-            $customerReceivables = $this->orderRepository->query()
-                ->where('organization_id', $organizationId)
-                ->where('status', OrderStatus::COMPLETED->value)
-                ->whereRaw('total_amount > amount_recived_from_customer')
-                ->with(['createdBy', 'customer'])
-                ->get()
+            $customerReceivables = $this->orderRepository->getCustomerReceivables($organizationId)
                 ->map(function ($order) {
                     $age = now()->diffInDays($order->updated_at, true);
                     return [
                         'order_id' => $order->id,
                         'order_code' => $order->code,
                         'customer_name' => $order->customer?->name,
-                        'amount' => (float)($order->total_amount - ($order->amount_recived_from_customer ?? 0)),
+                        'amount' => (float)($order->total_amount - ($order->amount_received_from_customer ?? 0)),
                         'sale_name' => $order->createdBy?->name,
                         'debt_age' => (int) $age,
                         'type' => 'Customer',
@@ -447,5 +439,38 @@ class ReportService
             Logging::error('Get financial statements error', ['error' => $e->getMessage()], $e);
             return ServiceReturn::error('Could not generate financial statements');
         }
+    }
+
+    /**
+     * So sánh % tăng trưởng của Dòng tiền thực thu so với cùng kỳ tháng trước.
+     */
+    protected function getReconciliationComparison(int $organizationId, string $fromDate, string $toDate): array
+    {
+        $currentSum = $this->reconciliationRepository->sumTotalFeeByDateRange($organizationId, $fromDate, $toDate);
+
+        $start = Carbon::parse($fromDate);
+        $end = Carbon::parse($toDate);
+        
+        $prevFromDate = $start->copy()->subMonth()->toDateString();
+        $prevToDate = $end->copy()->subMonth()->toDateString();
+
+        $prevSum = $this->reconciliationRepository->sumTotalFeeByDateRange($organizationId, $prevFromDate, $prevToDate);
+
+        $growth = 0;
+        if ($prevSum > 0) {
+            $growth = (($currentSum - $prevSum) / $prevSum) * 100;
+        } elseif ($currentSum > 0) {
+            $growth = 100;
+        }
+
+        return [
+            'current_receivable' => $currentSum,
+            'prev_receivable' => $prevSum,
+            'growth_rate' => round($growth, 2),
+            'prev_period' => [
+                'from' => $prevFromDate,
+                'to' => $prevToDate,
+            ]
+        ];
     }
 }

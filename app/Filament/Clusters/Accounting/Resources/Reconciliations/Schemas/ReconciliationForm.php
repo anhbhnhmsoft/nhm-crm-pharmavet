@@ -2,9 +2,10 @@
 
 namespace App\Filament\Clusters\Accounting\Resources\Reconciliations\Schemas;
 
+use App\Common\Constants\User\UserRole;
+use Auth;
 use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -51,6 +52,15 @@ class ReconciliationForm
                             ->default(0),
                     ])
                     ->columns(2),
+
+                Section::make(__('accounting.report.notes'))
+                    ->schema([
+                        RichEditor::make('ghn_employee_note')
+                            ->label(__('accounting.reconciliation.accounting_note'))
+                            ->columnSpanFull()
+                            ->visible(fn () => Auth::user()->role !== UserRole::SALE->value)
+                            ->extraAttributes(['style' => 'min-height: 400px;']),
+                    ]),
             ]);
     }
 }

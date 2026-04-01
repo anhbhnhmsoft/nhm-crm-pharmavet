@@ -76,6 +76,69 @@
                         </div>
                     </x-filament::section>
 
+                    <x-filament::section>
+                        <x-slot name="heading">
+                            <div class="flex items-center gap-2">
+                                <span>{{ __('accounting.report.reconciliation_cash_flow') }}</span>
+                                <span class="px-2 py-0.5 text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 rounded-full font-bold uppercase tracking-wider animate-pulse">{{ __('accounting.report.new_feature') }}</span>
+                            </div>
+                        </x-slot>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {{-- Current Receivable --}}
+                            <div class="p-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl">
+                                <p class="text-[10px] font-bold text-gray-400 uppercase mb-1">
+                                    {{ __('accounting.report.current_cash_flow') }}
+                                </p>
+                                <p class="text-3xl font-black text-gray-900 dark:text-white"
+                                    x-text="new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(reportData.business.reconciliation?.current_receivable || 0)">
+                                </p>
+                                <div class="mt-2 flex items-center gap-2">
+                                    <template x-if="reportData.business.reconciliation?.growth_rate >= 0">
+                                        <div class="flex items-center text-green-600 font-bold text-sm">
+                                            <x-heroicon-m-arrow-trending-up class="w-4 h-4 mr-1" />
+                                            <span x-text="'+' + reportData.business.reconciliation.growth_rate + '%'"></span>
+                                        </div>
+                                    </template>
+                                    <template x-if="reportData.business.reconciliation?.growth_rate < 0">
+                                        <div class="flex items-center text-red-600 font-bold text-sm">
+                                            <x-heroicon-m-arrow-trending-down class="w-4 h-4 mr-1" />
+                                            <span x-text="reportData.business.reconciliation.growth_rate + '%'"></span>
+                                        </div>
+                                    </template>
+                                    <span class="text-[10px] text-gray-400 font-medium italic">{{ __('accounting.report.vs_previous_period') }}</span>
+                                </div>
+                            </div>
+
+                            <div class="p-6 bg-gray-50/50 dark:bg-gray-800/20 border border-dashed border-gray-200 dark:border-gray-800 rounded-xl">
+                                <p class="text-[10px] font-bold text-gray-500 uppercase mb-1">
+                                    {{ __('accounting.report.previous_cash_flow') }}
+                                </p>
+                                <p class="text-xl font-bold text-gray-600 dark:text-gray-400"
+                                    x-text="new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(reportData.business.reconciliation?.prev_receivable || 0)">
+                                </p>
+                                <p class="mt-1 text-[10px] text-gray-400"
+                                    x-text="'(' + reportData.business.reconciliation?.prev_period?.from + ' - ' + reportData.business.reconciliation?.prev_period?.to + ')'">
+                                </p>
+                            </div>
+
+                            {{-- Reconciliation Ratio --}}
+                            <div class="p-6 bg-indigo-50/30 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-900/20 rounded-xl">
+                                <p class="text-[10px] font-bold text-indigo-500 uppercase mb-1">
+                                    {{ __('accounting.report.cash_flow_revenue_ratio') }}
+                                </p>
+                                <p class="text-3xl font-black text-indigo-700 dark:text-indigo-400"
+                                    x-text="((reportData.business.revenue?.net > 0) ? (reportData.business.reconciliation?.current_receivable / reportData.business.revenue.net * 100).toFixed(1) : 0) + '%'">
+                                </p>
+                                <div class="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden">
+                                    <div class="bg-indigo-500 h-1.5 rounded-full transition-all duration-1000"
+                                        :style="'width: ' + ((reportData.business.revenue?.net > 0) ? Math.min((reportData.business.reconciliation?.current_receivable / reportData.business.revenue.net * 100), 100) : 0) + '%'">
+                                        </div>
+                                </div>
+                            </div>
+                        </div>
+                    </x-filament::section>
+
+
                     <!-- New Sale Revenue Report Section -->
                     <template x-if="reportData.sales">
                         <x-filament::section>
