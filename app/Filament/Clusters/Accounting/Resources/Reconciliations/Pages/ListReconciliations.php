@@ -2,6 +2,7 @@
 
 namespace App\Filament\Clusters\Accounting\Resources\Reconciliations\Pages;
 
+use App\Exports\ReconciliationReportExport;
 use App\Filament\Clusters\Accounting\Resources\Reconciliations\ReconciliationResource;
 use App\Repositories\ShippingConfigRepository;
 use App\Services\ReconciliationService;
@@ -230,6 +231,19 @@ class ListReconciliations extends ListRecords
                             Storage::disk($disk)->delete($data['file']);
                         }
                     }
+                }),
+            Action::make('export_excel')
+                ->label('Xuất báo cáo (Excel)')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('info')
+                ->action(function () {
+                    $query = $this->getFilteredTableQuery();
+                    $rows = $query->with(['order.createdBy', 'order.warehouse', 'order.customer'])->get();
+
+                    return Excel::download(
+                        new ReconciliationReportExport($rows), 
+                        'doi-soat-' . now()->format('YmdHis') . '.xlsx'
+                    );
                 }),
         ];
     }

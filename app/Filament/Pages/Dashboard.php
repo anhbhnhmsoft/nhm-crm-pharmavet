@@ -28,7 +28,7 @@ class Dashboard extends PagesDashboard
             $widget[] = \App\Filament\Widgets\SelectGap::class;
 
             // Fund widgets
-            if($result->getData()->is_foreign) {
+            if ($result->getData()->is_foreign) {
                 $widget[] = \App\Filament\Widgets\FundStatsWidget::class;
             }
             $widget[] = \App\Filament\Widgets\FundBalanceChartWidget::class;
@@ -36,6 +36,7 @@ class Dashboard extends PagesDashboard
             // Sales & Orders widgets
             $widget[] = \App\Filament\Widgets\OrderStatsWidget::class;
             $widget[] = \App\Filament\Widgets\OrderChartWidget::class;
+            $widget[] = \App\Filament\Widgets\RecentOrdersWidget::class;
             $widget[] = \App\Filament\Widgets\TopProductsWidget::class;
             $widget[] = \App\Filament\Widgets\OrderStatusChartWidget::class;
 

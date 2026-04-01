@@ -38,5 +38,16 @@ class ReconciliationRepository extends BaseRepository
             ->orderBy('reconciliation_date', 'asc')
             ->get();
     }
+
+    /**
+     * Tính tổng phí đối soát (thực thu) trong khoảng thời gian.
+     */
+    public function sumTotalFeeByDateRange(int $organizationId, string $fromDate, string $toDate): float
+    {
+        return (float) $this->query()
+            ->where('organization_id', $organizationId)
+            ->whereBetween('reconciliation_date', [$fromDate, $toDate])
+            ->sum('total_fee');
+    }
 }
 

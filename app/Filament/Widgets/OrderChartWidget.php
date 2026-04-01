@@ -48,19 +48,19 @@ class OrderChartWidget extends ChartWidget
                 [
                     'label' => __('dashboard.order_chart.revenue'),
                     'data' => $data['revenues'],
+                    'backgroundColor' => 'rgba(34, 197, 94, 0.8)',
                     'borderColor' => 'rgb(34, 197, 94)',
-                    'backgroundColor' => 'rgba(34, 197, 94, 0.1)',
-                    'fill' => true,
-                    'tension' => 0.3,
+                    'borderWidth' => 1,
+                    'borderRadius' => 4,
                     'yAxisID' => 'y',
                 ],
                 [
                     'label' => __('dashboard.order_chart.order_count'),
                     'data' => $data['orders'],
-                    'borderColor' => 'rgb(59, 130, 246)',
-                    'backgroundColor' => 'rgba(59, 130, 246, 0.1)',
-                    'fill' => false,
-                    'tension' => 0.3,
+                    'backgroundColor' => 'rgba(234, 179, 8, 0.8)',
+                    'borderColor' => 'rgb(234, 179, 8)',
+                    'borderWidth' => 1,
+                    'borderRadius' => 4,
                     'yAxisID' => 'y1',
                 ],
             ],
@@ -70,7 +70,7 @@ class OrderChartWidget extends ChartWidget
 
     protected function getType(): string
     {
-        return 'line';
+        return 'bar';
     }
 
     protected function getOptions(): array

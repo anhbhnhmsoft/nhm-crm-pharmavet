@@ -121,4 +121,44 @@ class OrderRepository extends BaseRepository
 
         return $totalDebit;
     }
+    /**
+     * Lấy tất cả đơn hàng theo organization và khoảng thời gian (bao gồm cả quan hệ)
+     */
+    public function findByOrganizationAndDateRange(int $organizationId, string $startDate, string $endDate, array $with = []): Collection
+    {
+        return $this->query()
+            ->where('organization_id', $organizationId)
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->when(!empty($with), fn($q) => $q->with($with))
+            ->get();
+    }
+
+    /**
+     * Lấy các khoản phải thu từ đơn vị vận chuyển (Logistics Partner)
+     */
+    public function getLogisticsReceivables(int $organizationId): Collection
+    {
+        return $this->query()
+            ->where('organization_id', $organizationId)
+            ->where('status', OrderStatus::COMPLETED->value)
+            ->where('total_amount', '>', 0)
+            ->whereDoesntHave('reconciliation', function ($query) {
+                $query->where('status', ReconciliationStatus::PAID->value);
+            })
+            ->with(['createdBy', 'customer'])
+            ->get();
+    }
+
+    /**
+     * Lấy các khoản phải thu trực tiếp từ khách hàng
+     */
+    public function getCustomerReceivables(int $organizationId): Collection
+    {
+        return $this->query()
+            ->where('organization_id', $organizationId)
+            ->where('status', OrderStatus::COMPLETED->value)
+            ->whereRaw('total_amount > amount_recived_from_customer')
+            ->with(['createdBy', 'customer'])
+            ->get();
+    }
 }

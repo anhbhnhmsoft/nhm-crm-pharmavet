@@ -25,4 +25,15 @@ class CustomerRepository extends BaseRepository
             ->pluck('username', 'id')
             ->toArray();
     }
+    /**
+     * Lấy danh sách khách hàng mới trong khoảng thời gian theo organization
+     */
+    public function findByOrganizationAndDateRange(int $organizationId, string $startDate, string $endDate, array $with = []): \Illuminate\Database\Eloquent\Collection
+    {
+        return $this->query()
+            ->where('organization_id', $organizationId)
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->when(!empty($with), fn($q) => $q->with($with))
+            ->get();
+    }
 }
