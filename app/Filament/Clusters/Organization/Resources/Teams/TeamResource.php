@@ -2,6 +2,7 @@
 
 namespace App\Filament\Clusters\Organization\Resources\Teams;
 
+use App\Common\Constants\GateKey;
 use App\Common\Constants\User\UserRole;
 use App\Filament\Clusters\Organization\OrganizationCluster;
 use App\Filament\Clusters\Organization\Resources\Teams\Pages\CreateTeam;
@@ -16,6 +17,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Gate;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Auth;
@@ -68,12 +70,9 @@ class TeamResource extends Resource
 
     public static  function canAccess(): bool
     {
-        return Helper::checkPermission([
-            UserRole::SUPER_ADMIN->value,
-            UserRole::ADMIN->value,
-        ], Auth::user()->role);
+        return Gate::allows(GateKey::IS_ADMIN);
     }
-
+    
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery();

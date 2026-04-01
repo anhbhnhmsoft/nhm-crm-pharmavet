@@ -367,6 +367,8 @@ return [
         ],
     ],
     'fund' => [
+        'organization_name' => 'Tên tổ chức',
+        'no_organization_assigned' => '(Chưa gán tổ chức)',
         'label' => 'Quỹ',
         'plural_label' => 'Quản lý quỹ',
         'navigation_label' => 'Quỹ',
@@ -430,6 +432,13 @@ return [
             'pending' => 'Chờ xử lý',
             'completed' => 'Hoàn thành',
             'cancelled' => 'Đã hủy',
+        ],
+        'actions' => [
+            'create' => 'Tạo mới giao dịch',
+        ],
+        'notifications' => [
+            'empty_state_title' => 'Chưa có giao dịch quỹ nào',
+            'empty_state_description' => 'Hãy tạo giao dịch đầu tiên để bắt đầu quản lý dòng tiền.',
         ],
     ],
     'fund_lock' => [

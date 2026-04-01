@@ -55,6 +55,9 @@ class FundService
 
                 $this->assertNoNegativeBalance($fund, $type, $amount);
 
+                $balanceBefore = (float) $fund->balance;
+                $balanceAfter = $balanceBefore + $this->signedAmountByType($type, $amount);
+
                 $transaction = $fund->transactions()->create([
                     'type' => $type,
                     'transaction_date' => $transactionDate,
@@ -71,6 +74,7 @@ class FundService
                     'purpose' => $data['purpose'] ?? null,
                     'note' => $data['note'] ?? null,
                     'status' => FundTransactionStatus::COMPLETED->value,
+                    'balance_after' => $balanceAfter,
                     'transaction_code' => 'FT' . now()->format('YmdHis') . random_int(100, 999),
                     'updated_by' => $actor?->id,
                 ]);
@@ -363,7 +367,9 @@ class FundService
                 });
             }
 
-            $fund->update(['balance' => $running]);
+            Fund::withoutEvents(function () use ($fund, $running) {
+                $fund->update(['balance' => $running]);
+            });
         });
     }
 

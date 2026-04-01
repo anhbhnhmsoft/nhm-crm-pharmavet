@@ -23,6 +23,8 @@ class FundForm
                         TextInput::make('balance')
                             ->label(__('accounting.fund.balance'))
                             ->numeric()
+                            ->maxValue(999999999999999.99)
+                            ->validationAttribute(__('accounting.fund.balance'))
                             ->helperText(function (?Fund $record): ?string {
                                 if (!$record) {
                                     return null;
@@ -52,10 +54,10 @@ class FundForm
                                     && $user->organization_id === $record->organization_id
                                 );
                             })
-                            ->prefix(fn (?Fund $record): string => $record?->currency ?? 'VND'),
+                            ->prefix(fn(?Fund $record): string => $record?->currency ?? 'VND'),
                         Select::make('currency')
                             ->label(__('accounting.fund.currency'))
-                            ->options(fn () => Currency::query()->orderBy('code')->pluck('code', 'code')->toArray())
+                            ->options(fn() => Currency::query()->orderBy('code')->pluck('code', 'code')->toArray())
                             ->searchable()
                             ->default('VND')
                             ->required()
@@ -94,7 +96,7 @@ class FundForm
                             ->offColor('success'),
                     ])
                     ->columnSpanFull(),
-                    
+
             ]);
     }
 }

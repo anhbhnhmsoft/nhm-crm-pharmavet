@@ -138,5 +138,8 @@ return [
         'inbound' => 'Tương tác nhận được',
         'outbound' => 'Tương tác ra',
     ],
-
+    'notification' => [
+        'success' => 'Thao tác thành công',
+        'error' => 'Đã xảy ra lỗi, vui lòng thử lại sau',
+    ],
 ];
