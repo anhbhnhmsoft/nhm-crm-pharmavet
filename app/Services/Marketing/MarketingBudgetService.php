@@ -139,7 +139,40 @@ class MarketingBudgetService
                 'new_revenue' => round((float) $rows->sum('new_revenue'), 2),
                 'old_revenue' => round((float) $rows->sum('old_revenue'), 2),
             ],
+            'attachments' => $this->getAttachmentHistory($viewer->organization_id, $fromDate, $toDate),
         ];
+    }
+
+    public function getAttachmentHistory(int $organizationId, string $fromDate, string $toDate): array
+    {
+        return $this->marketingSpendAttachmentRepository->query()
+            ->join('marketing_spends as ms', 'ms.id', '=', 'marketing_spend_attachments.marketing_spend_id')
+            ->leftJoin('users', 'users.id', '=', 'marketing_spend_attachments.uploaded_by')
+            ->where('ms.organization_id', $organizationId)
+            ->whereBetween('ms.date', [$fromDate, $toDate])
+            ->orderByDesc('marketing_spend_attachments.uploaded_at')
+            ->orderByDesc('marketing_spend_attachments.id')
+            ->selectRaw('marketing_spend_attachments.id as id')
+            ->selectRaw('ms.date as spend_date')
+            ->selectRaw('ms.channel as channel')
+            ->selectRaw('ms.campaign as campaign')
+            ->selectRaw('marketing_spend_attachments.version as version')
+            ->selectRaw('marketing_spend_attachments.file_path as file_path')
+            ->selectRaw('COALESCE(users.name, ?) as uploaded_by_name', [__('marketing.honor_board.unknown_entity')])
+            ->selectRaw('marketing_spend_attachments.uploaded_at as uploaded_at')
+            ->limit(50)
+            ->get()
+            ->map(fn($row) => [
+                'id' => (int) $row->id,
+                'spend_date' => (string) $row->spend_date,
+                'channel' => (string) $row->channel,
+                'campaign' => (string) $row->campaign,
+                'version' => (int) $row->version,
+                'file_path' => (string) $row->file_path,
+                'uploaded_by' => (string) $row->uploaded_by_name,
+                'uploaded_at' => $row->uploaded_at ? (string) $row->uploaded_at : null,
+            ])
+            ->all();
     }
 
     private function buildOperationalMetrics(int $organizationId, string $date, string $channel, string $campaign): array

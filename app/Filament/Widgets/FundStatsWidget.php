@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Models\User;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Support\Facades\Auth;
@@ -32,6 +33,9 @@ class FundStatsWidget extends BaseWidget
 
     protected function getStats(): array
     {
+        /**
+         * @var User $user
+         */
         $user = Auth::user();
         $service = app(\App\Services\OrganizationService::class);
         $data = $service->getFundStats($user->organization_id, $this->startDate, $this->endDate);

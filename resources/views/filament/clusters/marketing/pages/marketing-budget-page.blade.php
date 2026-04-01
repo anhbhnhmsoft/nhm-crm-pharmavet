@@ -58,5 +58,46 @@
                 </table>
             </div>
         </x-filament::section>
+
+        <x-filament::section>
+            <x-slot name="heading">{{ __('marketing.budget.attachment_history.title') }}</x-slot>
+            <div class="overflow-x-auto rounded-xl border border-slate-200">
+                <table class="w-full text-sm">
+                    <thead class="bg-slate-100 text-xs uppercase text-slate-600">
+                        <tr>
+                            <th class="px-3 py-2 text-left">{{ __('marketing.budget.table.date') }}</th>
+                            <th class="px-3 py-2 text-left">{{ __('marketing.budget.table.channel') }}</th>
+                            <th class="px-3 py-2 text-left">{{ __('marketing.budget.table.campaign') }}</th>
+                            <th class="px-3 py-2 text-right">{{ __('marketing.budget.attachment_history.version') }}</th>
+                            <th class="px-3 py-2 text-left">{{ __('marketing.budget.attachment_history.file') }}</th>
+                            <th class="px-3 py-2 text-left">{{ __('marketing.budget.attachment_history.uploaded_by') }}</th>
+                            <th class="px-3 py-2 text-left">{{ __('marketing.budget.attachment_history.uploaded_at') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse(($report['attachments'] ?? []) as $row)
+                            <tr class="odd:bg-white even:bg-slate-50">
+                                <td class="px-3 py-2">{{ $row['spend_date'] }}</td>
+                                <td class="px-3 py-2">{{ $row['channel'] }}</td>
+                                <td class="px-3 py-2">{{ $row['campaign'] }}</td>
+                                <td class="px-3 py-2 text-right">v{{ $row['version'] }}</td>
+                                <td class="px-3 py-2 break-all">
+                                    <a href="{{ route('marketing.spend-attachments.download', ['attachment' => $row['id']]) }}"
+                                        class="text-primary-600 hover:underline">
+                                        {{ $row['file_path'] }}
+                                    </a>
+                                </td>
+                                <td class="px-3 py-2">{{ $row['uploaded_by'] }}</td>
+                                <td class="px-3 py-2">{{ $row['uploaded_at'] }}</td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td class="px-3 py-8 text-center text-slate-500" colspan="7">{{ __('marketing.common.no_data') }}</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </x-filament::section>
     </div>
 </x-filament-panels::page>

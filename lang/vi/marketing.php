@@ -152,6 +152,13 @@ return [
             'over_budget' => 'Vượt ngân sách',
             'roi_low' => 'ROI thấp',
         ],
+        'attachment_history' => [
+            'title' => 'Lịch sử chứng từ',
+            'version' => 'Phiên bản',
+            'file' => 'Đường dẫn file',
+            'uploaded_by' => 'Người upload',
+            'uploaded_at' => 'Thời điểm upload',
+        ],
     ],
 
     'kpi' => [
@@ -188,12 +195,73 @@ return [
             'from_date' => 'Từ ngày',
             'to_date' => 'Đến ngày',
             'source' => 'Nguồn',
+            'source_detail' => 'Campaign/Chi tiết nguồn',
         ],
         'table' => [
             'source' => 'Nguồn',
+            'source_detail' => 'Campaign/Chi tiết nguồn',
+            'exception_type' => 'Loại ngoại lệ',
             'reason' => 'Lý do',
             'orders' => 'Số đơn',
             'ratio' => 'Tỉ lệ',
+        ],
+        'exception_type' => [
+            'cancel' => 'Hủy',
+            'return' => 'Hoàn',
+            'exchange' => 'Đổi',
+        ],
+        'cards' => [
+            'total_orders' => 'Tổng đơn',
+            'cancel_orders' => 'Đơn hủy',
+            'return_exchange_orders' => 'Đơn hoàn/đổi',
+            'cancel_rate' => 'Tỷ lệ hủy',
+            'exception_rate' => 'Tỷ lệ ngoại lệ',
+            'junk_lead_rate' => 'Tỷ lệ lead rủi ro',
+        ],
+        'risky_campaigns' => [
+            'title' => 'Campaign rủi ro cao',
+            'campaign' => 'Campaign',
+            'total_orders' => 'Tổng đơn',
+            'risk_orders' => 'Đơn rủi ro',
+            'risk_rate' => 'Tỷ lệ rủi ro',
+        ],
+    ],
+
+    'alert_center' => [
+        'navigation' => 'Trung tâm cảnh báo',
+        'title' => 'Trung tâm cảnh báo Marketing',
+        'filters' => [
+            'status' => 'Trạng thái',
+            'severity' => 'Mức độ',
+            'alert_type' => 'Loại cảnh báo',
+            'all_option' => 'Tất cả',
+        ],
+        'status' => [
+            'open' => 'Chưa xử lý',
+            'resolved' => 'Đã xử lý',
+            'all' => 'Tất cả',
+        ],
+        'severity' => [
+            'high' => 'Cao',
+            'warning' => 'Cảnh báo',
+        ],
+        'alert_type' => [
+            'over_budget' => 'Vượt ngân sách',
+            'low_roi' => 'ROI thấp',
+            'spend_without_lead' => 'Chi tiêu không có lead',
+        ],
+        'table' => [
+            'alert_type' => 'Loại cảnh báo',
+            'severity' => 'Mức độ',
+            'channel' => 'Kênh',
+            'campaign' => 'Campaign',
+            'triggered_at' => 'Thời điểm phát sinh',
+            'resolved_at' => 'Thời điểm xử lý',
+            'actions' => 'Hành động',
+        ],
+        'actions' => [
+            'resolve' => 'Đánh dấu đã xử lý',
+            'reopen' => 'Mở lại',
         ],
     ],
 

@@ -5,6 +5,7 @@ namespace App\Services\Marketing;
 use App\Common\Constants\Customer\CustomerType;
 use App\Common\Constants\Interaction\InteractionStatus;
 use App\Common\Constants\Marketing\IntegrationType;
+use App\Common\Constants\Order\OrderStatus;
 use App\Core\ServiceReturn;
 use App\Repositories\CustomerRepository;
 use App\Repositories\IntegrationRepository;
@@ -57,7 +58,26 @@ class WebsiteLeadIngestService
             ]);
         }
 
-        $normalized = $this->applyIntegrationMapping($validation['normalized'], (array) ($integration->field_mapping ?? []));
+        $normalized = $this->applyIntegrationMapping(
+            (array) Arr::get($payload, 'lead', []),
+            $validation['normalized'],
+            (array) ($integration->field_mapping ?? [])
+        );
+        $normalized = $this->applyDefaultValues($normalized, (array) Arr::get($integration->config ?? [], 'field_defaults', []));
+        $qualityErrors = $this->validateNormalizedLead($normalized);
+        if (!empty($qualityErrors)) {
+            $log->update([
+                'status' => 'invalid',
+                'normalized_json' => $normalized,
+                'error_json' => $qualityErrors,
+            ]);
+
+            return ServiceReturn::error('Invalid payload', data: [
+                'errors' => $qualityErrors,
+                'log_id' => $log->id,
+            ]);
+        }
+
         $phone = preg_replace('/[^0-9]/', '', (string) ($normalized['phone'] ?? ''));
         $email = strtolower(trim((string) ($normalized['email'] ?? '')));
 
@@ -76,7 +96,7 @@ class WebsiteLeadIngestService
         $customerType = CustomerType::NEW->value;
         if ($existing) {
             $hasCompleted = $existing->orders()
-                ->where('status', \App\Common\Constants\StatusProgress::COMPLETED->value)
+                ->where('status', OrderStatus::COMPLETED->value)
                 ->exists();
             $customerType = $hasCompleted ? CustomerType::OLD_CUSTOMER->value : CustomerType::NEW_DUPLICATE->value;
         }
@@ -93,7 +113,7 @@ class WebsiteLeadIngestService
             'address' => (string) ($normalized['address'] ?? ''),
             'customer_type' => $customerType,
             'assigned_staff_id' => null,
-            'note' => (string) ($normalized['note'] ?? ''),
+            'note' => $this->buildCustomerNoteWithTag((string) ($normalized['note'] ?? ''), (string) Arr::get($integration->config ?? [], 'inbound_tag', 'form_register')),
             'source' => IntegrationType::WEBSITE->value,
             'source_detail' => $sourceDetail,
             'source_id' => (string) ($normalized['external_id'] ?? ''),
@@ -130,14 +150,63 @@ class WebsiteLeadIngestService
 
         $validation = $this->validatePayload($payload);
         if (!$validation['valid']) {
+            $this->websiteLeadIngestLogRepository->create([
+                'organization_id' => (int) $integration->organization_id,
+                'integration_id' => (int) $integration->id,
+                'site_id' => $siteId,
+                'request_id' => (string) ($payload['request_id'] ?? ''),
+                'status' => 'ping_invalid',
+                'payload_json' => $payload,
+                'normalized_json' => null,
+                'error_json' => $validation['errors'],
+                'received_at' => now(),
+            ]);
+
             return ServiceReturn::error('Invalid payload', data: [
                 'errors' => $validation['errors'],
             ]);
         }
 
+        $normalized = $this->applyIntegrationMapping(
+            (array) Arr::get($payload, 'lead', []),
+            $validation['normalized'],
+            (array) ($integration->field_mapping ?? [])
+        );
+        $normalized = $this->applyDefaultValues($normalized, (array) Arr::get($integration->config ?? [], 'field_defaults', []));
+        $qualityErrors = $this->validateNormalizedLead($normalized);
+        if (!empty($qualityErrors)) {
+            $this->websiteLeadIngestLogRepository->create([
+                'organization_id' => (int) $integration->organization_id,
+                'integration_id' => (int) $integration->id,
+                'site_id' => $siteId,
+                'request_id' => (string) ($payload['request_id'] ?? ''),
+                'status' => 'ping_invalid',
+                'payload_json' => $payload,
+                'normalized_json' => $normalized,
+                'error_json' => $qualityErrors,
+                'received_at' => now(),
+            ]);
+
+            return ServiceReturn::error('Invalid payload', data: [
+                'errors' => $qualityErrors,
+            ]);
+        }
+
+        $this->websiteLeadIngestLogRepository->create([
+            'organization_id' => (int) $integration->organization_id,
+            'integration_id' => (int) $integration->id,
+            'site_id' => $siteId,
+            'request_id' => (string) ($payload['request_id'] ?? ''),
+            'status' => 'ping_ok',
+            'payload_json' => $payload,
+            'normalized_json' => $normalized,
+            'error_json' => null,
+            'received_at' => now(),
+        ]);
+
         return ServiceReturn::success([
             'ok' => true,
-            'normalized' => $validation['normalized'],
+            'normalized' => $normalized,
         ]);
     }
 
@@ -201,23 +270,99 @@ class WebsiteLeadIngestService
         ];
     }
 
-    protected function applyIntegrationMapping(array $normalized, array $mapping): array
+    protected function applyIntegrationMapping(array $rawLead, array $normalized, array $mapping): array
     {
         if (empty($mapping)) {
             return $normalized;
         }
 
         $mapped = $normalized;
-        foreach ($mapping as $sourceKey => $target) {
-            if (!is_string($target)) {
+        foreach ($mapping as $left => $right) {
+            if (!is_string($right) || !is_string($left)) {
                 continue;
             }
 
-            if (array_key_exists($sourceKey, $normalized) && array_key_exists($target, $mapped)) {
-                $mapped[$target] = $normalized[$sourceKey];
+            $left = trim($left);
+            $right = trim($right);
+            if ($left === '' || $right === '') {
+                continue;
+            }
+
+            // Support both conventions:
+            // 1) CRM field => Source field (recommended): name => full_name
+            // 2) Source field => CRM field (legacy): full_name => name
+            if (array_key_exists($left, $mapped) && array_key_exists($right, $rawLead)) {
+                $mapped[$left] = is_string($rawLead[$right]) ? trim($rawLead[$right]) : $rawLead[$right];
+                continue;
+            }
+
+            if (array_key_exists($right, $mapped) && array_key_exists($left, $rawLead)) {
+                $mapped[$right] = is_string($rawLead[$left]) ? trim($rawLead[$left]) : $rawLead[$left];
             }
         }
 
         return $mapped;
+    }
+
+    protected function applyDefaultValues(array $normalized, array $defaults): array
+    {
+        if (empty($defaults)) {
+            return $normalized;
+        }
+
+        foreach ($defaults as $field => $value) {
+            if (!is_string($field) || !array_key_exists($field, $normalized)) {
+                continue;
+            }
+
+            $current = $normalized[$field];
+            if ($current === null || (is_string($current) && trim($current) === '')) {
+                $normalized[$field] = is_string($value) ? trim($value) : $value;
+            }
+        }
+
+        return $normalized;
+    }
+
+    protected function validateNormalizedLead(array $normalized): array
+    {
+        $errors = [];
+
+        $phoneDigits = preg_replace('/[^0-9]/', '', (string) ($normalized['phone'] ?? ''));
+        if ($phoneDigits === '' || strlen($phoneDigits) < 9 || strlen($phoneDigits) > 11) {
+            $errors['lead.phone'][] = 'Phone number must contain 9-11 digits.';
+        }
+
+        if ($phoneDigits !== '' && preg_match('/^(\d)\1+$/', $phoneDigits) === 1) {
+            $errors['lead.phone'][] = 'Phone number is not valid.';
+        }
+
+        $email = strtolower(trim((string) ($normalized['email'] ?? '')));
+        if ($email !== '' && preg_match('/@example\.(com|org|net)$/', $email) === 1) {
+            $errors['lead.email'][] = 'Email appears to be a placeholder.';
+        }
+
+        return $errors;
+    }
+
+    protected function buildCustomerNoteWithTag(string $note, string $tag): string
+    {
+        $tag = trim($tag);
+        $tagText = $tag !== '' ? '#' . ltrim($tag, '#') : '';
+
+        if ($tagText === '') {
+            return $note;
+        }
+
+        $base = trim($note);
+        if ($base === '') {
+            return $tagText;
+        }
+
+        if (str_contains($base, $tagText)) {
+            return $base;
+        }
+
+        return $base . PHP_EOL . $tagText;
     }
 }

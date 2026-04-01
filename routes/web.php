@@ -5,9 +5,8 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\FacebookWebhookController;
 use App\Http\Controllers\FacebookAuthController;
 use App\Http\Controllers\GHNWebhookController;
-use App\Http\Controllers\MarketingConversionController;
+use App\Http\Controllers\MarketingSpendAttachmentController;
 use App\Http\Controllers\OrderShippingController;
-use App\Http\Controllers\WebsiteV2LeadController;
 
 Route::middleware(['auth:web'])->group(function () {
     Route::post('/heartbeat', [ActivityController::class, 'heartbeat']);
@@ -21,6 +20,9 @@ Route::middleware(['auth:web'])->group(function () {
 
     Route::post('/orders/{order}/redelivery', [OrderShippingController::class, 'requestRedelivery'])
         ->name('orders.redelivery');
+
+    Route::get('/marketing/spend-attachments/{attachment}/download', [MarketingSpendAttachmentController::class, 'download'])
+        ->name('marketing.spend-attachments.download');
 });
 
 Route::middleware(['web'])->prefix('integration/facebook')->group(function () {
@@ -44,16 +46,6 @@ Route::match(['get', 'post'], '/webhooks/facebook', [FacebookWebhookController::
 
 Route::post('/webhooks/ghn', [GHNWebhookController::class, 'handle'])
     ->name('webhooks.ghn');
-
-Route::prefix('api/v2')->group(function () {
-    Route::post('/website/{site_id}/leads', [WebsiteV2LeadController::class, 'ingest'])
-        ->name('api.v2.website.leads');
-    Route::post('/website/{site_id}/ping', [WebsiteV2LeadController::class, 'ping'])
-        ->name('api.v2.website.ping');
-
-    Route::post('/facebook/capi/events', [MarketingConversionController::class, 'store'])
-        ->name('api.v2.facebook.capi.events');
-});
 
 // Route::get('/')->name('login');
 
