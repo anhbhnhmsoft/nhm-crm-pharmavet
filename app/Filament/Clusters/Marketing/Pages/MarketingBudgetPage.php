@@ -33,6 +33,7 @@ class MarketingBudgetPage extends Page implements HasForms
     public array $report = ['rows' => [], 'summary' => []];
 
     protected MarketingBudgetService $marketingBudgetService;
+    protected string $lastAlertSignature = '';
 
     public function boot(MarketingBudgetService $marketingBudgetService): void
     {
@@ -143,5 +144,36 @@ class MarketingBudgetPage extends Page implements HasForms
         $user = Auth::user();
 
         $this->report = $this->marketingBudgetService->summarize($this->form->getState(), $user);
+        $this->notifyBudgetAlerts();
+    }
+
+    private function notifyBudgetAlerts(): void
+    {
+        $alertRows = collect($this->report['rows'] ?? [])
+            ->filter(fn(array $row) => in_array((string) ($row['status'] ?? ''), ['over_budget', 'roi_low'], true))
+            ->values();
+
+        if ($alertRows->isEmpty()) {
+            return;
+        }
+
+        $signature = sha1(json_encode($alertRows->map(fn(array $row) => [
+            'date' => $row['date'] ?? '',
+            'channel' => $row['channel'] ?? '',
+            'campaign' => $row['campaign'] ?? '',
+            'status' => $row['status'] ?? '',
+        ])->all()));
+
+        if ($signature === $this->lastAlertSignature) {
+            return;
+        }
+
+        $this->lastAlertSignature = $signature;
+
+        Notification::make()
+            ->title(__('filament.integration.notifications.marketing_alert_title'))
+            ->body(__('filament.integration.notifications.marketing_alert_body', ['count' => $alertRows->count()]))
+            ->danger()
+            ->send();
     }
 }

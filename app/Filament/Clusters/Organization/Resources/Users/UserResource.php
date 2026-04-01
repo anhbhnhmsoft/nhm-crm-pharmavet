@@ -3,14 +3,12 @@
 namespace App\Filament\Clusters\Organization\Resources\Users;
 
 use App\Common\Constants\GateKey;
-use App\Common\Constants\User\UserRole;
 use App\Filament\Clusters\Organization\Resources\Users\Pages\CreateUser;
 use App\Filament\Clusters\Organization\Resources\Users\Pages\EditUser;
 use App\Filament\Clusters\Organization\Resources\Users\Pages\ListUsers;
 use App\Filament\Clusters\Organization\Resources\Users\Schemas\UserForm;
 use App\Filament\Clusters\Organization\Resources\Users\Tables\UsersTable;
 use App\Models\User;
-use App\Utils\Helper;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -89,6 +87,9 @@ class UserResource extends Resource
     {
         $query = parent::getEloquentQuery();
 
+        /**
+         * @var User $currentUser
+         */
         $currentUser = Auth::user();
 
         if (!$currentUser->isSuperAdmin()) {

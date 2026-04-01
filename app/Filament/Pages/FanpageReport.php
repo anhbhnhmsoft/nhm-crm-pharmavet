@@ -4,7 +4,6 @@ namespace App\Filament\Pages;
 
 use App\Services\Marketing\FanpagePerformanceService;
 use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\Select;
 use Filament\Schemas\Components\Section;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -58,7 +57,6 @@ class FanpageReport extends Page implements HasForms
         $this->form->fill([
             'from_date' => now()->startOfMonth()->toDateString(),
             'to_date' => now()->toDateString(),
-            'view_mode' => 'full',
         ]);
     }
 
@@ -82,15 +80,8 @@ class FanpageReport extends Page implements HasForms
                             ->displayFormat('d/m/Y')
                             ->maxDate(now())
                             ->afterOrEqual('from_date'),
-                        Select::make('view_mode')
-                            ->label(__('marketing.report.view_mode'))
-                            ->options([
-                                'full' => __('marketing.report.view_mode_full'),
-                                'care' => __('marketing.report.view_mode_care'),
-                            ])
-                            ->default('full'),
                     ])
-                    ->columns(3),
+                    ->columns(2),
             ])
             ->statePath('data');
     }
@@ -112,14 +103,37 @@ class FanpageReport extends Page implements HasForms
                 ->body(__('marketing.report.error_generate'))
                 ->send();
         } else {
-            $fanpageData = $result->getData();
-            $viewMode = (string) ($data['view_mode'] ?? 'full');
+            $viewMode = $this->resolveViewModeByRole();
+            $fanpageData = collect($result->getData())
+                ->map(function (array $row) use ($viewMode) {
+                    if ($viewMode === 'care') {
+                        unset($row['revenue']);
+                    }
+
+                    return $row;
+                })
+                ->values()
+                ->all();
 
             $this->dispatch('report-generated', $fanpageData, $viewMode);
             Notification::make()
                 ->success()
                 ->title(__('marketing.report.success_generate'))
-                ->send();
+            ->send();
         }
+    }
+
+    private function resolveViewModeByRole(): string
+    {
+        $user = Auth::user();
+
+        if (
+            in_array($user->role, [UserRole::SUPER_ADMIN->value, UserRole::ADMIN->value, UserRole::MARKETING->value], true)
+            || $user->position === \App\Common\Constants\User\UserPosition::LEADER->value
+        ) {
+            return 'full';
+        }
+
+        return 'care';
     }
 }

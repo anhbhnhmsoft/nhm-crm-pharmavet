@@ -21,6 +21,7 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Auth;
 
@@ -56,6 +57,7 @@ class IntegrationForm
                                             $set('config.webhook_verify_token', fn($current) => $current ?: Str::random(32));
                                         } elseif ($type === IntegrationType::WEBSITE) {
                                             $set('config.webhook_secret', fn($current) => $current ?: Str::random(32));
+                                            $set('config.site_id', fn($current) => $current ?: Str::lower(Str::random(16)));
                                         }
                                     })
                                     ->helperText(fn(Get $get) => IntegrationType::tryFrom($get('type'))?->description())
@@ -72,6 +74,32 @@ class IntegrationForm
                                         'required' => __('common.error.required'),
                                         'max' => __('common.error.max_length', ['max' => 255]),
                                     ]),
+
+                                Select::make('config.input_mode')
+                                    ->label(__('filament.integration.fields.input_mode'))
+                                    ->options([
+                                        'auto' => __('filament.integration.fields.input_mode_auto'),
+                                        'manual' => __('filament.integration.fields.input_mode_manual'),
+                                    ])
+                                    ->default('auto')
+                                    ->native(false),
+
+                                Select::make('config.distribution_mode')
+                                    ->label(__('filament.integration.fields.distribution_mode'))
+                                    ->options([
+                                        'manual_pick' => __('filament.integration.fields.distribution_mode_manual_pick'),
+                                        'quota' => __('filament.integration.fields.distribution_mode_quota'),
+                                        'round_robin' => __('filament.integration.fields.distribution_mode_round_robin'),
+                                    ])
+                                    ->default('manual_pick')
+                                    ->native(false),
+
+                                TextInput::make('config.distribution_limit')
+                                    ->label(__('filament.integration.fields.distribution_limit'))
+                                    ->numeric()
+                                    ->minValue(1)
+                                    ->default(1)
+                                    ->helperText(__('filament.integration.fields.distribution_limit_helper')),
                             ]),
                     ]),
 
@@ -183,6 +211,17 @@ class IntegrationForm
                                         'max' => __('common.error.max_length', ['max' => 255]),
                                     ]),
 
+                                TextInput::make('config.site_id')
+                                    ->label(__('filament.integration.fields.site_id'))
+                                    ->required()
+                                    ->default(fn(Get $get) => $get('config.site_id') ?: Str::lower(Str::random(16)))
+                                    ->readOnly()
+                                    ->dehydrated()
+                                    ->helperText(__('filament.integration.fields.site_id_helper'))
+                                    ->validationMessages([
+                                        'required' => __('common.error.required'),
+                                    ]),
+
                                 TextInput::make('config.webhook_secret')
                                     ->label(__('filament.integration.fields.webhook_secret'))
                                     ->required()
@@ -202,6 +241,20 @@ class IntegrationForm
                                     ->nullable()
                                     ->native(false)
                                     ->helperText(__('filament.integration.fields.default_product_helper')),
+
+                                View::make('filament.components.website-endpoint-tools')
+                                    ->viewData(function (Get $get, ?Integration $record) {
+                                        $siteId = (string) ($get('config.site_id') ?: Arr::get($record?->config ?? [], 'site_id', ''));
+                                        $base = rtrim(url('/'), '/');
+
+                                        return [
+                                            'siteId' => $siteId,
+                                            'leadEndpoint' => $siteId !== '' ? $base . '/api/v2/website/' . $siteId . '/leads' : null,
+                                            'pingEndpoint' => $siteId !== '' ? $base . '/api/v2/website/' . $siteId . '/ping' : null,
+                                            'secret' => (string) ($get('config.webhook_secret') ?: Arr::get($record?->config ?? [], 'webhook_secret', '')),
+                                        ];
+                                    })
+                                    ->columnSpanFull(),
                             ]),
                     ])
                     ->visible(fn(Get $get) => in_array($get('type'), [
@@ -218,12 +271,20 @@ class IntegrationForm
                             ->keyLabel(__('filament.integration.fields.field_mapping_key'))
                             ->valueLabel(__('filament.integration.fields.field_mapping_value'))
                             ->default([
-                                'name' => 'full_name',
-                                'phone' => 'phone_number',
+                                'full_name' => 'name',
+                                'phone_number' => 'phone',
                                 'email' => 'email',
                             ])
                             ->addActionLabel(__('filament.integration.fields.field_mapping_add'))
                             ->helperText(__('filament.integration.fields.field_mapping_helper'))
+                            ->reorderable(),
+
+                        KeyValue::make('config.field_defaults')
+                            ->label(__('filament.integration.fields.field_defaults'))
+                            ->keyLabel(__('filament.integration.fields.field_defaults_key'))
+                            ->valueLabel(__('filament.integration.fields.field_defaults_value'))
+                            ->addActionLabel(__('filament.integration.fields.field_defaults_add'))
+                            ->helperText(__('filament.integration.fields.field_defaults_helper'))
                             ->reorderable(),
                     ])
                     ->visible(fn(Get $get) => (bool) $get('type')),

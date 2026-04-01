@@ -11,6 +11,7 @@ use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
+        api: __DIR__.'/../routes/marketing_api.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
@@ -18,6 +19,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->validateCsrfTokens(except: [
             'webhooks/facebook',
             'webhooks/ghn',
+            'api/v2/website/*',
+            'api/v2/facebook/capi/events',
         ]);
 
         $middleware->append(ActivityTimeout::class);
