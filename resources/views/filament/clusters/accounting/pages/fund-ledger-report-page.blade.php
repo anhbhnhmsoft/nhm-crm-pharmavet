@@ -29,7 +29,7 @@
                 {{ __('accounting.fund_ledger.variance_in') }}:
                 {{ $varIn >= 0 ? '▲' : '▼' }} {{ number_format($varIn, 2) }}%
             </div>
-            <div class="{{ $varOut >= 0 ? 'text-green-600' : 'text-red-600' }}">
+            <div class="{{ $varOut >= 0 ? 'text-red-600' : 'text-green-600' }}">
                 {{ __('accounting.fund_ledger.variance_out') }}:
                 {{ $varOut >= 0 ? '▲' : '▼' }} {{ number_format($varOut, 2) }}%
             </div>

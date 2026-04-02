@@ -94,7 +94,8 @@ return [
         'disabled' => 'Vô hiệu hóa',
         'active'   => 'Đang hoạt động',
         'expired'  => 'Hết hạn',
-        'upcoming' => 'Sắp tới'
+        'upcoming' => 'Sắp tới',
+        'latest'   => 'Mới nhất',
     ],
     'action' => [
         'view' => 'Xem',
@@ -108,6 +109,7 @@ return [
         'upload_excel' => 'Tải lên file .xlsx chưa thông tin sản phẩm',
         'add' => 'Thêm mới',
         'download_template' => 'Tải mẫu xuống',
+        'download' => 'Tải xuống',
         'save' => 'Lưu',
         'cancel' => 'Hủy',
     ],
