@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Common\Constants\Customer\CustomerType;
 use App\Common\Constants\Customer\DistributionMethod;
 use App\Models\Customer;
 use App\Models\LeadDistributionConfig;

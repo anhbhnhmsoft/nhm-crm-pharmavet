@@ -25,6 +25,11 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->seedAdmin();
+
+        if (app()->environment(['local', 'development'])) {
+            $this->call(MarketingDemoSeeder::class);
+            $this->call(DashboardDemoSeeder::class);
+        }
     }
 
 

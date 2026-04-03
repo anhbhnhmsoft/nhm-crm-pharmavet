@@ -8,7 +8,6 @@ use App\Common\Constants\Organization\FundTransactionStatus;
 use App\Common\Constants\Organization\FundTransactionType;
 use App\Core\ServiceReturn;
 use App\Models\Fund;
-use App\Models\FundLockRule;
 use App\Models\FundTransaction;
 use App\Models\User;
 use App\Repositories\FundLockAuditRepository;
@@ -185,7 +184,7 @@ class FundService
             return false;
         }
 
-        $rules = FundLockRule::query()
+        $rules = $this->fundLockRuleRepository->query()
             ->where('fund_id', $fund->id)
             ->where('action', $action->value)
             ->where('is_locked', true)
@@ -240,7 +239,7 @@ class FundService
                 }
 
                 foreach ($userIds as $userId) {
-                    $rules[] = FundLockRule::query()->updateOrCreate(
+                    $rules[] = $this->fundLockRuleRepository->query()->updateOrCreate(
                         [
                             'fund_id' => $fund->id,
                             'action' => $action,
@@ -262,7 +261,7 @@ class FundService
                 }
 
                 foreach ($teamIds as $teamId) {
-                    $rules[] = FundLockRule::query()->updateOrCreate(
+                    $rules[] = $this->fundLockRuleRepository->query()->updateOrCreate(
                         [
                             'fund_id' => $fund->id,
                             'action' => $action,
@@ -278,7 +277,7 @@ class FundService
                     );
                 }
             } else {
-                $rules[] = FundLockRule::query()->updateOrCreate(
+                $rules[] = $this->fundLockRuleRepository->query()->updateOrCreate(
                     [
                         'fund_id' => $fund->id,
                         'action' => $action,
@@ -360,11 +359,9 @@ class FundService
                     throw new \RuntimeException(__('accounting.fund.notifications.insufficient_balance'));
                 }
 
-                FundTransaction::withoutEvents(function () use ($transaction, $running) {
-                    $transaction->update([
-                        'balance_after' => $running,
-                    ]);
-                });
+                $this->fundTransactionRepository->update([
+                    'balance_after' => $running,
+                ]);
             }
 
             Fund::withoutEvents(function () use ($fund, $running) {

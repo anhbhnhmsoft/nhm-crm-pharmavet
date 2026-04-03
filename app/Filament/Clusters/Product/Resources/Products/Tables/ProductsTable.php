@@ -18,8 +18,6 @@ use Filament\Actions\ViewAction;
 use Filament\Forms\Components\FileUpload;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\IconColumn;
-use Filament\Tables\Columns\Layout\Panel;
-use Filament\Tables\Columns\Layout\Stack;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
@@ -64,7 +62,9 @@ class ProductsTable
                     ->sortable(),
                 TextColumn::make('type')
                     ->label(__('filament.product.type'))
-                    ->formatStateUsing(fn($state) => ProductField::from($state)->label())
+                    ->formatStateUsing(function ($state) {
+                        return ProductField::getLabel( (int) $state);
+                    })
                     ->searchable(),
                 TextColumn::make('quantity')
                     ->label(__('filament.product.quantity'))

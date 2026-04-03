@@ -27,22 +27,24 @@ class Dashboard extends PagesDashboard
             // Date filter
             $widget[] = \App\Filament\Widgets\SelectGap::class;
 
-            // Fund widgets
+            // Primary KPIs
+            $widget[] = \App\Filament\Widgets\OrderStatsWidget::class;
+            $widget[] = \App\Filament\Widgets\LeadStatsWidget::class;
+
+            // Trends
+            $widget[] = \App\Filament\Widgets\OrderChartWidget::class;
+            $widget[] = \App\Filament\Widgets\OrderStatusChartWidget::class;
+            $widget[] = \App\Filament\Widgets\CustomerGrowthChartWidget::class;
+            $widget[] = \App\Filament\Widgets\TopProductsWidget::class;
+
+            // Operational table
+            $widget[] = \App\Filament\Widgets\RecentOrdersWidget::class;
+
+            // Foreign-currency organizations only
             if ($result->getData()->is_foreign) {
                 $widget[] = \App\Filament\Widgets\FundStatsWidget::class;
+                $widget[] = \App\Filament\Widgets\FundBalanceChartWidget::class;
             }
-            $widget[] = \App\Filament\Widgets\FundBalanceChartWidget::class;
-
-            // Sales & Orders widgets
-            $widget[] = \App\Filament\Widgets\OrderStatsWidget::class;
-            $widget[] = \App\Filament\Widgets\OrderChartWidget::class;
-            $widget[] = \App\Filament\Widgets\RecentOrdersWidget::class;
-            $widget[] = \App\Filament\Widgets\TopProductsWidget::class;
-            $widget[] = \App\Filament\Widgets\OrderStatusChartWidget::class;
-
-            // Leads & Customers widgets
-            $widget[] = \App\Filament\Widgets\LeadStatsWidget::class;
-            $widget[] = \App\Filament\Widgets\CustomerGrowthChartWidget::class;
         }
         return $widget;
     }

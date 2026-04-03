@@ -25,7 +25,7 @@ class ShiftsTable
                     ->label(__('common.table.name'))
                     ->sortable(),
                 TextColumn::make('organization.name')
-                    ->label(__('filament.organization.label'))
+                    ->label(__('.organization.label'))
                     ->sortable(),
                 TextColumn::make('start_time')
                     ->label(__('filament.shift.table.start_time'))
