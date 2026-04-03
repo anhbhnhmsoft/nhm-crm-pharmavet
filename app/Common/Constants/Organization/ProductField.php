@@ -107,8 +107,12 @@ enum ProductField: int
         return $options;
     }
 
-    public static function getLabel(int $value): string
+    public static function getLabel(int|string|null $value): string
     {
-        return self::tryFrom($value)?->label();
+        if ($value === null || $value === '' || !is_numeric($value)) {
+            return __('common.unknown');
+        }
+
+        return self::tryFrom((int) $value)?->label() ?? __('common.unknown');
     }
 }

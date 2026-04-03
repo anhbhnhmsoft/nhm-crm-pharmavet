@@ -8,8 +8,6 @@ use App\Core\ServiceReturn;
 use App\Jobs\ProcessGHNOrderJob;
 use App\Models\Order;
 use App\Models\Customer;
-use App\Models\ShippingConfig;
-use App\Models\ShippingConfigForWarehouse;
 use App\Repositories\OrderRepository;
 use App\Repositories\OrderStatusLogRepository;
 use App\Repositories\ProductRepository;

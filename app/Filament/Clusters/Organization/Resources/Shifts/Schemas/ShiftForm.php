@@ -37,7 +37,7 @@ class ShiftForm
                             ]),
 
                         Select::make('organization_id')
-                            ->label(__('filament.organization.label'))
+                            ->label(__('.organization.label'))
                             ->relationship(
                                 name: 'organization',
                                 titleAttribute: 'name',

@@ -4,7 +4,7 @@ return [
     'vietnam' => 'Tiếng Việt',
     'english' => 'Tiếng Anh',
     'laos' => 'Tiếng Lào',
-
+    'unknow' => 'Chưa xác định',
 
     'success' => [
         'get_success' => 'Lấy dữ liệu thành công',
