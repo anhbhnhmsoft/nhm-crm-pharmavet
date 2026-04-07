@@ -19,6 +19,8 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Auth;
+use App\Common\Constants\GateKey;
+use Illuminate\Support\Facades\Gate;
 
 class ShiftResource extends Resource
 {
@@ -61,10 +63,7 @@ class ShiftResource extends Resource
 
     public static function canAccess(): bool
     {
-        return Helper::checkPermission([
-            UserRole::SUPER_ADMIN->value,
-            UserRole::ADMIN->value,
-        ], Auth::user()->role);
+        return Gate::allows(GateKey::IS_SUPER_ADMIN->name) || Gate::allows(GateKey::IS_ADMIN->name);
     }
 
     public static function getEloquentQuery(): Builder
@@ -72,15 +71,17 @@ class ShiftResource extends Resource
         $query = parent::getEloquentQuery();
         $user = Auth::user();
 
+        if (Gate::allows(GateKey::IS_SUPER_ADMIN->name)) {
+            return $query;
+        }
 
-        if (Helper::checkPermission([
-            UserRole::ADMIN->value,
-        ], Auth::user()->role)) {
+        if (Gate::allows(GateKey::IS_ADMIN->name)) {
             return $query->where('organization_id', $user->organization_id);
         }
 
         return $query->whereRaw('1 = 0');
     }
+
     public static function getPages(): array
     {
         return [
@@ -92,10 +93,14 @@ class ShiftResource extends Resource
 
     public static function getRecordRouteBindingEloquentQuery(): Builder
     {
-        return parent::getRecordRouteBindingEloquentQuery()
-            ->whereIn('organization_id', [Auth::user()->organization_id])
-            ->withoutGlobalScopes([
-                SoftDeletingScope::class,
-            ]);
+        $query = parent::getRecordRouteBindingEloquentQuery();
+
+        if (!Gate::allows(GateKey::IS_SUPER_ADMIN->name)) {
+            $query->whereIn('organization_id', [Auth::user()->organization_id]);
+        }
+
+        return $query->withoutGlobalScopes([
+            SoftDeletingScope::class,
+        ]);
     }
 }

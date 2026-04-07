@@ -34,6 +34,11 @@ class TeamsTable
                 TextColumn::make('type')
                     ->label(__('filament.team.type'))
                     ->formatStateUsing(fn(int $state) => TeamType::getLabel($state)),
+                TextColumn::make('users_count')
+                    ->counts('users')
+                    ->label(__('filament.team.total_members'))
+                    ->badge()
+                    ->color('info'),
                 TextColumn::make('created_at')
                     ->label(__('common.table.created_at'))
                     ->dateTime()

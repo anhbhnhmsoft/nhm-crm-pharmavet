@@ -46,7 +46,7 @@ class UserResource extends Resource
 
     public static function canAccess(): bool
     {
-        return Gate::allows(GateKey::IS_ADMIN);
+        return Gate::allows(GateKey::IS_ADMIN->name) || Gate::allows(GateKey::IS_SUPER_ADMIN->name);
     }
 
     public static function form(Schema $schema): Schema
@@ -83,22 +83,16 @@ class UserResource extends Resource
             ]);
     }
 
-    public static function getEloquentQuery(): Builder
-    {
-        $query = parent::getEloquentQuery();
-
-        /**
-         * @var User $currentUser
-         */
-        $currentUser = Auth::user();
-
-        if (!$currentUser->isSuperAdmin()) {
-            $query->where('organization_id', $currentUser->organization_id);
-        }
-
-        // Hide SUPER_ADMIN users from the list as per original logic
-        return $query->withoutGlobalScopes([
-            SoftDeletingScope::class,
-        ]);
+public static function getEloquentQuery(): Builder
+{
+    $query = parent::getEloquentQuery();
+    $currentUser = Auth::user();
+    if (!$currentUser->isSuperAdmin()) {
+        $query->where('users.organization_id', $currentUser->organization_id);
     }
+    $query->where('users.id', '!=', $currentUser->id);
+    return $query->withoutGlobalScopes([
+        SoftDeletingScope::class,
+    ]);
+}
 }

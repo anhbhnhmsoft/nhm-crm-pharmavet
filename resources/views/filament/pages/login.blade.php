@@ -39,7 +39,7 @@
           scopes: $this->getRenderHookScopes(),
       ) }}
 
-    <form wire:submit.prevent="authenticate" class="space-y-6">
+    <form wire:submit.prevent="authenticate" class="space-y-6" novalidate>
         {{ $this->form }}
         
         <div class="flex justify-end text-sm gap-1">

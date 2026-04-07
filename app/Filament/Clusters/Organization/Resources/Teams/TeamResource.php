@@ -17,7 +17,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-use Gate;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Auth;
@@ -70,7 +70,7 @@ class TeamResource extends Resource
 
     public static  function canAccess(): bool
     {
-        return Gate::allows(GateKey::IS_ADMIN);
+        return Gate::allows(GateKey::IS_ADMIN->name);
     }
     
     public static function getEloquentQuery(): Builder
@@ -78,19 +78,13 @@ class TeamResource extends Resource
         $query = parent::getEloquentQuery();
         $currentUser = Auth::user();
 
-        if (Helper::checkPermission([
-            UserRole::SUPER_ADMIN->value,
-            UserRole::ADMIN->value,
-        ], Auth::user()->role)) {
-            return $query->withoutGlobalScopes([
-                SoftDeletingScope::class,
-            ]);
+        if (!Helper::checkPermission([UserRole::SUPER_ADMIN->value], $currentUser->role)) {
+            $query->where('organization_id', $currentUser->organization_id);
         }
 
-        return $query->where('organization_id', $currentUser->organization_id)
-            ->withoutGlobalScopes([
-                SoftDeletingScope::class,
-            ]);
+        return $query->withoutGlobalScopes([
+            SoftDeletingScope::class,
+        ]);
     }
 
     public static function getRecordRouteBindingEloquentQuery(): Builder

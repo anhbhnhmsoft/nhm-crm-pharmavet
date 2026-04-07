@@ -20,13 +20,16 @@ class CreateTeam extends CreateRecord
 
     protected function afterCreate(): void
     {
-        $memberIds = $this->data['member_ids'] ?? [];
+        $state = $this->form->getState();
+        $leaderIds = $state['leader_ids'] ?? [];
+        $staffIds = $state['staff_ids'] ?? [];
+        $combinedIds = collect($leaderIds)->merge($staffIds)->filter()->unique()->values()->toArray();
+
         $userService = app(UserService::class);
-        $result = $userService->updateTeamFoMember(users: $memberIds, teamId: $this->record->id, ableRemove: false);
+        $result = $userService->updateTeamFoMember(users: $combinedIds, teamId: $this->record->id, ableRemove: false);
 
         if ($result->isError()) {
-            $errorMessage = $result->getMessage();
-            $this->addError('data.member_ids', $errorMessage);
+            $this->addError('data.staff_ids', $result->getMessage());
         }
     }
 
