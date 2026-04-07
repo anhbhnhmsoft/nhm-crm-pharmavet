@@ -32,6 +32,8 @@ return [
             'lookup_page_error' => 'Lỗi tìm kiếm trang',
             'page_entity_not_found' => 'Không tìm thấy thông tin trang',
             'page_token_not_found' => 'Không tìm thấy token trang',
+            'webhook_subscribe_failed' => 'Không thể đăng ký webhook cho trang',
+            'customer_blacklisted' => 'Khách hàng nằm trong danh sách đen',
             'process_lead_failed' => 'Xử lý lead thất bại',
         ],
         'success' => [

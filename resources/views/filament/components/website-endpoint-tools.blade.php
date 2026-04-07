@@ -53,22 +53,46 @@
         }
     },
 }">
-    <div class="grid gap-3 md:grid-cols-2">
-        <div>
+    <div class="space-y-3">
+        <div class="rounded-lg border border-slate-200 bg-white p-3">
             <p class="text-xs font-semibold uppercase text-slate-500">{{ __('filament.integration.fields.generated_lead_endpoint') }}</p>
             <p class="mt-1 break-all text-sm text-slate-700">{{ $leadEndpoint ?: __('filament.integration.fields.endpoint_unavailable') }}</p>
+            <div class="mt-2 flex justify-end">
+                <button
+                    type="button"
+                    class="inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-400"
+                    x-on:click="if (leadEndpoint) navigator.clipboard.writeText(leadEndpoint)"
+                    x-bind:disabled="!leadEndpoint"
+                >
+                    {{ __('filament.integration.actions.copy_endpoint') }}
+                </button>
+            </div>
         </div>
 
-        <div class="flex items-start justify-end gap-2">
-            <button
-                type="button"
-                class="inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-400"
-                x-on:click="if (leadEndpoint) navigator.clipboard.writeText(leadEndpoint)"
-                x-bind:disabled="!leadEndpoint"
-            >
-                {{ __('filament.integration.actions.copy_endpoint') }}
-            </button>
+        <div class="rounded-lg border border-slate-200 bg-white p-3">
+            <p class="text-xs font-semibold uppercase text-slate-500">{{ __('filament.integration.fields.generated_ping_endpoint') }}</p>
+            <p class="mt-1 break-all text-sm text-slate-700">{{ $pingEndpoint ?: __('filament.integration.fields.endpoint_unavailable') }}</p>
+            <div class="mt-2 flex justify-end">
+                <button
+                    type="button"
+                    class="inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-400"
+                    x-on:click="if (pingEndpoint) navigator.clipboard.writeText(pingEndpoint)"
+                    x-bind:disabled="!pingEndpoint"
+                >
+                    {{ __('filament.integration.actions.copy_ping_endpoint') }}
+                </button>
+            </div>
+        </div>
 
+        <div class="rounded-lg border border-slate-200 bg-white p-3">
+            <p class="text-xs font-semibold uppercase text-slate-500">{{ __('filament.integration.fields.auth_header') }}</p>
+            <p class="mt-1 break-all text-sm text-slate-700">
+                {{ config('marketing.website_v2.auth_header', 'X-Website-Token') }}: {{ $secret ?: '***' }}
+            </p>
+            <p class="mt-1 text-xs text-slate-500">{{ __('filament.integration.fields.auth_header_helper') }}</p>
+        </div>
+
+        <div class="flex justify-end">
             <button
                 type="button"
                 class="inline-flex items-center rounded-md border border-indigo-300 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 hover:border-indigo-400"

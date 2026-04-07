@@ -69,6 +69,24 @@ class IntegrationsTable
                         ->where('status', StatusConnect::CONNECTED->value)
                         ->count()),
 
+                TextColumn::make('config.site_id')
+                    ->label(__('filament.integration.fields.generated_lead_endpoint'))
+                    ->formatStateUsing(function ($state, $record) {
+                        if ((int) ($record->type ?? 0) !== IntegrationType::WEBSITE->value) {
+                            return '-';
+                        }
+
+                        $siteId = trim((string) $state);
+                        if ($siteId === '') {
+                            return __('filament.integration.fields.endpoint_unavailable');
+                        }
+
+                        return rtrim(url('/'), '/') . '/api/v2/website/' . $siteId . '/leads';
+                    })
+                    ->copyable()
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->wrap(),
+
                 TextColumn::make('last_sync_at')
                     ->label(__('filament.integration.table.last_sync'))
                     ->since()

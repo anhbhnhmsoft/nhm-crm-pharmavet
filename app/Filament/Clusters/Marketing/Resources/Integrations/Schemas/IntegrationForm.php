@@ -128,6 +128,8 @@ class IntegrationForm
                                 'isConnected' => (bool) ($record && $record->status === IntegrationStatus::CONNECTED->value),
                                 'pagesCount' => $record ? $record->entities()->where('type', IntegrationEntityType::PAGE_META->value)->count() : 0,
                                 'lastSync' => $record ? ($record->last_sync_at ? $record->last_sync_at->diffForHumans() : now()) : now(),
+                                'status' => $record?->status,
+                                'statusMessage' => $record?->status_message,
                             ])
                             ->columnSpanFull(),
 
@@ -165,12 +167,24 @@ class IntegrationForm
                                             ->columnSpan(3)
                                             ->helperText(__('filament.integration.fields.default_product_helper')),
 
+                                        Placeholder::make('webhook_subscribed_status')
+                                            ->label(__('filament.integration.fields.webhook_subscribed'))
+                                            ->content(fn(Get $get) => (bool) $get('metadata.webhook_subscribed')
+                                                ? __('filament.integration.status.connected')
+                                                : __('filament.integration.status.pending'))
+                                            ->columnSpan(2),
+
+                                        Placeholder::make('page_connected_at')
+                                            ->label(__('filament.integration.fields.page_connected_at'))
+                                            ->content(fn(Get $get) => (string) ($get('connected_at') ?: __('filament.integration.sections.never_synced')))
+                                            ->columnSpan(2),
+
                                         Toggle::make('status')
                                             ->label(__('filament.integration.fields.active'))
                                             ->inline(false)
                                             ->onColor('success')
                                             ->offColor('danger')
-                                            ->columnSpan(2)
+                                            ->columnSpan(1)
                                             ->extraAttributes(['class' => 'flex justify-center']),
 
                                         Hidden::make('metadata.category'),
@@ -200,16 +214,10 @@ class IntegrationForm
                     ->schema([
                         Grid::make(2)
                             ->schema([
-                                TextInput::make('config.webhook_url')
-                                    ->label(__('filament.integration.fields.webhook_url'))
-                                    ->url()
-                                    ->nullable()
-                                    ->maxLength(255)
-                                    ->helperText(__('filament.integration.fields.webhook_url_helper'))
-                                    ->validationMessages([
-                                        'url' => __('common.error.url'),
-                                        'max' => __('common.error.max_length', ['max' => 255]),
-                                    ]),
+                                Placeholder::make('website_auth_header')
+                                    ->label(__('filament.integration.fields.auth_header'))
+                                    ->content((string) config('marketing.website_v2.auth_header', 'X-Website-Token'))
+                                    ->helperText(__('filament.integration.fields.auth_header_helper')),
 
                                 TextInput::make('config.site_id')
                                     ->label(__('filament.integration.fields.site_id'))

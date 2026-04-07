@@ -24,6 +24,8 @@ $lastSync = method_exists($record->last_sync_at, 'diffForHumans')
     recordId: @js($record?->id ?? 'temp'),
     pagesCount: @js($pagesCount),
     lastSync: @js($lastSync),
+    status: @js($status ?? null),
+    statusMessage: @js($statusMessage ?? null),
     connecting: false,
     syncing: false,
     oauthWindow: null,
@@ -39,7 +41,7 @@ $lastSync = method_exists($record->last_sync_at, 'diffForHumans')
         const height = 700;
         const left = (screen.width / 2) - (width / 2);
         const top = (screen.height / 2) - (height / 2);
-        const url = `/integration/facebook/${this.recordId}/redirect`;
+        const url = `/integration/facebook/${this.recordId}/redirect?popup=1`;
 
         this.oauthWindow = window.open(
             url,
@@ -79,6 +81,8 @@ $lastSync = method_exists($record->last_sync_at, 'diffForHumans')
 
         if (data.pagesCount !== undefined) this.pagesCount = data.pagesCount;
         if (data.lastSync !== undefined) this.lastSync = data.lastSync;
+        this.status = @js(\App\Common\Constants\StatusConnect::CONNECTED->value);
+        this.statusMessage = null;
 
         setTimeout(() => window.location.reload(), 1000);
     },
@@ -88,6 +92,8 @@ $lastSync = method_exists($record->last_sync_at, 'diffForHumans')
         this.cleanup();
 
         this.notify('danger', '{{ __('filament.integration.notifications.error.title') }}', message || '{{ __('filament.integration.notifications.error.body') }}');
+        this.status = @js(\App\Common\Constants\StatusConnect::ERROR->value);
+        this.statusMessage = message || '{{ __('filament.integration.notifications.error.body') }}';
 
         if (this.recordId && this.recordId !== 'temp') {
             this.disconnect();
@@ -124,14 +130,18 @@ $lastSync = method_exists($record->last_sync_at, 'diffForHumans')
             });
             const result = await response.json();
 
-            if (result.success) {
+        if (result.success) {
                 if (result.count !== undefined) this.pagesCount = result.count;
+                this.status = @js(\App\Common\Constants\StatusConnect::CONNECTED->value);
+                this.statusMessage = null;
                 this.notify('success', '{{ __('filament.integration.notifications.sync_success.title') }}', result.message);
                 setTimeout(() => window.location.reload(), 1000);
             } else {
                 throw new Error(result.message);
             }
         } catch (error) {
+            this.status = @js(\App\Common\Constants\StatusConnect::ERROR->value);
+            this.statusMessage = error.message;
             this.notify('danger', '{{ __('filament.integration.notifications.sync_error.title') }}', error.message);
         } finally {
             this.syncing = false;
@@ -152,12 +162,16 @@ $lastSync = method_exists($record->last_sync_at, 'diffForHumans')
             const result = await response.json();
 
             if (result.success) {
+                this.status = @js(\App\Common\Constants\StatusConnect::PENDING->value);
+                this.statusMessage = null;
                 this.notify('success', '{{ __('filament.integration.notifications.disconnected.title') }}');
                 setTimeout(() => window.location.reload(), 1000);
             } else {
                 throw new Error(result.message);
             }
         } catch (error) {
+            this.status = @js(\App\Common\Constants\StatusConnect::ERROR->value);
+            this.statusMessage = error.message;
             this.notify('danger', '{{ __('filament.integration.notifications.error.title') }}', error.message);
         }
     },
@@ -170,6 +184,26 @@ $lastSync = method_exists($record->last_sync_at, 'diffForHumans')
         });
     }
 }" class="space-y-4">
+    <div class="rounded-md border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-900/20">
+        <div class="flex items-center justify-between text-sm">
+            <span class="text-gray-600 dark:text-gray-300">{{ __('filament.integration.fields.connection_status') }}</span>
+            <span
+                class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold"
+                :class="{
+                    'bg-emerald-100 text-emerald-700': Number(status) === @js(\App\Common\Constants\StatusConnect::CONNECTED->value),
+                    'bg-amber-100 text-amber-700': Number(status) === @js(\App\Common\Constants\StatusConnect::PENDING->value),
+                    'bg-rose-100 text-rose-700': Number(status) === @js(\App\Common\Constants\StatusConnect::ERROR->value),
+                    'bg-gray-100 text-gray-700': !status
+                }"
+                x-text="Number(status) === @js(\App\Common\Constants\StatusConnect::CONNECTED->value)
+                    ? '{{ __('filament.integration.status.connected') }}'
+                    : (Number(status) === @js(\App\Common\Constants\StatusConnect::ERROR->value)
+                        ? '{{ __('filament.integration.status.error') }}'
+                        : '{{ __('filament.integration.status.pending') }}')"
+            ></span>
+        </div>
+        <p class="mt-2 text-xs text-gray-500 dark:text-gray-400" x-show="statusMessage" x-text="statusMessage"></p>
+    </div>
 
     @if ($isConnected)
     <div class="flex items-center justify-between gap-4 p-3 bg-gray-50 dark:bg-gray-900/20 rounded-md border border-gray-200 dark:border-gray-800">
