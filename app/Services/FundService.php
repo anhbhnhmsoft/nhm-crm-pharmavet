@@ -183,7 +183,6 @@ class FundService
         if ($fund->is_locked) {
             return false;
         }
-
         $rules = $this->fundLockRuleRepository->query()
             ->where('fund_id', $fund->id)
             ->where('action', $action->value)
@@ -444,6 +443,26 @@ class FundService
             'changed_by' => $actorId,
             'changed_at' => now(),
         ]);
+    }
+
+    public function deleteFund(Fund $fund): ServiceReturn
+    {
+        if ($fund->hasTransactions()) {
+            return ServiceReturn::error(__('accounting.fund.notifications.delete_blocked_has_transactions'));
+        }
+        
+        try {
+            DB::transaction(function () use ($fund) {
+                $fund->lockRules()->delete();
+                $fund->lockAudits()->delete();
+                $fund->delete();
+            });
+
+            return ServiceReturn::success(message: __('common.notification.success'));
+        } catch (Throwable $e) {
+            Log::error('Fund delete error: ' . $e->getMessage());
+            return ServiceReturn::error(__('accounting.fund.notifications.delete_failed') ?? __('error.common_error_server'));
+        }
     }
 
     public function getDeniedMessage(FundLockAction $action): string

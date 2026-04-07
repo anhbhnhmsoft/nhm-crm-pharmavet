@@ -77,8 +77,10 @@ class UsersTable
                     ->label(__('filament.user.organization'))
                     ->sortable(),
 
-                TextColumn::make('team.name')
-                    ->label(__('filament.user.team')),
+                TextColumn::make('teams.name')
+                    ->label(__('filament.user.team'))
+                    ->badge()
+                    ->color('info'),
             ])
             ->filters([
                 TrashedFilter::make(),
@@ -96,13 +98,13 @@ class UsersTable
                 SelectFilter::make('role')
                     ->label(__('filament.user.role'))
                     ->options(
-                        \App\Common\Constants\User\UserRole::getOptions()
+                        UserRole::getOptions()
                     ),
 
                 SelectFilter::make('position')
                     ->label(__('filament.user.position'))
                     ->options(
-                        \App\Common\Constants\User\UserPosition::getOptions()
+                        UserPosition::getOptions()
                     ),
 
                 TernaryFilter::make('disable')

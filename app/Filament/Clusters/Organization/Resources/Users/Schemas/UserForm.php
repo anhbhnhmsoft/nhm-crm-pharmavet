@@ -94,6 +94,9 @@ class UserForm
                             ->relationship('organization', 'name')
                             ->searchable()
                             ->extraInputAttributes(['required' => false])
+                            ->validationMessages([
+                                'required' => __('common.error.required'),
+                            ])
                             ->preload()
                             ->visible(function () {
                                 return Gate::allows(GateKey::IS_SUPER_ADMIN);
@@ -168,9 +171,12 @@ class UserForm
                         TextInput::make('salary')
                             ->label(__('user.form.salary'))
                             ->numeric()
-                            ->extraInputAttributes(['required' => false])
-                            ->minValue(0)
-                            ->maxValue(1000000000)
+                            ->rules(['min:0', 'max:1000000000'])
+                            ->extraInputAttributes([
+                                'required' => false,
+                                'min' => null,
+                                'max' => null,
+                            ])
                             ->required()
                             ->validationMessages([
                                 'required' => __('common.error.required'),
@@ -189,6 +195,14 @@ class UserForm
                             ->validationMessages([
                                 'regex' => __('common.error.phone_invalid'), // VD: Số điện thoại không đúng định dạng VN.
                                 'max'   => __('common.error.max_length', ['max' => 15]),
+                                'unique' => __('common.error.phone_unique'),
+                            ]),
+
+                        TextInput::make('address')
+                            ->label(__('user.form.address'))
+                            ->maxLength(255)
+                            ->validationMessages([
+                                'max' => __('common.error.max_length', ['max' => 255]),
                             ]),
 
                         TextInput::make('online_hours')

@@ -92,6 +92,7 @@
     - email : (varchar(255), nullable, unique)
     - name : (varchar(255), not null)
     - phone : (varchar(20), nullable)
+    - address : (varchar(255), nullable) -- địa chỉ người dùng
     - role : (smallint, not null) -- vai trò người dùng, enum UserRole
     - position : (smallint, nullable) -- chức vụ người dùng, enum UserPosition
     - salary : (decimal(15, 2), nullable) -- lương người dùng

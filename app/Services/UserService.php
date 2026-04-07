@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Core\ServiceReturn;
+use App\Repositories\TeamRepository;
 use App\Repositories\UserRepository;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
@@ -10,7 +11,10 @@ use Throwable;
 
 class UserService
 {
-    public function __construct(protected UserRepository $userRepository) {}
+    public function __construct(
+        protected UserRepository $userRepository,
+        protected TeamRepository $teamRepository,
+    ) {}
 
     public function find($id)
     {
@@ -28,8 +32,18 @@ class UserService
         try {
 
             $query = $this->userRepository->query();
-            if (!empty($filters['disable'])) {
+            if (isset($filters['disable'])) {
                 $query->where('disable', $filters['disable']);
+            }
+
+            if (array_key_exists('available_for_team', $filters)) {
+                $teamId = $filters['available_for_team'];
+                $query->where(function ($q) use ($teamId) {
+                    $q->whereNull('team_id');
+                    if ($teamId) {
+                        $q->orWhere('team_id', $teamId);
+                    }
+                });
             }
 
             if (!empty($filters['organization_id'])) {
@@ -79,14 +93,19 @@ class UserService
     {
         DB::beginTransaction();
         try {
-            $result = $this->userRepository->query()->whereIn('id', $users)->update(['team_id' => $teamId]);
-            if ($ableRemove) {
-                $this->userRepository->query()->where('team_id', $teamId)
-                    ->whereNotIn('id', $users)
-                    ->update(['team_id' => null]);
+            $team = $this->teamRepository->find($teamId);
+            if (!$team) {
+                return ServiceReturn::error(__('common.error.not_found'));
             }
+
+            if ($ableRemove) {
+                $team->users()->sync($users);
+            } else {
+                $team->users()->syncWithoutDetaching($users);
+            }
+
             DB::commit();
-            return ServiceReturn::success($result);
+            return ServiceReturn::success(true);
         } catch (Throwable $thr) {
             DB::rollBack();
             Log::error($thr);

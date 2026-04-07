@@ -6,6 +6,8 @@ use App\Filament\Clusters\Organization\Resources\Users\UserResource;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\UsersExport;
 
 class ListUsers extends ListRecords
 {
@@ -16,12 +18,12 @@ class ListUsers extends ListRecords
         return [
             CreateAction::make(),
             Action::make('export_excel')
-                ->label(__('common.action.export_excel'))
-                ->icon('heroicon-o-arrow-down-tray')
-                ->color('success')
-                ->action(function () {
-                    return \Maatwebsite\Excel\Facades\Excel::download(new \App\Exports\UsersExport, 'users.xlsx');
-                }),
+            ->label(__('common.action.export_excel'))
+            ->icon('heroicon-o-arrow-down-tray')
+            ->color('success')
+            ->action(function () {
+            return Excel::download(new UsersExport, 'users.xlsx');
+        }),
         ];
     }
 }

@@ -45,4 +45,9 @@ class Fund extends Model
     {
         return $this->hasMany(FundLockAudit::class);
     }
+
+    public function hasTransactions(): bool
+    {
+        return $this->transactions()->exists();
+    }
 }

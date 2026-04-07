@@ -47,6 +47,7 @@ return [
         'date_after' => 'Ngày phải sau :date.',
         'url' => 'URL không hợp lệ.',
         'phone_invalid' => 'Số điện thoại không đúng định dạng VN.',
+        'phone_unique' => 'Số điện thoại đã tồn tại.',
         'min' => [
             'numeric' => 'Trường :attribute phải tối thiểu là :min.',
             'file' => 'Trường :attribute phải tối thiểu là :min kilobytes.',
@@ -63,6 +64,7 @@ return [
         'update_error' => 'Cập nhật dữ liệu thất bại',
         'in' => 'Giá trị đã chọn trong trường :attribute không hợp lệ.',
         'password' => 'Mật khẩu không hợp lệ, ít nhất 8 ký tự, 1 chữ Hoa, 1 chữ thường, 1 ký tự đặc biệt.',
+        'time_format' => 'Thời gian không hợp lệ (chỉ được nhập từ 00:00 đến 23:59)',
     ],
     'form' => [
         'location_search_placeholder' => 'Tìm kiếm địa điểm',
