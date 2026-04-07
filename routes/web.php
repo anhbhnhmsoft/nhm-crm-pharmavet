@@ -25,7 +25,7 @@ Route::middleware(['auth:web'])->group(function () {
         ->name('marketing.spend-attachments.download');
 });
 
-Route::middleware(['web'])->prefix('integration/facebook')->group(function () {
+Route::middleware(['web', 'auth:web'])->prefix('integration/facebook')->group(function () {
     Route::get('{integration}/redirect', [FacebookAuthController::class, 'redirect'])
         ->name('integration.facebook.redirect');
 
@@ -33,7 +33,7 @@ Route::middleware(['web'])->prefix('integration/facebook')->group(function () {
         ->name('integration.facebook.callback');
 });
 
-Route::middleware(['web', 'auth'])->prefix('api/integrations')->group(function () {
+Route::middleware(['web', 'auth:web'])->prefix('api/integrations')->group(function () {
     Route::post('/{integration}/sync-pages', [FacebookAuthController::class, 'syncPages'])
         ->name('api.integrations.sync-pages');
 

@@ -19,6 +19,7 @@ use FacebookAds\Object\Lead;
 use App\Common\Constants\Customer\CustomerType;
 use App\Common\Constants\Interaction\InteractionStatus;
 use App\Common\Constants\Marketing\IntegrationType;
+use App\Common\Constants\Order\OrderStatus;
 use App\Repositories\IntegrationRepository;
 use App\Repositories\LeadDistributionConfigRepository;
 use App\Services\LeadDistributionService;
@@ -51,13 +52,17 @@ class MetaBusinessService
     }
 
 
-    public function getRedirectUrl(): string
+    public function getRedirectUrl(?string $state = null): string
     {
-        return Socialite::driver('facebook')
+        $driver = Socialite::driver('facebook')
             ->scopes($this->getRequiredScopes())
-            ->stateless()
-            ->redirect()
-            ->getTargetUrl();
+            ->stateless();
+
+        if ($state) {
+            $driver = $driver->with(['state' => $state]);
+        }
+
+        return $driver->redirect()->getTargetUrl();
     }
 
     /**
@@ -65,19 +70,12 @@ class MetaBusinessService
      */
     protected function getRequiredScopes(): array
     {
-        $advanced = filter_var((string) config('services.facebook.request_advanced_scopes', 'false'), FILTER_VALIDATE_BOOLEAN);
-        if ($advanced) {
-            return [
-                'pages_show_list',
-                'pages_read_engagement',
-                'pages_manage_metadata',
-                'leads_retrieval',
-                'business_management',
-            ];
-        }
         return [
-            'public_profile',
-            'email',
+            'pages_show_list',
+            'pages_read_engagement',
+            'pages_manage_metadata',
+            'leads_retrieval',
+            'business_management',
         ];
     }
 
@@ -89,7 +87,8 @@ class MetaBusinessService
         try {
             $facebookUser = Socialite::driver('facebook')->stateless()->user();
             Log::info('Facebook callback', [
-                'facebookUser' => $facebookUser,
+                'integration_id' => $integration->id,
+                'facebook_user_id' => $facebookUser->getId(),
             ]);
             // Exchange for long-lived token
             $longLivedToken = $this->exchangeLongLivedToken($facebookUser->token);
@@ -110,7 +109,11 @@ class MetaBusinessService
                 ]
             );
             // Fetch and save pages
-            $this->syncPages($integration);
+            $syncResult = $this->syncPages($integration);
+            if ($syncResult->isError()) {
+                throw new \RuntimeException($syncResult->getMessage());
+            }
+            $syncedPages = (int) data_get($syncResult->getData(), 'count', 0);
 
             // Update integration status
             $integration->update([
@@ -124,7 +127,10 @@ class MetaBusinessService
                 'user_id' => $facebookUser->getId(),
             ]);
 
-            return ServiceReturn::success(null, 'Meta Business ' . __('messages.meta_business.success.connected'));
+            return ServiceReturn::success(
+                ['count' => $syncedPages],
+                'Meta Business ' . __('messages.meta_business.success.connected')
+            );
         } catch (\Exception $e) {
             Log::error('Facebook callback failed', [
                 'integration_id' => $integration->id,
@@ -202,21 +208,27 @@ class MetaBusinessService
 
             $pages = $response->json('data', []);
             $syncedCount = 0;
+            $subscribedCount = 0;
 
 
             foreach ($pages as $pageData) {
-                // Only sync pages with MANAGE and ADVERTISE permissions
+                // Only sync pages with lead retrieval capabilities.
                 $tasks = $pageData['tasks'] ?? [];
-                if (!in_array('MANAGE', $tasks) || !in_array('ADVERTISE', $tasks)) {
+                if (!$this->hasLeadgenPermission($tasks)) {
                     continue;
                 }
-                Log::info($pageData);
-                if ($this->savePageEntity($integration, $pageData)) {
+                $isSubscribed = $this->savePageEntity($integration, $pageData);
+                if ($isSubscribed !== null) {
                     $syncedCount++;
+                    if ($isSubscribed) {
+                        $subscribedCount++;
+                    }
                 }
             }
 
             $integration->update([
+                'status' => StatusConnect::CONNECTED->value,
+                'status_message' => __('messages.meta_business.success.pages_synced'),
                 'last_sync_at' => now(),
             ]);
 
@@ -225,24 +237,31 @@ class MetaBusinessService
                 'count' => $syncedCount,
             ]);
 
-            return ServiceReturn::success(['count' => $syncedCount], 'Meta Business ' . __('messages.meta_business.success.pages_synced'));
+            return ServiceReturn::success([
+                'count' => $syncedCount,
+                'subscribed_count' => $subscribedCount,
+            ], 'Meta Business ' . __('messages.meta_business.success.pages_synced'));
         } catch (\Exception $e) {
             Log::error('Failed to sync pages', [
                 'integration_id' => $integration->id,
                 'error' => $e->getMessage(),
             ]);
 
-            return ServiceReturn::error(__('messages.meta_business.error.sync_pages_failed'), $e);
+            $integration->update([
+                'status' => StatusConnect::ERROR->value,
+                'status_message' => $e->getMessage(),
+            ]);
+
+            return ServiceReturn::error($e->getMessage(), $e);
         }
     }
 
     /**
      * Save page entity and subscribe
      */
-    protected function savePageEntity(Integration $integration, array $pageData): bool
+    protected function savePageEntity(Integration $integration, array $pageData): ?bool
     {
         try {
-            Log::info($pageData);
             $tasks = $pageData['tasks'] ?? [];
 
             // Check for existing entity to preserve metadata
@@ -257,6 +276,9 @@ class MetaBusinessService
                 'picture' => $pageData['picture']['data']['url'] ?? null,
                 'tasks' => $tasks,
                 'default_product_id' => null,
+                'webhook_subscribed' => false,
+                'webhook_subscribed_at' => null,
+                'webhook_error' => null,
             ];
 
             if ($existingEntity) {
@@ -266,6 +288,8 @@ class MetaBusinessService
                 // We prioritize existing configuration (like default_product_id) over defaults
                 $metadata['default_product_id'] = $existingMetadata['default_product_id'] ?? null;
                 $metadata['webhook_subscribed'] = $existingMetadata['webhook_subscribed'] ?? false;
+                $metadata['webhook_subscribed_at'] = $existingMetadata['webhook_subscribed_at'] ?? null;
+                $metadata['webhook_error'] = $existingMetadata['webhook_error'] ?? null;
             }
 
             // Save page entity
@@ -280,16 +304,8 @@ class MetaBusinessService
                 ]
             );
 
-            // We need to preserve existing metadata like default_product_id if we are just updating
-            // The upsertPageEntity implementation in repository might overwrite metadata. 
-            // Ideally we should merge metadata, but for now let's assume the repository handles it or we re-fetch.
-            // Actually, let's look at how we can be safer. 
-            // If the entity already exists, we should probably merge metadata.
-            // But since I can't see the repository code, I will assume standard upsert behavior.
-            // To be safe, let's just proceed.
-
             // Save page access token
-            $this->integrationTokenRepository->upsertUserToken(
+            $this->integrationTokenRepository->upsertPageAccessToken(
                 [
                     'integration_id' => $integration->id,
                     'entity_id' => $entity->id,
@@ -301,14 +317,26 @@ class MetaBusinessService
             );
 
             // Subscribe page to webhook
-            return $this->subscribePageToWebhook($entity, $pageData['access_token']);
+            $isSubscribed = $this->subscribePageToWebhook($entity, $pageData['access_token']);
+
+            $metadata = $entity->metadata ?? [];
+            $metadata['webhook_subscribed'] = $isSubscribed;
+            $metadata['webhook_subscribed_at'] = $isSubscribed ? now()->toDateTimeString() : null;
+            $metadata['webhook_error'] = $isSubscribed ? null : __('messages.meta_business.error.webhook_subscribe_failed');
+
+            $entity->update([
+                'metadata' => $metadata,
+                'status' => $isSubscribed ? StatusConnect::CONNECTED->value : StatusConnect::ERROR->value,
+            ]);
+
+            return $isSubscribed;
         } catch (\Exception $e) {
             Log::error('Failed to save page entity', [
                 'integration_id' => $integration->id,
                 'page_id' => $pageData['id'] ?? 'unknown',
                 'error' => $e->getMessage(),
             ]);
-            return false;
+            return null;
         }
     }
 
@@ -341,8 +369,11 @@ class MetaBusinessService
                 return ServiceReturn::success([
                     'id' => $data['id'] ?? null,
                     'form_id' => $data['form_id'] ?? null,
+                    'ad_id' => $data['ad_id'] ?? null,
+                    'campaign_id' => $data['campaign_id'] ?? null,
+                    'adset_id' => $data['adset_id'] ?? null,
                     'created_time' => $data['created_time'] ?? null,
-                    'fields' => $fields,a
+                    'fields' => $fields,
                 ]);
             }
 
@@ -449,7 +480,7 @@ class MetaBusinessService
             // Update integration status
             $integration->update([
                 'status' => StatusConnect::PENDING->value, // pending
-                'status_message' => __('services.meta_business.disconnected'),
+                'status_message' => __('messages.meta_business.disconnected'),
             ]);
 
             Log::info('Integration disconnected', [
@@ -461,6 +492,10 @@ class MetaBusinessService
             Log::error('Failed to disconnect integration', [
                 'integration_id' => $integration->id,
                 'error' => $e->getMessage(),
+            ]);
+            $integration->update([
+                'status' => StatusConnect::ERROR->value,
+                'status_message' => $e->getMessage(),
             ]);
             return ServiceReturn::error('Meta Business ' . __('messages.meta_business.error.disconnect_failed'), $e);
         }
@@ -499,10 +534,6 @@ class MetaBusinessService
             );
 
             if ($response->successful()) {
-                $metadata = $entity->metadata ?? [];
-                $metadata['webhook_subscribed'] = true;
-                $entity->update(['metadata' => $metadata]);
-
                 Log::info('Page subscribed to webhook', [
                     'entity_id' => $entity->id,
                     'page_id' => $entity->external_id,
@@ -549,7 +580,7 @@ class MetaBusinessService
     public function findIntegrationByPageId(string $pageId): ServiceReturn
     {
         try {
-            $integration = $this->integrationRepository->findByPageConfigContains($pageId);
+            $integration = $this->integrationRepository->findFacebookByPageExternalId($pageId);
             if (!$integration) {
                 return ServiceReturn::error(__('messages.meta_business.error.integration_not_found'));
             }
@@ -587,6 +618,7 @@ class MetaBusinessService
 
             // Fetch Campaign/Ad info if ad_id exists
             $leadData = $ret->getData();
+            $leadData['page_id'] = $pageId;
             if (!empty($leadData['ad_id'])) {
                 $userToken = $this->integrationTokenRepository->getUserLongLivedToken($integrationId);
                 if ($userToken) {
@@ -616,7 +648,7 @@ class MetaBusinessService
         try {
             $response = Http::get(self::GRAPH_API_URL . self::GRAPH_API_VERSION . "/{$adId}", [
                 'access_token' => $userAccessToken,
-                'fields' => 'name,campaign{name},adset{name}',
+                'fields' => 'id,name,campaign{id,name},adset{id,name}',
             ]);
 
             if ($response->successful()) {
@@ -646,26 +678,16 @@ class MetaBusinessService
                 return ServiceReturn::error(__('messages.meta_business.error.integration_not_found'));
             }
 
-            $mapping = $integration->field_mapping ?? [];
-            $nameKey = $mapping['name'] ?? 'full_name';
-            $phoneKey = $mapping['phone'] ?? 'phone_number';
-            $emailKey = $mapping['email'] ?? 'email';
+            $mapping = (array) ($integration->field_mapping ?? []);
+            $fields = $this->extractLeadFields($leadData);
 
-            $raw = $leadData['field_data'] ?? $leadData['fields'] ?? [];
-            $fields = [];
-            foreach ($raw as $item) {
-                $k = $item['name'] ?? null;
-                $v = $item['values'][0] ?? ($item['value'] ?? null);
-                if ($k) {
-                    $fields[$k] = $v;
-                }
-            }
-
-            $username = (string) ($fields[$nameKey] ?? '');
-            $phone = (string) ($fields[$phoneKey] ?? '');
-            $email = (string) ($fields[$emailKey] ?? '');
-
-            $phone = preg_replace('/[^0-9]/', '', $phone ?? '');
+            $username = (string) $this->resolveMappedLeadValue($fields, $mapping, 'name', ['full_name', 'name']);
+            $phone = $this->normalizePhone(
+                (string) $this->resolveMappedLeadValue($fields, $mapping, 'phone', ['phone_number', 'phone', 'phone_no'])
+            );
+            $email = $this->normalizeEmail(
+                (string) $this->resolveMappedLeadValue($fields, $mapping, 'email', ['email', 'email_address'])
+            );
 
             if ($phone) {
                 $isBlacklisted = DB::table('black_list')
@@ -681,7 +703,10 @@ class MetaBusinessService
                         'source' => 'facebook_lead',
                     ]);
                     DB::commit();
-                    return ServiceReturn::error(__('messages.meta_business.error.customer_blacklisted'));
+                    return ServiceReturn::error(
+                        __('messages.meta_business.error.customer_blacklisted'),
+                        data: ['retryable' => false]
+                    );
                 }
             }
 
@@ -699,7 +724,7 @@ class MetaBusinessService
 
             if ($existingCustomer) {
                 $hasCompletedOrder = $existingCustomer->orders()
-                    ->where('status', \App\Common\Constants\StatusProgress::COMPLETED->value)
+                    ->where('status', OrderStatus::COMPLETED->value)
                     ->exists();
 
                 if ($hasCompletedOrder) {
@@ -800,7 +825,20 @@ class MetaBusinessService
 
     protected function formatSourceDetail(array $leadData, array $marketingData): string
     {
-        $details = ['type' => 'leadgen'];
+        $details = [
+            'channel' => 'facebook_ads',
+            'type' => 'leadgen',
+        ];
+
+        if (!empty($leadData['page_id'])) {
+            $details['page_id'] = (string) $leadData['page_id'];
+        }
+        if (!empty($leadData['form_id'])) {
+            $details['form_id'] = (string) $leadData['form_id'];
+        }
+        if (!empty($leadData['id'])) {
+            $details['lead_id'] = (string) $leadData['id'];
+        }
 
         if (!empty($marketingData['campaign_name'])) {
             $details['campaign'] = $marketingData['campaign_name'];
@@ -812,11 +850,83 @@ class MetaBusinessService
             $details['adset'] = $marketingData['adset_name'];
         }
 
-        // If no marketing data, return simple string
-        if (count($details) === 1) {
-            return 'leadgen';
+        if (count($details) <= 2) {
+            return json_encode($details, JSON_UNESCAPED_UNICODE);
         }
 
         return json_encode($details, JSON_UNESCAPED_UNICODE);
+    }
+
+    protected function hasLeadgenPermission(array $tasks): bool
+    {
+        return in_array('MANAGE', $tasks, true)
+            && (in_array('ADVERTISE', $tasks, true) || in_array('CREATE_CONTENT', $tasks, true));
+    }
+
+    protected function extractLeadFields(array $leadData): array
+    {
+        $fields = [];
+        $raw = $leadData['field_data'] ?? $leadData['fields'] ?? [];
+
+        foreach ($raw as $key => $item) {
+            if (is_string($key) && !is_array($item)) {
+                $fields[$key] = $item;
+                continue;
+            }
+
+            if (!is_array($item)) {
+                continue;
+            }
+
+            $name = $item['name'] ?? null;
+            if (!is_string($name) || trim($name) === '') {
+                continue;
+            }
+
+            $value = $item['values'][0] ?? ($item['value'] ?? null);
+            $fields[$name] = is_string($value) ? trim($value) : $value;
+        }
+
+        return $fields;
+    }
+
+    protected function resolveMappedLeadValue(array $fields, array $mapping, string $targetField, array $fallbackKeys = []): mixed
+    {
+        $targetField = trim($targetField);
+
+        if (isset($mapping[$targetField]) && is_string($mapping[$targetField])) {
+            $sourceKey = trim($mapping[$targetField]);
+            if ($sourceKey !== '' && array_key_exists($sourceKey, $fields)) {
+                return $fields[$sourceKey];
+            }
+        }
+
+        foreach ($mapping as $source => $target) {
+            if (!is_string($source) || !is_string($target)) {
+                continue;
+            }
+
+            if (trim($target) === $targetField && array_key_exists($source, $fields)) {
+                return $fields[$source];
+            }
+        }
+
+        foreach ($fallbackKeys as $key) {
+            if (array_key_exists($key, $fields)) {
+                return $fields[$key];
+            }
+        }
+
+        return null;
+    }
+
+    protected function normalizePhone(string $phone): string
+    {
+        return preg_replace('/[^0-9]/', '', $phone);
+    }
+
+    protected function normalizeEmail(string $email): string
+    {
+        return strtolower(trim($email));
     }
 }

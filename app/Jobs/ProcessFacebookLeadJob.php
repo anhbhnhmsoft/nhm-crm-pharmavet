@@ -28,6 +28,17 @@ class ProcessFacebookLeadJob implements ShouldQueue
 
     public function handle(MetaBusinessService $service)
     {
-        $service->processLead($this->integrationId, $this->pageId, $this->leadId);
+        $result = $service->processLead($this->integrationId, $this->pageId, $this->leadId);
+
+        if ($result->isSuccess()) {
+            return;
+        }
+
+        $retryable = data_get($result->getData(), 'retryable', true);
+        if ($retryable === false) {
+            return;
+        }
+
+        throw new \RuntimeException($result->getMessage());
     }
 }

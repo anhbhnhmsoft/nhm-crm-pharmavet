@@ -31,6 +31,31 @@ class WebsiteLeadIngestServiceTest extends TestCase
         $this->assertArrayHasKey('payload', $result['errors']);
     }
 
+    public function test_it_resolves_dynamic_lead_keys_when_mapping_is_configured(): void
+    {
+        $service = new WebsiteLeadIngestService(
+            $this->createMock(IntegrationRepository::class),
+            $this->createMock(CustomerRepository::class),
+            $this->createMock(WebsiteLeadIngestLogRepository::class),
+        );
+
+        $reflection = new \ReflectionClass($service);
+        $method = $reflection->getMethod('resolveAllowedLeadKeys');
+        $method->setAccessible(true);
+
+        $allowed = $method->invoke($service, [
+            'full_name' => 'name',
+            'phone_number' => 'phone',
+            'email_address' => 'email',
+        ]);
+
+        $this->assertContains('full_name', $allowed);
+        $this->assertContains('phone_number', $allowed);
+        $this->assertContains('email_address', $allowed);
+        $this->assertContains('name', $allowed);
+        $this->assertContains('phone', $allowed);
+    }
+
     public function test_it_applies_mapping_with_source_to_crm_format(): void
     {
         $service = new WebsiteLeadIngestService(
@@ -147,6 +172,27 @@ class WebsiteLeadIngestServiceTest extends TestCase
         ]);
 
         $this->assertArrayHasKey('lead.phone', $errors);
+    }
+
+    public function test_it_rejects_when_name_is_missing_after_mapping_pipeline(): void
+    {
+        $service = new WebsiteLeadIngestService(
+            $this->createMock(IntegrationRepository::class),
+            $this->createMock(CustomerRepository::class),
+            $this->createMock(WebsiteLeadIngestLogRepository::class),
+        );
+
+        $reflection = new \ReflectionClass($service);
+        $method = $reflection->getMethod('validateNormalizedLead');
+        $method->setAccessible(true);
+
+        $errors = $method->invoke($service, [
+            'name' => '',
+            'phone' => '0909000001',
+            'email' => '',
+        ]);
+
+        $this->assertArrayHasKey('lead.name', $errors);
     }
 
     public function test_it_appends_inbound_tag_to_note(): void

@@ -25,19 +25,12 @@ class IntegrationTokenRepository extends BaseRepository
      */
     public function upsertUserToken(array $data): void
     {
-        $this->query()->updateOrCreate(
-            [
-                'integration_id' => $data['integration_id'],
-                'type' => IntegrationTokenType::USER_LONG_LIVED_TOKEN->value,
-                'entity_id' => $data['entity_id'],
-            ],
-            [
-                'token' => $data['token'],
-                'scopes' => $data['scopes'],
-                'expires_at' => $data['expires_at'],
-                'status' => $data['status'],
-            ]
-        );
+        $this->upsertToken($data, IntegrationTokenType::USER_LONG_LIVED_TOKEN);
+    }
+
+    public function upsertPageAccessToken(array $data): void
+    {
+        $this->upsertToken($data, IntegrationTokenType::PAGE_ACCESS_TOKEN);
     }
 
     /**
@@ -66,5 +59,22 @@ class IntegrationTokenRepository extends BaseRepository
             ->where('type', \App\Common\Constants\Marketing\IntegrationTokenType::PAGE_ACCESS_TOKEN->value)
             ->where('status', StatusConnect::CONNECTED->value)
             ->first();
+    }
+
+    protected function upsertToken(array $data, IntegrationTokenType $type): void
+    {
+        $this->query()->updateOrCreate(
+            [
+                'integration_id' => $data['integration_id'],
+                'type' => $type->value,
+                'entity_id' => $data['entity_id'] ?? null,
+            ],
+            [
+                'token' => $data['token'],
+                'scopes' => $data['scopes'] ?? [],
+                'expires_at' => $data['expires_at'] ?? null,
+                'status' => $data['status'] ?? StatusConnect::CONNECTED->value,
+            ]
+        );
     }
 }

@@ -11,10 +11,13 @@ use App\Repositories\CustomerRepository;
 use App\Repositories\IntegrationRepository;
 use App\Repositories\WebsiteLeadIngestLogRepository;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 
 class WebsiteLeadIngestService
 {
+    protected ?bool $integrationTypeColumnExists = null;
+
     public function __construct(
         protected IntegrationRepository $integrationRepository,
         protected CustomerRepository $customerRepository,
@@ -24,10 +27,7 @@ class WebsiteLeadIngestService
 
     public function ingest(string $siteId, array $payload, ?string $token = null): ServiceReturn
     {
-        $integration = $this->integrationRepository->query()
-            ->where('type', IntegrationType::WEBSITE->value)
-            ->where('config->site_id', $siteId)
-            ->first();
+        $integration = $this->resolveWebsiteIntegration($siteId);
 
         if (!$integration) {
             return ServiceReturn::error('Website integration not found');
@@ -38,7 +38,8 @@ class WebsiteLeadIngestService
             return ServiceReturn::error('Unauthorized');
         }
 
-        $validation = $this->validatePayload($payload);
+        $mapping = (array) ($integration->field_mapping ?? []);
+        $validation = $this->validatePayload($payload, $mapping);
         $log = $this->websiteLeadIngestLogRepository->create([
             'organization_id' => (int) $integration->organization_id,
             'integration_id' => (int) $integration->id,
@@ -61,7 +62,7 @@ class WebsiteLeadIngestService
         $normalized = $this->applyIntegrationMapping(
             (array) Arr::get($payload, 'lead', []),
             $validation['normalized'],
-            (array) ($integration->field_mapping ?? [])
+            $mapping
         );
         $normalized = $this->applyDefaultValues($normalized, (array) Arr::get($integration->config ?? [], 'field_defaults', []));
         $qualityErrors = $this->validateNormalizedLead($normalized);
@@ -101,7 +102,6 @@ class WebsiteLeadIngestService
             $customerType = $hasCompleted ? CustomerType::OLD_CUSTOMER->value : CustomerType::NEW_DUPLICATE->value;
         }
 
-        $mapping = (array) ($integration->field_mapping ?? []);
         $sourceDetail = (string) ($normalized['source_detail'] ?? 'website_v2');
         $productId = (int) ($normalized['product_id'] ?? Arr::get($integration->config ?? [], 'default_product_id', 0));
 
@@ -134,10 +134,7 @@ class WebsiteLeadIngestService
 
     public function ping(string $siteId, array $payload, ?string $token = null): ServiceReturn
     {
-        $integration = $this->integrationRepository->query()
-            ->where('type', IntegrationType::WEBSITE->value)
-            ->where('config->site_id', $siteId)
-            ->first();
+        $integration = $this->resolveWebsiteIntegration($siteId);
 
         if (!$integration) {
             return ServiceReturn::error('Website integration not found');
@@ -148,7 +145,8 @@ class WebsiteLeadIngestService
             return ServiceReturn::error('Unauthorized');
         }
 
-        $validation = $this->validatePayload($payload);
+        $mapping = (array) ($integration->field_mapping ?? []);
+        $validation = $this->validatePayload($payload, $mapping);
         if (!$validation['valid']) {
             $this->websiteLeadIngestLogRepository->create([
                 'organization_id' => (int) $integration->organization_id,
@@ -170,7 +168,7 @@ class WebsiteLeadIngestService
         $normalized = $this->applyIntegrationMapping(
             (array) Arr::get($payload, 'lead', []),
             $validation['normalized'],
-            (array) ($integration->field_mapping ?? [])
+            $mapping
         );
         $normalized = $this->applyDefaultValues($normalized, (array) Arr::get($integration->config ?? [], 'field_defaults', []));
         $qualityErrors = $this->validateNormalizedLead($normalized);
@@ -210,7 +208,7 @@ class WebsiteLeadIngestService
         ]);
     }
 
-    protected function validatePayload(array $payload): array
+    protected function validatePayload(array $payload, array $mapping = []): array
     {
         $allowedRootKeys = ['request_id', 'lead'];
         $invalidRootKeys = array_values(array_diff(array_keys($payload), $allowedRootKeys));
@@ -224,7 +222,7 @@ class WebsiteLeadIngestService
         }
 
         $lead = (array) ($payload['lead'] ?? []);
-        $allowedLeadKeys = ['name', 'phone', 'email', 'address', 'note', 'source_detail', 'external_id', 'product_id'];
+        $allowedLeadKeys = $this->resolveAllowedLeadKeys($mapping);
         $invalidLeadKeys = array_values(array_diff(array_keys($lead), $allowedLeadKeys));
         if (!empty($invalidLeadKeys)) {
             return [
@@ -238,8 +236,8 @@ class WebsiteLeadIngestService
         $validator = Validator::make($payload, [
             'request_id' => ['nullable', 'string', 'max:120'],
             'lead' => ['required', 'array'],
-            'lead.name' => ['required', 'string', 'max:255'],
-            'lead.phone' => ['required', 'string', 'max:30'],
+            'lead.name' => ['nullable', 'string', 'max:255'],
+            'lead.phone' => ['nullable', 'string', 'max:30'],
             'lead.email' => ['nullable', 'email', 'max:255'],
             'lead.address' => ['nullable', 'string', 'max:255'],
             'lead.note' => ['nullable', 'string'],
@@ -328,6 +326,11 @@ class WebsiteLeadIngestService
     {
         $errors = [];
 
+        $name = trim((string) ($normalized['name'] ?? ''));
+        if ($name === '') {
+            $errors['lead.name'][] = 'Name is required.';
+        }
+
         $phoneDigits = preg_replace('/[^0-9]/', '', (string) ($normalized['phone'] ?? ''));
         if ($phoneDigits === '' || strlen($phoneDigits) < 9 || strlen($phoneDigits) > 11) {
             $errors['lead.phone'][] = 'Phone number must contain 9-11 digits.';
@@ -364,5 +367,58 @@ class WebsiteLeadIngestService
         }
 
         return $base . PHP_EOL . $tagText;
+    }
+
+    protected function resolveAllowedLeadKeys(array $mapping): array
+    {
+        $canonicalKeys = ['name', 'phone', 'email', 'address', 'note', 'source_detail', 'external_id', 'product_id'];
+        $allowed = $canonicalKeys;
+
+        foreach ($mapping as $left => $right) {
+            if (!is_string($left) || !is_string($right)) {
+                continue;
+            }
+
+            $left = trim($left);
+            $right = trim($right);
+            if ($left === '' || $right === '') {
+                continue;
+            }
+
+            // Support both mapping formats:
+            // source => crm and crm => source.
+            if (in_array($right, $canonicalKeys, true)) {
+                $allowed[] = $left;
+            }
+
+            if (in_array($left, $canonicalKeys, true)) {
+                $allowed[] = $right;
+            }
+        }
+
+        return array_values(array_unique($allowed));
+    }
+
+    protected function resolveWebsiteIntegration(string $siteId): mixed
+    {
+        $query = $this->integrationRepository->query()
+            ->where('config->site_id', $siteId);
+
+        if ($this->hasIntegrationTypeColumn()) {
+            $query->where('type', IntegrationType::WEBSITE->value);
+        }
+
+        return $query->first();
+    }
+
+    protected function hasIntegrationTypeColumn(): bool
+    {
+        if ($this->integrationTypeColumnExists !== null) {
+            return $this->integrationTypeColumnExists;
+        }
+
+        $this->integrationTypeColumnExists = Schema::hasColumn('integrations', 'type');
+
+        return $this->integrationTypeColumnExists;
     }
 }
