@@ -18,6 +18,21 @@ return [
             'activity_timeout' => 'Bạn đã không hoạt động quá 15 phút và đã bị đăng xuất tự động.'
         ]
     ],
+    'organization' => [
+        'label' => 'Tổ chức',
+        'plural' => 'Danh sách tổ chức',
+        'name' => 'Tên tổ chức',
+        'code' => 'Mã tổ chức',
+        'description' => 'Mô tả',
+        'general_info' => 'Thông tin chung',
+        'members' => 'Thành viên',
+        'leader' => 'Trưởng nhóm',
+        'team_members' => 'Thành viên nhóm',
+        'total_members' => 'Tổng số thành viên',
+        'error' => [
+            'member_not_match_type' => 'Thành viên đã chọn không phù hợp với kiểu đội nhóm đã chọn',
+        ],
+    ],
     'user' => [
         'label' => 'Thành viên',
         'plural' => 'Danh sách thành viên',
@@ -69,8 +84,12 @@ return [
         'description' => 'Miêu tả',
         'general_info' => 'Thông tin chung',
         'members' => 'Thành viên',
+        'leader' => 'Trưởng nhóm',
         'team_members' => 'Thành viên nhóm',
-        'total_members' => 'Tổng số thành viên'
+        'total_members' => 'Tổng số thành viên',
+        'error' => [
+            'member_not_match_type' => 'Thành viên đã chọn không phù hợp với kiểu đội nhóm đã chọn',
+        ],
     ],
     'product' => [
         'organization' => 'Tổ chức',
@@ -208,10 +227,18 @@ return [
         'validation' => [
             'start_equals_end' => 'Thời gian kết thúc không được trùng với thời gian bắt đầu',
             'end_before_start' => 'Thời gian kết thúc phải sau thời gian bắt đầu',
+            'overlap' => 'Khoảng thời gian này đã bị trùng với một ca làm việc khác.',
         ],
         'placeholder' => [
             'select_users' => 'Người dùng trong ca làm việc'
-        ]
+        ],
+        'notifications' => [
+            'delete_failed' => [
+                'title' => 'Lỗi hệ thống',
+                'body' => 'Không thể xóa ca làm việc đang có nhân viên gán.',
+                'bulk_body' => 'Không thể xóa hàng loạt vì có ca đang được gán nhân viên.',
+            ],
+        ],
     ],
     'combo' => [
         'navigation_label' => 'Combo sản phẩm',

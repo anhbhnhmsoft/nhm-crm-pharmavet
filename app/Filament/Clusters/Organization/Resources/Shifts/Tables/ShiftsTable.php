@@ -56,7 +56,6 @@ class ShiftsTable
                     ->label(__('common.table.trashed')),
             ])
             ->recordActions([
-                ActionGroup::make([
                     ViewAction::make()
                         ->label(__('common.action.view'))
                         ->tooltip(__('common.tooltip.view'))
@@ -75,6 +74,16 @@ class ShiftsTable
                         ->modalHeading(__('common.modal.delete_title'))
                         ->modalDescription(__('common.modal.delete_confirm'))
                         ->modalSubmitActionLabel(__('common.action.confirm_delete'))
+                        ->before(function ($record, DeleteAction $action) {
+                            if ($record->users()->count() > 0) {
+                                \Filament\Notifications\Notification::make()
+                                    ->danger()
+                                    ->title(__('filament.shift.notifications.delete_failed.title'))
+                                    ->body(__('filament.shift.notifications.delete_failed.body'))
+                                    ->send();
+                                $action->cancel();
+                            }
+                        })
                         ->visible(fn($record) => ! $record->trashed()),
 
                     RestoreAction::make()
@@ -83,7 +92,6 @@ class ShiftsTable
                         ->icon('heroicon-o-arrow-path')
                         ->visible(fn($record) => $record->trashed()),
                 ])
-            ], position: \Filament\Tables\Enums\RecordActionsPosition::BeforeColumns)
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
@@ -91,7 +99,19 @@ class ShiftsTable
                         ->requiresConfirmation()
                         ->modalHeading(__('common.modal.delete_title'))
                         ->modalDescription(__('common.modal.delete_confirm'))
-                        ->modalSubmitActionLabel(__('common.action.confirm_delete')),
+                        ->modalSubmitActionLabel(__('common.action.confirm_delete'))
+                        ->before(function (\Illuminate\Database\Eloquent\Collection $records, DeleteBulkAction $action) {
+                            foreach ($records as $record) {
+                                if ($record->users()->count() > 0) {
+                                    \Filament\Notifications\Notification::make()
+                                        ->danger()
+                                        ->title(__('filament.shift.notifications.delete_failed.title'))
+                                        ->body(__('filament.shift.notifications.delete_failed.bulk_body'))
+                                        ->send();
+                                    $action->cancel();
+                                }
+                            }
+                        }),
 
                     RestoreBulkAction::make()
                         ->label(__('common.action.restore'))

@@ -63,11 +63,13 @@ class ProductForm
                                 $set('cskhUsers', []);
                             })
                             ->required()
+                            ->extraInputAttributes(['required' => false])
                             ->columnSpanFull(),
 
                         TextInput::make('name')
                             ->label(__('filament.product.name'))
                             ->required()
+                            ->extraInputAttributes(['required' => false, 'minlength' => null, 'maxlength' => null])
                             ->minLength(3)
                             ->maxLength(255)
                             ->placeholder(__('filament.product.tooltip_name'))
@@ -95,6 +97,7 @@ class ProductForm
                             ->label(__('filament.product.code_sku'))
                             ->unique(ignoreRecord: true)
                             ->required()
+                            ->extraInputAttributes(['required' => false, 'minlength' => null, 'maxlength' => null])
                             ->minLength(3)
                             ->maxLength(100)
                             ->placeholder(__('filament.product.tooltip_sku'))
@@ -123,6 +126,7 @@ class ProductForm
                             ->unique(ignoreRecord: true)
                             ->minLength(8)
                             ->maxLength(100)
+                            ->extraInputAttributes(['minlength' => null, 'maxlength' => null])
                             ->placeholder(__('filament.product.barcode_tooltip'))
                             ->suffixAction(
                                 Action::make('generateBarcode')
@@ -146,6 +150,7 @@ class ProductForm
                         TextInput::make('unit')
                             ->label(__('filament.product.unit'))
                             ->maxLength(50)
+                            ->extraInputAttributes(['maxlength' => null])
                             ->placeholder(__('filament.product.unit_tooltip'))
                             ->default('Cái')
                             ->validationMessages([
@@ -156,6 +161,7 @@ class ProductForm
                             ->label(__('filament.product.weight'))
                             ->numeric()
                             ->required()
+                            ->extraInputAttributes(['type' => 'text', 'inputmode' => 'decimal', 'required' => false, 'min' => null, 'max' => null, 'step' => null])
                             ->minValue(0)
                             ->maxValue(999999999)
                             ->default(0)
@@ -171,6 +177,7 @@ class ProductForm
                             ->label(__('filament.product.quantity'))
                             ->numeric()
                             ->required()
+                            ->extraInputAttributes(['type' => 'text', 'inputmode' => 'decimal', 'required' => false, 'min' => null, 'max' => null, 'step' => null])
                             ->minValue(0)
                             ->maxValue(999999999)
                             ->default(0)
@@ -198,8 +205,13 @@ class ProductForm
                 FileUpload::make('images')
                     ->label(__('filament.product.image'))
                     ->image()
+                    ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
                     ->maxFiles(1)
                     ->imageEditor()
+                    ->validationMessages([
+                        'image' => __('common.error.image_only', ['default' => 'Tệp tải lên phải là hình ảnh.']),
+                        'mimes' => __('common.error.image_only', ['default' => 'Tệp tải lên phải là hình ảnh.']),
+                    ])
                     ->columnSpanFull()
                     ->panelLayout('grid')
                     ->helperText(__('filament.product.max_image'))
@@ -220,6 +232,7 @@ class ProductForm
                             ->prefix('₫')
                             ->step(1000)
                             ->required()
+                            ->extraInputAttributes(['type' => 'text', 'inputmode' => 'decimal', 'required' => false, 'min' => null, 'step' => null])
                             ->minValue(0)
                             ->default(0)
                             ->live(onBlur: true)
@@ -236,8 +249,17 @@ class ProductForm
                             ->minValue(0)
                             ->default(0)
                             ->live(onBlur: true)
+                            ->extraInputAttributes(['type' => 'text', 'inputmode' => 'decimal', 'min' => null, 'step' => null])
                             ->reactive()
                             ->helperText(__('filament.product.cost_must_be_less_than_sale'))
+                            ->rules([
+                                fn (Get $get) => function (string $attribute, $value, \Closure $fail) use ($get) {
+                                    $costPrice = (float) $get('cost_price');
+                                    if ($value > 0 && (float) $value < $costPrice) {
+                                        $fail(__('filament.product.cost_must_be_less_than_sale'));
+                                    }
+                                },
+                            ])
                             ->validationMessages([
                                 'numeric' => __('common.error.numeric'),
                             ]),
@@ -246,6 +268,7 @@ class ProductForm
                             ->label(__('filament.product.type'))
                             ->options(ProductField::toOptions())
                             ->required()
+                            ->extraInputAttributes(['required' => false])
                             ->validationMessages([
                                 'required' => __('common.error.required'),
                             ]),
@@ -257,6 +280,7 @@ class ProductForm
                             ->label(__('filament.product.type_vat'))
                             ->options(TypeVAT::toOptions())
                             ->required()
+                            ->extraInputAttributes(['required' => false])
                             ->default(TypeVAT::INCLUSIVE->value)
                             ->live()
                             ->afterStateUpdated(function ($state, callable $set, Get $get) {
@@ -287,6 +311,7 @@ class ProductForm
                             ->numeric()
                             ->default(0)
                             ->required()
+                            ->extraInputAttributes(['type' => 'text', 'inputmode' => 'decimal', 'required' => false, 'min' => null, 'max' => null, 'step' => null])
                             ->minValue(0)
                             ->maxValue(100)
                             ->suffix('%')
@@ -343,6 +368,7 @@ class ProductForm
                             ->label(__('filament.product.length'))
                             ->numeric()
                             ->minValue(0)
+                            ->extraInputAttributes(['type' => 'text', 'inputmode' => 'decimal', 'min' => null, 'step' => null])
                             ->suffix('cm')
                             ->placeholder(__('filament.product.placeholder_dimension'))
                             ->validationMessages([
@@ -353,6 +379,7 @@ class ProductForm
                             ->label(__('filament.product.width'))
                             ->numeric()
                             ->minValue(0)
+                            ->extraInputAttributes(['type' => 'text', 'inputmode' => 'decimal', 'min' => null, 'step' => null])
                             ->suffix('cm')
                             ->placeholder(__('filament.product.placeholder_dimension'))
                             ->validationMessages([
@@ -363,6 +390,7 @@ class ProductForm
                             ->label(__('filament.product.height'))
                             ->numeric()
                             ->minValue(0)
+                            ->extraInputAttributes(['type' => 'text', 'inputmode' => 'decimal', 'min' => null, 'step' => null])
                             ->suffix('cm')
                             ->placeholder(__('filament.product.placeholder_dimension'))
                             ->validationMessages([
@@ -386,6 +414,7 @@ class ProductForm
                         TextInput::make('name')
                             ->label(__('filament.product.attribute_name'))
                             ->required()
+                            ->extraInputAttributes(['required' => false, 'maxlength' => null])
                             ->maxLength(100)
                             ->placeholder(__('filament.product.attribute_name_placeholder'))
                             ->validationMessages([
@@ -395,6 +424,7 @@ class ProductForm
                         TextInput::make('value')
                             ->label(__('filament.product.attribute_value'))
                             ->required()
+                            ->extraInputAttributes(['required' => false, 'maxlength' => null])
                             ->maxLength(100)
                             ->placeholder(__('filament.product.attribute_value_placeholder'))
                             ->validationMessages([

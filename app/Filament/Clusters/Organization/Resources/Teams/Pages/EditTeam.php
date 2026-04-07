@@ -2,7 +2,7 @@
 
 namespace App\Filament\Clusters\Organization\Resources\Teams\Pages;
 
-use App\Common\Constants\User\UserRole;
+use App\Common\Constants\User\UserPosition;
 use App\Filament\Clusters\Organization\Resources\Teams\TeamResource;
 use App\Services\UserService;
 use Filament\Actions;
@@ -24,7 +24,9 @@ class EditTeam extends EditRecord
 
     protected function mutateFormDataBeforeFill(array $data): array
     {
-        $data['member_ids'] = $this->record->users()->pluck('users.id')->toArray();
+        $users = $this->record->users;
+        $data['leader_ids'] = $users->where('position', UserPosition::LEADER->value)->pluck('id')->toArray();
+        $data['staff_ids'] = $users->where('position', UserPosition::STAFF->value)->pluck('id')->toArray();
 
         return $data;
     }
@@ -38,12 +40,15 @@ class EditTeam extends EditRecord
 
     protected function afterSave(): void
     {
-        $memberIds = $this->data['member_ids'] ?? [];
+        $state = $this->form->getState();
+        $leaderIds = $state['leader_ids'] ?? [];
+        $staffIds = $state['staff_ids'] ?? [];
+        $combinedIds = collect($leaderIds)->merge($staffIds)->filter()->unique()->values()->toArray();
+
         $userService = app(UserService::class);
-        $result = $userService->updateTeamFoMember(users: $memberIds, teamId: $this->record->id, ableRemove: true);
+        $result = $userService->updateTeamFoMember(users: $combinedIds, teamId: $this->record->id, ableRemove: true);
         if ($result->isError()) {
-            $errorMessage = $result->getMessage();
-            $this->addError('data.member_ids', $errorMessage);
+            $this->addError('data.staff_ids', $result->getMessage());
         }
     }
 

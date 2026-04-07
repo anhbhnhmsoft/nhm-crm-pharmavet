@@ -7,6 +7,7 @@ use App\Services\FundService;
 use Filament\Notifications\Notification;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
+use Filament\Actions\DeleteAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -88,6 +89,16 @@ class FundsTable
                             ->title(__('accounting.fund.notifications.unlocked'))
                             ->success()
                             ->send();
+                    }),
+                DeleteAction::make()
+                    ->disabled(fn (Fund $record) => $record->hasTransactions())
+                    ->action(function (Fund $record, FundService $service) {
+                        $result = $service->deleteFund($record);
+                        if ($result->isError()) {
+                            Notification::make()->title($result->getMessage())->danger()->send();
+                            return;
+                        }
+                        Notification::make()->title(__('common.notification.success'))->success()->send();
                     }),
             ]);
     }

@@ -7,6 +7,7 @@ use App\Services\OrganizationService;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 
 class CreateUser extends CreateRecord
 {
@@ -54,9 +55,20 @@ class CreateUser extends CreateRecord
                     ->title(__('filament.user.exceed_members_limit'))
                     ->danger()
                     ->send();
+
+                throw ValidationException::withMessages([
+                    'name' => __('filament.user.exceed_members_limit'),
+                ]);
             }
         }
 
         return $data;
     }
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
 }
+
+

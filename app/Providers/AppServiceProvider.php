@@ -111,6 +111,8 @@ use Filament\Support\Assets\Js;
 use Filament\Support\Facades\FilamentAsset;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
+use App\Repositories\ShiftRepository;
+use App\Services\ShiftService;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -191,6 +193,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(MarketingSpendRepository::class);
         $this->app->bind(MarketingSpendAttachmentRepository::class);
         $this->app->bind(MarketingAlertLogRepository::class);
+        $this->app->bind(ShiftRepository::class);
     }
 
     private function registerApplicationService(): void
@@ -244,6 +247,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(MarketingBudgetService::class);
         $this->app->bind(MarketingKpiService::class);
         $this->app->bind(MarketingAlertService::class);
+        $this->app->bind(ShiftService::class);
     }
 
     private function registerObserver(): void

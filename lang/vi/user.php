@@ -12,6 +12,7 @@ return [
         'phone' => 'Số điện thoại',
         'role' => 'Vai trò',
         'position' => 'Chức vụ',
+        'address' => 'Địa chỉ',
         'organization' => 'Tổ chức',
         'phone_placeholder' => 'Số điện thoại Việt Nam (VD: 0912345678)',
         'team' => 'Đội nhóm',
