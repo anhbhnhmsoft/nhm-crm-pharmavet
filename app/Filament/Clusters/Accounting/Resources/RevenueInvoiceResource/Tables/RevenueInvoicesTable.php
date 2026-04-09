@@ -74,39 +74,39 @@ class RevenueInvoicesTable
                     ->options(InvoiceStatus::toArray())
                     ->multiple(),
             ])
-            ->recordActions([
-                ActionGroup::make([
-                    Action::make('update_invoice')
-                        ->label(__('order.invoice_action.update_invoice'))
-                        ->icon('heroicon-o-document-text')
-                        ->color('info')
-                        ->visible(fn(Order $record) => $record->status == OrderStatus::COMPLETED->value)
-                        ->form([
-                            Select::make('invoice_status')
-                                ->label(__('order.invoice_status'))
-                                ->options(InvoiceStatus::toArray())
-                                ->required()
-                                ->default(fn(Order $record) => $record->invoice_status),
-                            TextInput::make('invoice_code')
-                                ->label(__('order.invoice_code'))
-                                ->default(fn(Order $record) => $record->invoice_code),
-                            TextInput::make('invoice_url')
-                                ->label(__('order.invoice_url'))
-                                ->url()
-                                ->default(fn(Order $record) => $record->invoice_url),
-                            DateTimePicker::make('invoice_at')
-                                ->label(__('order.invoice_at'))
-                                ->default(fn(Order $record) => $record->invoice_at ?? now()),
-                        ])
-                        ->action(function (Order $record, array $data) {
-                            $record->update($data);
-                            Notification::make()
-                                ->title(__('order.invoice_action.success'))
-                                ->success()
-                                ->send();
-                        }),
-                ])
-            ], position: RecordActionsPosition::BeforeColumns)
+            ->actions([
+                Action::make('update_invoice')
+                    ->label(__('order.invoice_action.update_invoice'))
+                    ->icon('heroicon-o-document-text')
+                    ->color('info')
+                    ->button()
+                    ->outlined()
+                    ->visible(fn(Order $record) => $record->status == OrderStatus::COMPLETED->value)
+                    ->form([
+                        Select::make('invoice_status')
+                            ->label(__('order.invoice_status'))
+                            ->options(InvoiceStatus::toArray())
+                            ->required()
+                            ->default(fn(Order $record) => $record->invoice_status),
+                        TextInput::make('invoice_code')
+                            ->label(__('order.invoice_code'))
+                            ->default(fn(Order $record) => $record->invoice_code),
+                        TextInput::make('invoice_url')
+                            ->label(__('order.invoice_url'))
+                            ->url()
+                            ->default(fn(Order $record) => $record->invoice_url),
+                        DateTimePicker::make('invoice_at')
+                            ->label(__('order.invoice_at'))
+                            ->default(fn(Order $record) => $record->invoice_at ?? now()),
+                    ])
+                    ->action(function (Order $record, array $data) {
+                        $record->update($data);
+                        Notification::make()
+                            ->title(__('order.invoice_action.success'))
+                            ->success()
+                            ->send();
+                    }),
+            ])
             ->defaultSort('created_at', 'desc')
             ->striped();
     }

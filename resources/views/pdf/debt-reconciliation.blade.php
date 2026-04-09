@@ -109,6 +109,18 @@
                 <span class="info-label">{{ __('accounting.debt_reconciliation.partner_type') }}:</span>
                 <span>{{ $partner_name }}</span>
             </div>
+            @if(isset($report['partner']['phone']) && $report['partner']['phone'])
+                <div class="info-row">
+                    <span class="info-label">{{ __('Số điện thoại') }}:</span>
+                    <span>{{ $report['partner']['phone'] }}</span>
+                </div>
+            @endif
+            @if(isset($report['partner']['address']) && $report['partner']['address'])
+                <div class="info-row">
+                    <span class="info-label">{{ __('Địa chỉ') }}:</span>
+                    <span>{{ $report['partner']['address'] }}</span>
+                </div>
+            @endif
             <div class="info-row">
                 <span class="info-label">{{ __('accounting.debt_reconciliation.print_at') }}:</span>
                 <span>{{ now()->format('H:i d/m/Y') }}</span>

@@ -20,9 +20,9 @@
             </x-filament::section>
 
             <div
-                class="p-6 bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-xl shadow-lg border-b-4 border-indigo-900">
-                <p class="text-[10px] font-black text-indigo-100 uppercase mb-1">{{ __('accounting.report.receivable_grand_total') }}</p>
-                <p class="text-3xl font-black text-white"
+                class="p-6 rounded-xl shadow-lg">
+                <p class="text-[10px] font-black uppercase mb-1">{{ __('accounting.report.receivable_grand_total') }}</p>
+                <p class="text-3xl font-black"
                     x-text="new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(reportData.summary.grand_total || 0)">
                 </p>
             </div>

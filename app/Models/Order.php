@@ -177,7 +177,7 @@ class Order extends Model
             return 0;
         }
 
-        return (int)now()->diffInDays($this->created_at);
+        return (int)abs(now()->diffInDays($this->created_at));
     }
 
     // Scopes
