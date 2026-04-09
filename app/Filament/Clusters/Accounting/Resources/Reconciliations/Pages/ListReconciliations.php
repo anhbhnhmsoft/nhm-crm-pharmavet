@@ -20,9 +20,18 @@ use App\Core\Logging;
 use Maatwebsite\Excel\Facades\Excel;
 use Storage;
 
+use App\Filament\Clusters\Accounting\Resources\Reconciliations\Widgets\ReconciliationStatsWidget;
+
 class ListReconciliations extends ListRecords
 {
     protected static string $resource = ReconciliationResource::class;
+
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            ReconciliationStatsWidget::class,
+        ];
+    }
 
     protected function getHeaderActions(): array
     {

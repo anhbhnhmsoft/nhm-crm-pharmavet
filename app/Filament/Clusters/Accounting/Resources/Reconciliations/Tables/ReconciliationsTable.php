@@ -61,7 +61,7 @@ class ReconciliationsTable
                     ->searchable()
                     ->sortable()
                     ->alignCenter()
-                    ->size('sm'),
+                    ->size('xs'),
 
                 TextColumn::make('ghn_order_code')
                     ->label(new HtmlString('<div class="text-center font-semibold">' .
@@ -76,16 +76,16 @@ class ReconciliationsTable
                         $confirmedDate = $record->confirmed_at?->format('d/m/Y H:i') ?? '-';
 
                         return "
-                            <div class='text-xs text-gray-500 whitespace-nowrap mb-1 text-center'>{$dataDate}</div>
-                            <div class='text-sm font-bold text-primary-600 mb-1 text-center'>{$code}</div>
-                            <div class='text-xs text-gray-500 whitespace-nowrap text-center'>{$confirmedDate}</div>
+                            <div class='text-[10px] text-gray-500 whitespace-nowrap mb-1 text-center'>{$dataDate}</div>
+                            <div class='text-xs font-bold text-primary-600 mb-1 text-center'>{$code}</div>
+                            <div class='text-[10px] text-gray-500 whitespace-nowrap text-center'>{$confirmedDate}</div>
                         ";
                     })
                     ->copyable()
                     ->copyableState(fn($record) => $record->order?->code ?? $record->ghn_order_code)
                     ->searchable()
                     ->alignCenter()
-                    ->size('sm'),
+                    ->size('xs'),
 
                 TextColumn::make('ghn_to_address')
                     ->label(new HtmlString('<div class="text-center font-semibold">' .
@@ -100,13 +100,13 @@ class ReconciliationsTable
                         $ghnCode = $record->ghn_order_code ?? $record->order?->ghn_order_code ?? '-';
 
                         return "
-                            <div class='text-sm font-semibold text-gray-900 text-center'>{$warehouse}</div>
-                            <div class='text-xs text-emerald-600 font-medium text-center'>{$provider}</div>
-                            <div class='text-xs text-primary-600 font-semibold text-center'>{$ghnCode}</div>
+                            <div class='text-xs font-semibold text-gray-900 text-center'>{$warehouse}</div>
+                            <div class='text-[10px] text-emerald-600 font-medium text-center'>{$provider}</div>
+                            <div class='text-[10px] text-primary-600 font-semibold text-center'>{$ghnCode}</div>
                         ";
                     })
                     ->alignCenter()
-                    ->size('sm'),
+                    ->size('xs'),
 
                 TextColumn::make('note')
                     ->label(new HtmlString('<div class="text-center font-semibold">' .
@@ -121,13 +121,13 @@ class ReconciliationsTable
                         $note = !empty($record->note) ? e($record->note) : '-';
 
                         return "
-                            <div class='text-xs text-gray-500 text-center'>{$updated}</div>
-                            <div class='text-sm text-gray-900 text-center'>{$care}</div>
-                            <div class='text-xs text-gray-500 text-center line-clamp-2'>{$note}</div>
+                            <div class='text-[10px] text-gray-500 text-center'>{$updated}</div>
+                            <div class='text-xs text-gray-900 text-center'>{$care}</div>
+                            <div class='text-[10px] text-gray-500 text-center line-clamp-2'>{$note}</div>
                         ";
                     })
                     ->alignCenter()
-                    ->size('sm'),
+                    ->size('xs'),
 
                 TextColumn::make('ghn_status_label')
                     ->label(new HtmlString('<div class="text-center font-semibold">' .
@@ -147,13 +147,13 @@ class ReconciliationsTable
                         $posted = $record->order?->ghn_posted_at ? Carbon::parse($record->order->ghn_posted_at)->format('d/m/Y H:i') : ($record->ghn_created_at ? $record->ghn_created_at->format('d/m/Y H:i') : ($record->order?->created_at?->format('d/m/Y H:i') ?? '-'));
 
                         return "
-                            <div class='text-xs text-gray-500 text-center'>{$updated}</div>
-                            <div class='text-sm font-semibold text-center text-primary-600'>{$label}</div>
-                            <div class='text-xs text-gray-500 text-center'>{$posted}</div>
+                            <div class='text-[10px] text-gray-500 text-center'>{$updated}</div>
+                            <div class='text-xs font-semibold text-center text-primary-600'>{$label}</div>
+                            <div class='text-[10px] text-gray-500 text-center'>{$posted}</div>
                         ";
                     })
                     ->alignCenter()
-                    ->size('sm'),
+                    ->size('xs'),
 
                 TextColumn::make('ghn_items')
                     ->label(new HtmlString('<div class="text-center font-semibold">' . __('accounting.reconciliation.product_info') . '</div>'))
@@ -189,48 +189,55 @@ class ReconciliationsTable
                     ->label(__('accounting.reconciliation.total_amount'))
                     ->money('VND')
                     ->formatStateUsing(fn($state, $record) => $record->order?->total_amount ?? $record->cod_amount)
-                    ->alignEnd(),
+                    ->alignEnd()
+                    ->size('xs'),
 
                 TextColumn::make('order.discount')
                     ->label('CK')
                     ->money('VND')
-                    ->alignEnd(),
+                    ->alignEnd()
+                    ->size('xs'),
 
                 TextColumn::make('order.shipping_fee')
-                    ->label('Phí VC thu của khách')
+                    ->label(new HtmlString('<div class="text-center font-semibold text-[11px] leading-tight">Phí VC<br>thu của khách</div>'))
                     ->money('VND')
-                    ->alignEnd(),
+                    ->alignEnd()
+                    ->size('xs')
+                    ->width('80px'),
 
                 TextColumn::make('total_fee')
                     ->label('Tổng tiền')
                     ->money('VND')
                     ->alignEnd()
-                    ->summarize([
-                        Sum::make()->money('VND'),
-                    ]),
+                    ->size('xs'),
 
                 TextColumn::make('order.deposit')
                     ->label('Đặt cọc')
                     ->money('VND')
-                    ->alignEnd(),
+                    ->alignEnd()
+                    ->size('xs'),
 
                 TextColumn::make('id_received')
-                    ->label('Tiền thu của khách')
+                    ->label(new HtmlString('<div class="text-center font-semibold text-[11px] leading-tight">Tiền thu<br>của khách</div>'))
                     ->money('VND')
                     ->formatStateUsing(function ($state, $record) {
                         return $record->order?->amount_recived_from_customer ?? $record->cod_amount;
                     })
-                    ->alignEnd(),
+                    ->alignEnd()
+                    ->size('xs')
+                    ->width('80px'),
 
                 TextColumn::make('shipping_fee')
-                    ->label('Giá dịch vụ VC')
+                    ->label(new HtmlString('<div class="text-center font-semibold text-[11px] leading-tight">Giá dịch vụ<br>VC</div>'))
                     ->money('VND')
-                    ->alignEnd(),
+                    ->alignEnd()
+                    ->size('xs'),
 
                 TextColumn::make('order.amout_support_fee')
-                    ->label('Phí VC hỗ trợ khách')
+                    ->label(new HtmlString('<div class="text-center font-semibold text-[11px] leading-tight">Phí VC<br>hỗ trợ khách</div>'))
                     ->money('VND')
-                    ->alignEnd(),
+                    ->alignEnd()
+                    ->size('xs'),
 
                 TextColumn::make('ghn_employee_note')
                     ->label('Ghi chú kế toán')
@@ -273,8 +280,8 @@ class ReconciliationsTable
                         $phone = e($record->order?->customer?->phone ?? $record->ghn_to_phone ?? '');
 
                         return "
-                            <div class='text-sm font-semibold text-center'>{$name}</div>
-                            <div class='text-xs text-primary-600 text-center'>{$phone}</div>
+                            <div class='text-xs font-semibold text-center'>{$name}</div>
+                            <div class='text-[10px] text-primary-600 text-center'>{$phone}</div>
                         ";
                     })
                     ->alignCenter()
@@ -291,16 +298,16 @@ class ReconciliationsTable
                         $note = e($record->order?->note ?? '-');
 
                         return "
-                            <div class='text-sm text-gray-900'>{$address}</div>
-                            <div class='text-xs text-gray-500'>{$note}</div>
+                            <div class='text-xs text-gray-900'>{$address}</div>
+                            <div class='text-[10px] text-gray-500'>{$note}</div>
                         ";
                     }),
 
                 TextColumn::make('status')
-                    ->label('Trạng thái đối soát')
+                    ->label(new HtmlString('<div class="text-center font-semibold text-[11px] leading-tight">Trạng thái<br>đối soát</div>'))
                     ->formatStateUsing(fn($state) => ReconciliationStatus::getOptions()[$state] ?? '-')
                     ->alignCenter()
-                    ->size('sm'),
+                    ->size('xs'),
             ])
             ->filters([
                 Filter::make('date_range')

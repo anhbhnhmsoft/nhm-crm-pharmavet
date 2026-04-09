@@ -2,6 +2,7 @@
 
 namespace App\Services\Accounting;
 
+use App\Common\Constants\Accounting\DebtPartnerType;
 use App\Common\Constants\Accounting\ReconciliationStatus;
 use App\Common\Constants\Accounting\DebtTransactionType;
 use App\Common\Constants\Order\OrderStatus;
@@ -29,6 +30,15 @@ class DebtReconciliationService
     public function getCustomersForSelect(int $organizationId, ?string $search = null): array
     {
         return $this->customerRepository->getForSelect($organizationId, $search);
+    }
+
+    /**
+     * Lấy tên khách hàng theo ID
+     */
+    public function getCustomerNameById(?int $id): ?string
+    {
+        if (!$id) return null;
+        return $this->customerRepository->find($id)?->username;
     }
 
     /**
@@ -67,7 +77,7 @@ class DebtReconciliationService
 
             return ServiceReturn::success(data: [
                 'partner' => [
-                    'name' => $customer->name,
+                    'name' => $customer->username,
                     'phone' => $customer->phone,
                     'address' => $customer->address,
                 ],
@@ -173,5 +183,54 @@ class DebtReconciliationService
             Logging::error('Get logistics reconciliation data error', ['error' => $e->getMessage()], $e);
             return ServiceReturn::error(__('accounting.debt_reconciliation.get_failed'));
         }
+    }
+    /**
+     * Lấy danh sách tổng hợp công nợ cho tất cả đối tác
+     */
+    public function getDebtSummaryList(int $organizationId, string $fromDate, string $toDate): array
+    {
+        $logisticsData = $this->getLogisticsReconciliation($organizationId, $fromDate, $toDate)->getData();
+        $summary = [
+            [
+                'partner_id' => 0,
+                'partner_type' => DebtPartnerType::LOGISTICS->value,
+                'partner_name' => 'Giao Hàng Nhanh (GHN)',
+                'opening_balance' => $logisticsData['opening_balance'] ?? 0,
+                'total_debit' => $logisticsData['total_debit'] ?? 0,
+                'total_credit' => $logisticsData['total_credit'] ?? 0,
+                'closing_balance' => $logisticsData['closing_balance'] ?? 0,
+            ]
+        ];
+
+        // Tất cả khách hàng từng có phát sinh (để tính số dư đầu kỳ và nợ tồn)
+        $customers = $this->customerRepository->query()
+            ->where('organization_id', $organizationId)
+            ->whereHas('orders', function($query) use ($toDate) {
+                $query->where('created_at', '<=', $toDate . ' 23:59:59');
+            })
+            ->select('id', 'username as name')
+            ->get();
+
+        foreach ($customers as $customer) {
+            $cData = $this->getCustomerReconciliation($customer->id, $fromDate, $toDate)->getData();
+            if ($cData && (
+                abs($cData['opening_balance']) > 0 || 
+                abs($cData['total_debit']) > 0 || 
+                abs($cData['total_credit']) > 0 || 
+                abs($cData['closing_balance']) > 0
+            )) {
+                $summary[] = [
+                    'partner_id' => $customer->id,
+                    'partner_type' => DebtPartnerType::CUSTOMER->value,
+                    'partner_name' => $customer->name,
+                    'opening_balance' => $cData['opening_balance'],
+                    'total_debit' => $cData['total_debit'],
+                    'total_credit' => $cData['total_credit'],
+                    'closing_balance' => $cData['closing_balance'],
+                ];
+            }
+        }
+
+        return $summary;
     }
 }

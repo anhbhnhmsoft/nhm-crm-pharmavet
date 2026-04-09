@@ -62,14 +62,14 @@
 
                             {{-- Total Combined --}}
                             <div
-                                class="p-6 bg-gradient-to-br from-green-600 to-green-700 rounded-xl shadow-lg shadow-green-200 dark:shadow-none flex flex-col justify-center border-b-4 border-green-800">
-                                <p class="text-[10px] font-black text-green-100 uppercase mb-1">
+                                class="p-6  rounded-xl shadow-lg dark:shadow-none flex flex-col justify-center">
+                                <p class="text-[10px] font-black text-green-600 uppercase mb-1">
                                     {{ __('accounting.report.revenue_total') }}
                                 </p>
-                                <p class="text-3xl font-black text-white"
+                                <p class="text-3xl font-black text-green-600"
                                     x-text="new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(reportData.business.revenue?.total || 0)">
                                 </p>
-                                <div class="mt-1 text-[10px] text-green-100/70 font-bold uppercase italic"
+                                <div class="mt-1 text-[10px] text-green-600 font-bold uppercase italic"
                                     x-text="'{{ __('accounting.report.net_plus_other') }} (' + new Intl.NumberFormat('vi-VN').format(reportData.business.revenue?.other || 0) + ')'">
                                 </div>
                             </div>
@@ -80,7 +80,6 @@
                         <x-slot name="heading">
                             <div class="flex items-center gap-2">
                                 <span>{{ __('accounting.report.reconciliation_cash_flow') }}</span>
-                                <span class="px-2 py-0.5 text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 rounded-full font-bold uppercase tracking-wider animate-pulse">{{ __('accounting.report.new_feature') }}</span>
                             </div>
                         </x-slot>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">

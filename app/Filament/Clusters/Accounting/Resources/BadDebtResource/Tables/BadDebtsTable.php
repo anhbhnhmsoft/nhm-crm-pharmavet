@@ -47,6 +47,7 @@ class BadDebtsTable
                 TextColumn::make('debt_age')
                     ->label(__('accounting.bad_debt.debt_age'))
                     ->sortable()
+                    ->alignCenter()
                     ->color(fn (int $state): string => match (true) {
                         $state >= 90 => 'danger',
                         $state >= 60 => 'warning',
@@ -96,7 +97,7 @@ class BadDebtsTable
                     ->action(function (Order $record, array $data, DebtService $service) {
                         $result = $service->writeOffDebt($record, Auth::id(), $data['note'] ?? '');
                         if ($result->isSuccess()) {
-                            Notification::make()->success()->title(__('common.update_success'))->send();
+                            Notification::make()->success()->title(__('common.success.update_success'))->send();
                         } else {
                             Notification::make()->danger()->title($result->getMessage())->send();
                         }
