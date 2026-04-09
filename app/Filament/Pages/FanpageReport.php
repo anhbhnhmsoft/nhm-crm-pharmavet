@@ -52,12 +52,14 @@ class FanpageReport extends Page implements HasForms
 
     public ?array $data = [];
 
-    public function mount(): void
+    public function mount(FanpagePerformanceService $service): void
     {
         $this->form->fill([
             'from_date' => now()->startOfMonth()->toDateString(),
             'to_date' => now()->toDateString(),
         ]);
+
+        $this->generateReport($service);
     }
 
     public function form(Schema $schema): Schema
