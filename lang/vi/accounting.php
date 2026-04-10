@@ -208,6 +208,7 @@ return [
         'care_update_date' => 'Ngày cập nhật care đơn',
         'care_staff' => 'Care đơn',
         'accounting_note' => 'Ghi chú kế toán',
+        'no_note' => 'Chưa có ghi chú',
         'status_update_date' => 'Ngày cập nhật',
         'shipping_status' => 'Trạng thái giao hàng',
         'ghn_post_date' => 'Ngày đăng đơn',
@@ -223,7 +224,7 @@ return [
         'batch_failed' => 'Đối soát hàng loạt thất bại',
         'mapping_summary' => 'Map thành công :matched đơn, thất bại :unmatched đơn',
         'select_target_status' => 'Chọn trạng thái muốn cập nhật',
-        'total_amount' => 'Tổng tiền',
+        'total_amount' => 'Thành tiền',
         'classification' => 'Phân loại',
         'partner_name' => 'Tên Kho/Sale',
         'import' => [

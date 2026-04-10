@@ -17,7 +17,6 @@ use Filament\Forms\Components\Textarea;
 use Filament\Schemas\Components\Section;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Filters\Indicator;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\Filter;
@@ -25,6 +24,7 @@ use Filament\Tables\Filters\TernaryFilter;
 use Filament\Forms\Components\DatePicker;
 use Filament\Schemas\Components\Grid;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\HtmlString;
 use App\Models\User;
 use App\Models\Warehouse;
@@ -44,6 +44,11 @@ class ReconciliationsTable
     {
         return $table
             ->columns([
+                TextColumn::make('status')
+                    ->label(new HtmlString('<div class="text-center font-semibold text-[11px] leading-tight">Trạng thái<br>đối soát</div>'))
+                    ->formatStateUsing(fn($state) => ReconciliationStatus::getOptions()[$state] ?? '-')
+                    ->alignCenter()
+                    ->size('xs'),
                 TextColumn::make('order.createdBy.name')
                     ->label('Sale')
                     ->html()
@@ -118,17 +123,48 @@ class ReconciliationsTable
                     ->formatStateUsing(function ($state, $record) {
                         $updated = $record->updated_at?->format('d/m/Y H:i') ?? '-';
                         $care = $record->order?->updatedBy?->name ?? '-';
-                        $note = !empty($record->note) ? e($record->note) : '-';
+                        
+                        $noteText = !empty($record->ghn_employee_note) ? strip_tags($record->ghn_employee_note) : strip_tags($record->note ?? '');
+                        
+                        if (empty($noteText)) {
+                            $note = "<span style='color: #2563eb; font-weight: 600;'>" . __('accounting.reconciliation.no_note') . "</span>";
+                        } else {
+                            $note = e($noteText);
+                        }
 
                         return "
-                            <div class='text-[10px] text-gray-500 text-center'>{$updated}</div>
-                            <div class='text-xs text-gray-900 text-center'>{$care}</div>
-                            <div class='text-[10px] text-gray-500 text-center line-clamp-2'>{$note}</div>
+                            <div class='w-full h-full cursor-pointer py-1'>
+                                <div class='text-[10px] text-gray-500 text-center'>{$updated}</div>
+                                <div class='text-xs text-gray-900 text-center'>{$care}</div>
+                                <div class='text-[10px] text-center line-clamp-2'>{$note}</div>
+                            </div>
                         ";
                     })
+                    ->extraAttributes(['class' => 'cursor-pointer'])
                     ->alignCenter()
-                    ->size('xs'),
-
+                    ->size('xs')
+                    ->action(
+                        Action::make('edit_note_inline_stacked')
+                            ->label(__('accounting.reconciliation.accounting_note'))
+                            ->icon('heroicon-o-pencil-square')
+                            ->slideOver()
+                            ->modalWidth('4xl')
+                            ->form([
+                                RichEditor::make('ghn_employee_note')
+                                    ->label(__('accounting.reconciliation.accounting_note'))
+                                    ->columnSpanFull()
+                                    ->extraAttributes(['style' => 'min-height: 500px;']),
+                            ])
+                            ->fillForm(fn ($record) => ['ghn_employee_note' => $record->ghn_employee_note])
+                            ->action(function ($record, array $data) {
+                                $record->update(['ghn_employee_note' => $data['ghn_employee_note']]);
+                                
+                                Notification::make()
+                                    ->success()
+                                    ->title(__('accounting.reconciliation.order_updated'))
+                                    ->send();
+                            })
+                    ),
                 TextColumn::make('ghn_status_label')
                     ->label(new HtmlString('<div class="text-center font-semibold">' .
                         __('accounting.reconciliation.status_update_date') . '<br>' .
@@ -239,35 +275,7 @@ class ReconciliationsTable
                     ->alignEnd()
                     ->size('xs'),
 
-                TextColumn::make('ghn_employee_note')
-                    ->label('Ghi chú kế toán')
-                    ->limit(30)
-                    ->alignLeft()
-                    ->html()
-                    ->placeholder('Chưa có ghi chú...')
-                    ->action(
-                        Action::make('edit_note_inline')
-                            ->label(__('accounting.reconciliation.accounting_note'))
-                            ->icon('heroicon-o-pencil-square')
-                            ->slideOver()
-                            ->modalWidth('4xl')
-                            ->form([
-                                RichEditor::make('ghn_employee_note')
-                                    ->label(__('accounting.reconciliation.accounting_note'))
-                                    ->required()
-                                    ->columnSpanFull()
-                                    ->extraAttributes(['style' => 'min-height: 500px;']),
-                            ])
-                            ->fillForm(fn ($record) => ['ghn_employee_note' => $record->ghn_employee_note])
-                            ->action(function ($record, array $data) {
-                                $record->update(['ghn_employee_note' => $data['ghn_employee_note']]);
-                                
-                                Notification::make()
-                                    ->success()
-                                    ->title(__('accounting.reconciliation.order_updated'))
-                                    ->send();
-                            })
-                    ),
+                
 
                 TextColumn::make('ghn_to_phone')
                     ->label(new HtmlString('<div class="text-center font-semibold">' .
@@ -303,11 +311,7 @@ class ReconciliationsTable
                         ";
                     }),
 
-                TextColumn::make('status')
-                    ->label(new HtmlString('<div class="text-center font-semibold text-[11px] leading-tight">Trạng thái<br>đối soát</div>'))
-                    ->formatStateUsing(fn($state) => ReconciliationStatus::getOptions()[$state] ?? '-')
-                    ->alignCenter()
-                    ->size('xs'),
+                
             ])
             ->filters([
                 Filter::make('date_range')
@@ -750,8 +754,8 @@ class ReconciliationsTable
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
                     ->requiresConfirmation()
-                    ->visible(fn($livewire) => $livewire->activeTab === 'pending' || $livewire->activeTab === 'all')
-                    ->action(function (\Illuminate\Database\Eloquent\Collection $records, ReconciliationService $service) {
+                    ->visible(fn($livewire) => $livewire->activeTab === strtolower(ReconciliationStatus::PENDING->name) || $livewire->activeTab === 'all')
+                    ->action(function (Collection $records, ReconciliationService $service) {
                         $count = 0;
                         $skipped = 0;
 
@@ -788,11 +792,11 @@ class ReconciliationsTable
                     }),
                 BulkAction::make('bulk_pay')
                     ->label(__('accounting.reconciliation.batch_pay'))
-                    ->icon('heroicon-o-currency-dollar')
+                    ->icon('heroicon-o-banknotes')
                     ->color('warning')
                     ->requiresConfirmation()
-                    ->visible(fn($livewire) => $livewire->activeTab === 'confirmed' || $livewire->activeTab === 'all')
-                    ->action(function (\Illuminate\Database\Eloquent\Collection $records) {
+                    ->visible(fn($livewire) => $livewire->activeTab === strtolower(ReconciliationStatus::CONFIRMED->name) || $livewire->activeTab === 'all')
+                    ->action(function (Collection $records, ReconciliationService $service) {
                         $count = 0;
                         foreach ($records as $record) {
                             if ($record->status === ReconciliationStatus::CONFIRMED->value) {
