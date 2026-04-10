@@ -10,6 +10,8 @@ use Filament\Tables\Actions\Action;
 use Filament\Widgets\TableWidget as BaseWidget;
 use Illuminate\Support\Facades\Auth;
 
+use App\Filament\Clusters\Warehouse\Resources\Orders\OrderResource;
+
 class RecentOrdersWidget extends BaseWidget
 {
     protected static ?int $sort = 10;
@@ -61,7 +63,7 @@ class RecentOrdersWidget extends BaseWidget
                 \Filament\Actions\Action::make('view')
                     ->label(__('dashboard.recent_orders.view'))
                     ->icon('heroicon-o-eye')
-                    ->url(fn (Order $record): string => "/admin/sales/orders/{$record->id}")
+                    ->url(fn (Order $record): string => OrderResource::getUrl('edit', ['record' => $record]))
             ]);
     }
 }

@@ -28,8 +28,8 @@ class ReconciliationStatsWidget extends BaseWidget
         $currentPageQuery = $this->getPageTableRecords();
         $allRecordsQuery = $this->getPageTableQuery();
 
-        $currentPageTotal = $currentPageQuery->sum('total_fee');
-        $allTotal = $allRecordsQuery->sum('total_fee');
+        $currentPageTotal = ($currentPageQuery && method_exists($currentPageQuery, 'sum')) ? $currentPageQuery->sum('total_fee') : 0;
+        $allTotal = ($allRecordsQuery && method_exists($allRecordsQuery, 'sum')) ? $allRecordsQuery->sum('total_fee') : 0;
 
         return [
             Stat::make(__('accounting.reconciliation.summary.page_total'), number_format($currentPageTotal, 0, ',', '.') . ' đ')

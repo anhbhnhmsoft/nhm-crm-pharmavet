@@ -261,13 +261,13 @@ class ListReconciliations extends ListRecords
     {
         return [
             'all' => Tab::make(__('accounting.reconciliation_status.all')),
-            'pending' => Tab::make(__('accounting.reconciliation_status.pending'))
+            strtolower(ReconciliationStatus::PENDING->name) => Tab::make(__('accounting.reconciliation_status.pending'))
                 ->modifyQueryUsing(fn(Builder $query) => $query->where('status', ReconciliationStatus::PENDING->value)),
-            'confirmed' => Tab::make(__('accounting.reconciliation_status.confirmed'))
+            strtolower(ReconciliationStatus::CONFIRMED->name) => Tab::make(__('accounting.reconciliation_status.confirmed'))
                 ->modifyQueryUsing(fn(Builder $query) => $query->where('status', ReconciliationStatus::CONFIRMED->value)),
-            'cancelled' => Tab::make(__('accounting.reconciliation_status.cancelled'))
+            strtolower(ReconciliationStatus::CANCELLED->name) => Tab::make(__('accounting.reconciliation_status.cancelled'))
                 ->modifyQueryUsing(fn(Builder $query) => $query->where('status', ReconciliationStatus::CANCELLED->value)),
-            'paid' => Tab::make(__('accounting.reconciliation_status.paid'))
+            strtolower(ReconciliationStatus::PAID->name) => Tab::make(__('accounting.reconciliation_status.paid'))
                 ->modifyQueryUsing(fn(Builder $query) => $query->where('status', ReconciliationStatus::PAID->value)),
         ];
     }
