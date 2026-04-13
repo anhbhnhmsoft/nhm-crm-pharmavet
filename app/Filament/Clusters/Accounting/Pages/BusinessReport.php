@@ -40,7 +40,7 @@ class BusinessReport extends Page implements HasForms
 
     public ?array $data = [];
 
-    public function mount(): void
+    public function mount(ReportService $service): void
     {
         $this->form->fill([
             'type' => 'day',
@@ -51,6 +51,8 @@ class BusinessReport extends Page implements HasForms
             'to_month' => now()->format('m'),
             'to_year' => now()->year,
         ]);
+
+        $this->generateReport($service);
     }
 
     public function form(Schema $schema): Schema

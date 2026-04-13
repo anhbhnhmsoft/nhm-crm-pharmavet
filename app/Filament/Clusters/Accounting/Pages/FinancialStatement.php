@@ -45,17 +45,19 @@ class FinancialStatement extends Page implements HasForms
 
     public ?array $data = [];
 
-    public function mount(): void
+    public function mount(ReportService $service): void
     {
         $this->form->fill([
             'type' => 'month',
-            'from_month' => now()->format('m'),
+            'from_month' => (int) now()->format('m'),
             'from_year' => now()->year,
-            'to_month' => now()->format('m'),
+            'to_month' => (int) now()->format('m'),
             'to_year' => now()->year,
             'from_date' => now()->startOfMonth()->toDateString(),
             'to_date' => now()->toDateString(),
         ]);
+
+        $this->generateReport($service);
     }
 
     public function form(Schema $schema): Schema

@@ -73,6 +73,7 @@ class ReportService
                 'expense' => [
                     'total' => $totalExpense,
                     'cogs' => $cogs,
+                    'by_category' => $this->expenseRepository->sumByCategoryDateRange($organizationId, $fromDate, $toDate),
                 ],
                 'profit' => [
                     'gross' => $grossProfit,

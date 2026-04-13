@@ -17,7 +17,6 @@ use Filament\Forms\Components\Textarea;
 use Filament\Schemas\Components\Section;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Filters\Indicator;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\Filter;
@@ -25,6 +24,7 @@ use Filament\Tables\Filters\TernaryFilter;
 use Filament\Forms\Components\DatePicker;
 use Filament\Schemas\Components\Grid;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\HtmlString;
 use App\Models\User;
 use App\Models\Warehouse;
@@ -44,6 +44,11 @@ class ReconciliationsTable
     {
         return $table
             ->columns([
+                TextColumn::make('status')
+                    ->label(new HtmlString('<div class="text-center font-semibold text-[11px] leading-tight">Trạng thái<br>đối soát</div>'))
+                    ->formatStateUsing(fn($state) => ReconciliationStatus::getOptions()[$state] ?? '-')
+                    ->alignCenter()
+                    ->size('xs'),
                 TextColumn::make('order.createdBy.name')
                     ->label('Sale')
                     ->html()
@@ -61,7 +66,7 @@ class ReconciliationsTable
                     ->searchable()
                     ->sortable()
                     ->alignCenter()
-                    ->size('sm'),
+                    ->size('xs'),
 
                 TextColumn::make('ghn_order_code')
                     ->label(new HtmlString('<div class="text-center font-semibold">' .
@@ -76,16 +81,16 @@ class ReconciliationsTable
                         $confirmedDate = $record->confirmed_at?->format('d/m/Y H:i') ?? '-';
 
                         return "
-                            <div class='text-xs text-gray-500 whitespace-nowrap mb-1 text-center'>{$dataDate}</div>
-                            <div class='text-sm font-bold text-primary-600 mb-1 text-center'>{$code}</div>
-                            <div class='text-xs text-gray-500 whitespace-nowrap text-center'>{$confirmedDate}</div>
+                            <div class='text-[10px] text-gray-500 whitespace-nowrap mb-1 text-center'>{$dataDate}</div>
+                            <div class='text-xs font-bold text-primary-600 mb-1 text-center'>{$code}</div>
+                            <div class='text-[10px] text-gray-500 whitespace-nowrap text-center'>{$confirmedDate}</div>
                         ";
                     })
                     ->copyable()
                     ->copyableState(fn($record) => $record->order?->code ?? $record->ghn_order_code)
                     ->searchable()
                     ->alignCenter()
-                    ->size('sm'),
+                    ->size('xs'),
 
                 TextColumn::make('ghn_to_address')
                     ->label(new HtmlString('<div class="text-center font-semibold">' .
@@ -100,13 +105,13 @@ class ReconciliationsTable
                         $ghnCode = $record->ghn_order_code ?? $record->order?->ghn_order_code ?? '-';
 
                         return "
-                            <div class='text-sm font-semibold text-gray-900 text-center'>{$warehouse}</div>
-                            <div class='text-xs text-emerald-600 font-medium text-center'>{$provider}</div>
-                            <div class='text-xs text-primary-600 font-semibold text-center'>{$ghnCode}</div>
+                            <div class='text-xs font-semibold text-gray-900 text-center'>{$warehouse}</div>
+                            <div class='text-[10px] text-emerald-600 font-medium text-center'>{$provider}</div>
+                            <div class='text-[10px] text-primary-600 font-semibold text-center'>{$ghnCode}</div>
                         ";
                     })
                     ->alignCenter()
-                    ->size('sm'),
+                    ->size('xs'),
 
                 TextColumn::make('note')
                     ->label(new HtmlString('<div class="text-center font-semibold">' .
@@ -118,17 +123,48 @@ class ReconciliationsTable
                     ->formatStateUsing(function ($state, $record) {
                         $updated = $record->updated_at?->format('d/m/Y H:i') ?? '-';
                         $care = $record->order?->updatedBy?->name ?? '-';
-                        $note = !empty($record->note) ? e($record->note) : '-';
+                        
+                        $noteText = !empty($record->ghn_employee_note) ? strip_tags($record->ghn_employee_note) : strip_tags($record->note ?? '');
+                        
+                        if (empty($noteText)) {
+                            $note = "<span style='color: #2563eb; font-weight: 600;'>" . __('accounting.reconciliation.no_note') . "</span>";
+                        } else {
+                            $note = e($noteText);
+                        }
 
                         return "
-                            <div class='text-xs text-gray-500 text-center'>{$updated}</div>
-                            <div class='text-sm text-gray-900 text-center'>{$care}</div>
-                            <div class='text-xs text-gray-500 text-center line-clamp-2'>{$note}</div>
+                            <div class='w-full h-full cursor-pointer py-1'>
+                                <div class='text-[10px] text-gray-500 text-center'>{$updated}</div>
+                                <div class='text-xs text-gray-900 text-center'>{$care}</div>
+                                <div class='text-[10px] text-center line-clamp-2'>{$note}</div>
+                            </div>
                         ";
                     })
+                    ->extraAttributes(['class' => 'cursor-pointer'])
                     ->alignCenter()
-                    ->size('sm'),
-
+                    ->size('xs')
+                    ->action(
+                        Action::make('edit_note_inline_stacked')
+                            ->label(__('accounting.reconciliation.accounting_note'))
+                            ->icon('heroicon-o-pencil-square')
+                            ->slideOver()
+                            ->modalWidth('4xl')
+                            ->form([
+                                RichEditor::make('ghn_employee_note')
+                                    ->label(__('accounting.reconciliation.accounting_note'))
+                                    ->columnSpanFull()
+                                    ->extraAttributes(['style' => 'min-height: 500px;']),
+                            ])
+                            ->fillForm(fn ($record) => ['ghn_employee_note' => $record->ghn_employee_note])
+                            ->action(function ($record, array $data) {
+                                $record->update(['ghn_employee_note' => $data['ghn_employee_note']]);
+                                
+                                Notification::make()
+                                    ->success()
+                                    ->title(__('accounting.reconciliation.order_updated'))
+                                    ->send();
+                            })
+                    ),
                 TextColumn::make('ghn_status_label')
                     ->label(new HtmlString('<div class="text-center font-semibold">' .
                         __('accounting.reconciliation.status_update_date') . '<br>' .
@@ -147,13 +183,13 @@ class ReconciliationsTable
                         $posted = $record->order?->ghn_posted_at ? Carbon::parse($record->order->ghn_posted_at)->format('d/m/Y H:i') : ($record->ghn_created_at ? $record->ghn_created_at->format('d/m/Y H:i') : ($record->order?->created_at?->format('d/m/Y H:i') ?? '-'));
 
                         return "
-                            <div class='text-xs text-gray-500 text-center'>{$updated}</div>
-                            <div class='text-sm font-semibold text-center text-primary-600'>{$label}</div>
-                            <div class='text-xs text-gray-500 text-center'>{$posted}</div>
+                            <div class='text-[10px] text-gray-500 text-center'>{$updated}</div>
+                            <div class='text-xs font-semibold text-center text-primary-600'>{$label}</div>
+                            <div class='text-[10px] text-gray-500 text-center'>{$posted}</div>
                         ";
                     })
                     ->alignCenter()
-                    ->size('sm'),
+                    ->size('xs'),
 
                 TextColumn::make('ghn_items')
                     ->label(new HtmlString('<div class="text-center font-semibold">' . __('accounting.reconciliation.product_info') . '</div>'))
@@ -189,78 +225,57 @@ class ReconciliationsTable
                     ->label(__('accounting.reconciliation.total_amount'))
                     ->money('VND')
                     ->formatStateUsing(fn($state, $record) => $record->order?->total_amount ?? $record->cod_amount)
-                    ->alignEnd(),
+                    ->alignEnd()
+                    ->size('xs'),
 
                 TextColumn::make('order.discount')
                     ->label('CK')
                     ->money('VND')
-                    ->alignEnd(),
+                    ->alignEnd()
+                    ->size('xs'),
 
                 TextColumn::make('order.shipping_fee')
-                    ->label('Phí VC thu của khách')
+                    ->label(new HtmlString('<div class="text-center font-semibold text-[11px] leading-tight">Phí VC<br>thu của khách</div>'))
                     ->money('VND')
-                    ->alignEnd(),
+                    ->alignEnd()
+                    ->size('xs')
+                    ->width('80px'),
 
                 TextColumn::make('total_fee')
                     ->label('Tổng tiền')
                     ->money('VND')
                     ->alignEnd()
-                    ->summarize([
-                        Sum::make()->money('VND'),
-                    ]),
+                    ->size('xs'),
 
                 TextColumn::make('order.deposit')
                     ->label('Đặt cọc')
                     ->money('VND')
-                    ->alignEnd(),
+                    ->alignEnd()
+                    ->size('xs'),
 
                 TextColumn::make('id_received')
-                    ->label('Tiền thu của khách')
+                    ->label(new HtmlString('<div class="text-center font-semibold text-[11px] leading-tight">Tiền thu<br>của khách</div>'))
                     ->money('VND')
                     ->formatStateUsing(function ($state, $record) {
                         return $record->order?->amount_recived_from_customer ?? $record->cod_amount;
                     })
-                    ->alignEnd(),
+                    ->alignEnd()
+                    ->size('xs')
+                    ->width('80px'),
 
                 TextColumn::make('shipping_fee')
-                    ->label('Giá dịch vụ VC')
+                    ->label(new HtmlString('<div class="text-center font-semibold text-[11px] leading-tight">Giá dịch vụ<br>VC</div>'))
                     ->money('VND')
-                    ->alignEnd(),
+                    ->alignEnd()
+                    ->size('xs'),
 
                 TextColumn::make('order.amout_support_fee')
-                    ->label('Phí VC hỗ trợ khách')
+                    ->label(new HtmlString('<div class="text-center font-semibold text-[11px] leading-tight">Phí VC<br>hỗ trợ khách</div>'))
                     ->money('VND')
-                    ->alignEnd(),
+                    ->alignEnd()
+                    ->size('xs'),
 
-                TextColumn::make('ghn_employee_note')
-                    ->label('Ghi chú kế toán')
-                    ->limit(30)
-                    ->alignLeft()
-                    ->html()
-                    ->placeholder('Chưa có ghi chú...')
-                    ->action(
-                        Action::make('edit_note_inline')
-                            ->label(__('accounting.reconciliation.accounting_note'))
-                            ->icon('heroicon-o-pencil-square')
-                            ->slideOver()
-                            ->modalWidth('4xl')
-                            ->form([
-                                RichEditor::make('ghn_employee_note')
-                                    ->label(__('accounting.reconciliation.accounting_note'))
-                                    ->required()
-                                    ->columnSpanFull()
-                                    ->extraAttributes(['style' => 'min-height: 500px;']),
-                            ])
-                            ->fillForm(fn ($record) => ['ghn_employee_note' => $record->ghn_employee_note])
-                            ->action(function ($record, array $data) {
-                                $record->update(['ghn_employee_note' => $data['ghn_employee_note']]);
-                                
-                                Notification::make()
-                                    ->success()
-                                    ->title(__('accounting.reconciliation.order_updated'))
-                                    ->send();
-                            })
-                    ),
+                
 
                 TextColumn::make('ghn_to_phone')
                     ->label(new HtmlString('<div class="text-center font-semibold">' .
@@ -273,8 +288,8 @@ class ReconciliationsTable
                         $phone = e($record->order?->customer?->phone ?? $record->ghn_to_phone ?? '');
 
                         return "
-                            <div class='text-sm font-semibold text-center'>{$name}</div>
-                            <div class='text-xs text-primary-600 text-center'>{$phone}</div>
+                            <div class='text-xs font-semibold text-center'>{$name}</div>
+                            <div class='text-[10px] text-primary-600 text-center'>{$phone}</div>
                         ";
                     })
                     ->alignCenter()
@@ -291,16 +306,12 @@ class ReconciliationsTable
                         $note = e($record->order?->note ?? '-');
 
                         return "
-                            <div class='text-sm text-gray-900'>{$address}</div>
-                            <div class='text-xs text-gray-500'>{$note}</div>
+                            <div class='text-xs text-gray-900'>{$address}</div>
+                            <div class='text-[10px] text-gray-500'>{$note}</div>
                         ";
                     }),
 
-                TextColumn::make('status')
-                    ->label('Trạng thái đối soát')
-                    ->formatStateUsing(fn($state) => ReconciliationStatus::getOptions()[$state] ?? '-')
-                    ->alignCenter()
-                    ->size('sm'),
+                
             ])
             ->filters([
                 Filter::make('date_range')
@@ -743,8 +754,8 @@ class ReconciliationsTable
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
                     ->requiresConfirmation()
-                    ->visible(fn($livewire) => $livewire->activeTab === 'pending' || $livewire->activeTab === 'all')
-                    ->action(function (\Illuminate\Database\Eloquent\Collection $records, ReconciliationService $service) {
+                    ->visible(fn($livewire) => $livewire->activeTab === strtolower(ReconciliationStatus::PENDING->name) || $livewire->activeTab === 'all')
+                    ->action(function (Collection $records, ReconciliationService $service) {
                         $count = 0;
                         $skipped = 0;
 
@@ -781,11 +792,11 @@ class ReconciliationsTable
                     }),
                 BulkAction::make('bulk_pay')
                     ->label(__('accounting.reconciliation.batch_pay'))
-                    ->icon('heroicon-o-currency-dollar')
+                    ->icon('heroicon-o-banknotes')
                     ->color('warning')
                     ->requiresConfirmation()
-                    ->visible(fn($livewire) => $livewire->activeTab === 'confirmed' || $livewire->activeTab === 'all')
-                    ->action(function (\Illuminate\Database\Eloquent\Collection $records) {
+                    ->visible(fn($livewire) => $livewire->activeTab === strtolower(ReconciliationStatus::CONFIRMED->name) || $livewire->activeTab === 'all')
+                    ->action(function (Collection $records, ReconciliationService $service) {
                         $count = 0;
                         foreach ($records as $record) {
                             if ($record->status === ReconciliationStatus::CONFIRMED->value) {
