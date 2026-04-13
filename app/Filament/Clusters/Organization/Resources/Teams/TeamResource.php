@@ -4,7 +4,6 @@ namespace App\Filament\Clusters\Organization\Resources\Teams;
 
 use App\Common\Constants\GateKey;
 use App\Common\Constants\User\UserRole;
-use App\Filament\Clusters\Organization\OrganizationCluster;
 use App\Filament\Clusters\Organization\Resources\Teams\Pages\CreateTeam;
 use App\Filament\Clusters\Organization\Resources\Teams\Pages\EditTeam;
 use App\Filament\Clusters\Organization\Resources\Teams\Pages\ListTeams;

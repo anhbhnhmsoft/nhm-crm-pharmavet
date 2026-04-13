@@ -40,4 +40,9 @@ return [
         'unique_code' => 'Mã tổ chức đã tồn tại.',
         'invalid_code' => 'Mã tổ chức chỉ được chứa chữ HOA, số, gạch ngang, gạch dưới. Không dấu cách, (Mã phải bao gồm ít nhất 1 chữ số).',
     ],
+    'category_products' => [
+        'label' => 'Danh mục sản phẩm',
+        'description' => 'Miêu tả danh mục',
+        'total_products' => 'Tổng sản phẩm',
+    ],
 ];
