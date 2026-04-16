@@ -26,6 +26,39 @@ class ListReconciliations extends ListRecords
 {
     protected static string $resource = ReconciliationResource::class;
 
+    protected function resolveSyncGhnConfigState(ShippingConfigRepository $shippingConfigRepo): array
+    {
+        $config = $shippingConfigRepo->query()
+            ->where('organization_id', Auth::user()->organization_id)
+            ->first();
+
+        if (! $config) {
+            return [
+                'ready' => false,
+                'tooltip' => __('accounting.reconciliation.config_not_found'),
+            ];
+        }
+
+        if (! $config->hasDecryptableApiToken()) {
+            return [
+                'ready' => false,
+                'tooltip' => __('accounting.reconciliation.config_invalid_token'),
+            ];
+        }
+
+        if (! $config->hasCompleteGhnCredentials()) {
+            return [
+                'ready' => false,
+                'tooltip' => __('accounting.reconciliation.config_incomplete'),
+            ];
+        }
+
+        return [
+            'ready' => true,
+            'tooltip' => null,
+        ];
+    }
+
     protected function getHeaderWidgets(): array
     {
         return [
@@ -39,20 +72,8 @@ class ListReconciliations extends ListRecords
             Action::make('sync_ghn')
                 ->label(__('accounting.reconciliation.sync_from_ghn'))
                 ->icon('heroicon-o-arrow-path')
-                ->disabled(function (ShippingConfigRepository $shippingConfigRepo) {
-                    $config = $shippingConfigRepo->query()
-                        ->where('organization_id', Auth::user()->organization_id)
-                        ->first();
-
-                    return !($config && !empty($config->api_token) && !empty($config->default_store_id));
-                })
-                ->tooltip(function (ShippingConfigRepository $shippingConfigRepo) {
-                    $config = $shippingConfigRepo->query()
-                        ->where('organization_id', Auth::user()->organization_id)
-                        ->first();
-                    $hasConfig = $config && !empty($config->api_token) && !empty($config->default_store_id);
-                    return !$hasConfig ? __('accounting.reconciliation.config_not_found') : null;
-                })
+                ->disabled(fn (ShippingConfigRepository $shippingConfigRepo) => ! $this->resolveSyncGhnConfigState($shippingConfigRepo)['ready'])
+                ->tooltip(fn (ShippingConfigRepository $shippingConfigRepo) => $this->resolveSyncGhnConfigState($shippingConfigRepo)['tooltip'])
                 ->form([
                     DatePicker::make('from_date')
                         ->label(__('accounting.reconciliation.from_date'))

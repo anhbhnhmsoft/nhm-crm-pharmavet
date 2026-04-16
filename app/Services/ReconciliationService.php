@@ -28,25 +28,45 @@ class ReconciliationService
     ) {
     }
 
+    private function resolveGhnCredentials(int $organizationId): array|ServiceReturn
+    {
+        $config = $this->shippingConfigRepository->query()
+            ->where('organization_id', $organizationId)
+            ->first();
+
+        if (! $config) {
+            return ServiceReturn::error(__('accounting.reconciliation.config_not_found'));
+        }
+
+        if (! $config->hasDecryptableApiToken()) {
+            return ServiceReturn::error(__('accounting.reconciliation.config_invalid_token'));
+        }
+
+        $token = $config->getApiTokenSafely();
+
+        if (blank($token) || blank($config->default_store_id)) {
+            return ServiceReturn::error(__('accounting.reconciliation.config_incomplete'));
+        }
+
+        return [
+            'token' => $token,
+            'shop_id' => $config->default_store_id,
+        ];
+    }
+
     /**
      * Đồng bộ đối soát từ GHN.
      */
     public function syncReconciliationFromGHN(int $organizationId, string $fromDate, string $toDate): ServiceReturn
     {
         try {
-            $config = $this->shippingConfigRepository->query()
-                ->where('organization_id', $organizationId)
-                ->first();
+            $credentials = $this->resolveGhnCredentials($organizationId);
 
-            if (!$config) {
-                return ServiceReturn::error(__('accounting.reconciliation.config_not_found'));
+            if ($credentials instanceof ServiceReturn) {
+                return $credentials;
             }
 
-            if (empty($config->api_token) || empty($config->default_store_id)) {
-                return ServiceReturn::error(__('accounting.reconciliation.config_incomplete'));
-            }
-
-            $this->ghnService->setToken($config->api_token)->setShopId($config->default_store_id);
+            $this->ghnService->setToken($credentials['token'])->setShopId($credentials['shop_id']);
 
             $offset = 0;
             $limit = 50;
@@ -251,15 +271,13 @@ class ReconciliationService
                 return ServiceReturn::error(__('accounting.reconciliation.no_ghn_order_code'));
             }
 
-            $config = $this->shippingConfigRepository->query()
-                ->where('organization_id', $reconciliation->organization_id)
-                ->first();
+            $credentials = $this->resolveGhnCredentials($reconciliation->organization_id);
 
-            if (!$config || empty($config->api_token) || empty($config->default_store_id)) {
-                return ServiceReturn::error(__('accounting.reconciliation.config_not_found'));
+            if ($credentials instanceof ServiceReturn) {
+                return $credentials;
             }
 
-            $this->ghnService->setToken($config->api_token)->setShopId($config->default_store_id);
+            $this->ghnService->setToken($credentials['token'])->setShopId($credentials['shop_id']);
 
             $orderDetail = $this->ghnService->getOrderDetail($reconciliation->ghn_order_code);
 
@@ -290,15 +308,13 @@ class ReconciliationService
                 return ServiceReturn::error(__('accounting.reconciliation.no_ghn_order_code'));
             }
 
-            $config = $this->shippingConfigRepository->query()
-                ->where('organization_id', $reconciliation->organization_id)
-                ->first();
+            $credentials = $this->resolveGhnCredentials($reconciliation->organization_id);
 
-            if (!$config || empty($config->api_token) || empty($config->default_store_id)) {
-                return ServiceReturn::error(__('accounting.reconciliation.config_not_found'));
+            if ($credentials instanceof ServiceReturn) {
+                return $credentials;
             }
 
-            $this->ghnService->setToken($config->api_token)->setShopId($config->default_store_id);
+            $this->ghnService->setToken($credentials['token'])->setShopId($credentials['shop_id']);
             $orderDetail = $this->ghnService->getOrderDetail($reconciliation->ghn_order_code);
 
             // Tìm thêm thông tin phí từ search nếu detail không có
@@ -374,15 +390,13 @@ class ReconciliationService
                 return ServiceReturn::error(__('accounting.reconciliation.no_ghn_order_code'));
             }
 
-            $config = $this->shippingConfigRepository->query()
-                ->where('organization_id', $reconciliation->organization_id)
-                ->first();
+            $credentials = $this->resolveGhnCredentials($reconciliation->organization_id);
 
-            if (!$config || empty($config->api_token) || empty($config->default_store_id)) {
-                return ServiceReturn::error(__('accounting.reconciliation.config_not_found'));
+            if ($credentials instanceof ServiceReturn) {
+                return $credentials;
             }
 
-            $this->ghnService->setToken($config->api_token)->setShopId($config->default_store_id);
+            $this->ghnService->setToken($credentials['token'])->setShopId($credentials['shop_id']);
 
             $updatedFields = [];
 
