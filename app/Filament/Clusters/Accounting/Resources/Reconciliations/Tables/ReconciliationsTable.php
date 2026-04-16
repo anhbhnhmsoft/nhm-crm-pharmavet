@@ -224,7 +224,12 @@ class ReconciliationsTable
                     ->alignLeft(),
 
                 TextColumn::make('cod_amount')
-                    ->label(__('accounting.reconciliation.total_amount'))
+                    ->label(new HtmlString(
+                        '<div class="text-center font-semibold">' .
+                        e(__('accounting.reconciliation.total_amount')) .
+                        ' <span class="text-primary-500 cursor-help align-middle text-sm" title="' . e(__('accounting.reconciliation.total_amount_formula')) . '">&#9432;</span>' .
+                        '</div>'
+                    ))
                     ->alignCenter()
                     ->html()
                     ->formatStateUsing(function ($state, $record) {
@@ -246,29 +251,34 @@ class ReconciliationsTable
                             ->mountUsing(function ($form, $record) {
                                 $order  = $record->order;
                                 $exchangeRate = $record->exchangeRate;
+                                $isForeignOrganization = (bool) ($record->organization?->is_foreign ?? auth()->user()?->organization?->is_foreign);
                                 $fmtDecimal = fn($v, int $decimals = 2) => rtrim(rtrim(number_format((float) $v, $decimals, '.', ','), '0'), '.');
+                                $fmtCurrency = fn($v) => number_format((float) $v, 0, ',', '.') . ' VND';
                                 $fmt    = fn($v) => number_format((float) $v, 0, ',', '.') . ' đ';
                                 $form->fill([
-                                    'total_amount'          => $fmt($order?->total_amount ?? $record->cod_amount),
-                                    'discount'              => $fmt($order?->discount ?? 0),
-                                    'shipping_fee_customer' => $fmt($order?->shipping_fee ?? 0),
-                                    'total_fee'             => $fmt($record->total_fee ?? 0),
-                                    'deposit'               => $fmt($order?->deposit ?? 0),
-                                    'amount_received'       => $fmt($order?->amount_recived_from_customer ?? $record->cod_amount),
-                                    'shipping_fee_service'  => $fmt($record->shipping_fee ?? 0),
-                                    'amount_support_fee'    => $fmt($order?->amout_support_fee ?? 0),
-                                    'exchange_rate_applied' => $exchangeRate
-                                        ? $fmtDecimal((float) $exchangeRate->rate, 6) . ' ' . $exchangeRate->to_currency
+                                    'total_amount'          => $fmtCurrency($order?->total_amount ?? $record->cod_amount),
+                                    'discount'              => $fmtCurrency($order?->discount ?? 0),
+                                    'shipping_fee_customer' => $fmtCurrency($order?->shipping_fee ?? 0),
+                                    'total_fee'             => $fmtCurrency($record->total_fee ?? 0),
+                                    'deposit'               => $fmtCurrency($order?->deposit ?? 0),
+                                    'amount_received'       => $fmtCurrency($record->cod_amount ?? $order?->collect_amount ?? 0),
+                                    'shipping_fee_service'  => $fmtCurrency($record->shipping_fee ?? 0),
+                                    'storage_fee'           => $fmtCurrency($record->storage_fee ?? 0),
+                                    'amount_support_fee'    => $fmtCurrency($order?->amout_support_fee ?? 0),
+                                    'exchange_rate_applied' => ($isForeignOrganization && $exchangeRate)
+                                        ? '1 ' . $exchangeRate->from_currency . ' = ' . $fmtDecimal((float) $exchangeRate->rate, 6) . ' ' . $exchangeRate->to_currency
                                         : '-',
-                                    'converted_amount'      => ($record->converted_amount !== null && $exchangeRate)
+                                    'converted_amount'      => ($isForeignOrganization && $record->converted_amount !== null && $exchangeRate)
                                         ? $fmtDecimal((float) $record->converted_amount, 2) . ' ' . $exchangeRate->from_currency
                                         : '-',
-                                    'exchange_rate_source'  => match ($exchangeRate?->source) {
+                                    'exchange_rate_source'  => ($isForeignOrganization && $exchangeRate) ? match ($exchangeRate?->source) {
                                         'manual' => __('accounting.exchange_rate.source_manual'),
                                         'api' => __('accounting.exchange_rate.source_api'),
                                         default => '-',
-                                    },
-                                    'exchange_rate_date'    => $exchangeRate?->rate_date?->format('d/m/Y') ?? '-',
+                                    } : '-',
+                                    'exchange_rate_date'    => ($isForeignOrganization && $exchangeRate)
+                                        ? $exchangeRate->rate_date?->format('d/m/Y')
+                                        : '-',
                                 ]);
                             })
                             ->form([
@@ -278,15 +288,28 @@ class ReconciliationsTable
                                     ->extraInputAttributes(['class' => 'font-semibold text-primary-600']),
                                 TextInput::make('discount')->label(__('accounting.reconciliation.finance_ck'))->disabled(),
                                 TextInput::make('shipping_fee_customer')->label(__('accounting.reconciliation.finance_shipping_fee_customer'))->disabled(),
-                                TextInput::make('total_fee')->label(__('accounting.reconciliation.finance_total_fee'))->disabled(),
+                                TextInput::make('total_fee')
+                                    ->label(new HtmlString(
+                                        e(__('accounting.reconciliation.finance_total_fee')) .
+                                        ' <span class="text-primary-500 cursor-help align-middle text-sm" title="' .
+                                        e(__('accounting.reconciliation.finance_total_fee_formula')) .
+                                        '">&#9432;</span>'
+                                    ))
+                                    ->disabled(),
                                 TextInput::make('deposit')->label(__('accounting.reconciliation.finance_deposit'))->disabled(),
                                 TextInput::make('amount_received')->label(__('accounting.reconciliation.finance_amount_received'))->disabled(),
                                 TextInput::make('shipping_fee_service')->label(__('accounting.reconciliation.finance_shipping_fee_service'))->disabled(),
+                                TextInput::make('storage_fee')->label(__('accounting.reconciliation.storage_fee'))->disabled(),
                                 TextInput::make('amount_support_fee')->label(__('accounting.reconciliation.finance_amount_support_fee'))->disabled(),
-                                TextInput::make('exchange_rate_applied')->label(__('accounting.reconciliation.exchange_rate_applied_label'))->disabled(),
-                                TextInput::make('converted_amount')->label(__('accounting.reconciliation.converted_amount'))->disabled(),
-                                TextInput::make('exchange_rate_source')->label(__('accounting.reconciliation.exchange_rate_source_label'))->disabled(),
-                                TextInput::make('exchange_rate_date')->label(__('accounting.reconciliation.exchange_rate_date_label'))->disabled(),
+                                Section::make(__('accounting.reconciliation.exchange_rate_summary_label'))
+                                    ->schema([
+                                        TextInput::make('exchange_rate_applied')->label(__('accounting.reconciliation.exchange_rate_applied_label'))->disabled(),
+                                        TextInput::make('converted_amount')->label(__('accounting.reconciliation.converted_amount'))->disabled(),
+                                        TextInput::make('exchange_rate_source')->label(__('accounting.reconciliation.exchange_rate_source_label'))->disabled(),
+                                        TextInput::make('exchange_rate_date')->label(__('accounting.reconciliation.exchange_rate_date_label'))->disabled(),
+                                    ])
+                                    ->columns(1)
+                                    ->visible(fn() => (bool) auth()->user()?->organization?->is_foreign),
                             ])
                             ->modalSubmitAction(false)
                             ->modalCancelActionLabel(__('accounting.reconciliation.finance_detail_close'))
@@ -295,6 +318,7 @@ class ReconciliationsTable
                 TextColumn::make('exchange_rate_summary')
                     ->label(new HtmlString('<div class="text-center font-semibold text-[11px] leading-tight">' . __('accounting.reconciliation.exchange_rate_summary_label') . '</div>'))
                     ->state(fn ($record) => $record->exchange_rate_id ?? $record->id)
+                    ->visible(fn () => (bool) auth()->user()?->organization?->is_foreign)
                     ->html()
                     ->formatStateUsing(function ($state, $record) {
                         $exchangeRate = $record->exchangeRate;
@@ -306,7 +330,8 @@ class ReconciliationsTable
                             ";
                         }
 
-                        $rate = rtrim(rtrim(number_format((float) $exchangeRate->rate, 6, '.', ','), '0'), '.') . ' ' . e($exchangeRate->to_currency);
+                        $rate = e($exchangeRate->from_currency . '/' . $exchangeRate->to_currency) . ': ' .
+                            rtrim(rtrim(number_format((float) $exchangeRate->rate, 6, '.', ','), '0'), '.');
                         $converted = $record->converted_amount !== null
                             ? rtrim(rtrim(number_format((float) $record->converted_amount, 2, '.', ','), '0'), '.') . ' ' . e($exchangeRate->from_currency)
                             : '-';
@@ -420,11 +445,19 @@ class ReconciliationsTable
                                 DatePicker::make('from')
                                     ->label(__('accounting.reconciliation.filter_from_date'))
                                     ->native(false)
-                                    ->displayFormat('d/m/Y'),
+                                    ->displayFormat('d/m/Y')
+                                    ->beforeOrEqual('to')
+                                    ->validationMessages([
+                                        'before_or_equal' => __('accounting.reconciliation.filter_date_invalid_range'),
+                                    ]),
                                 DatePicker::make('to')
                                     ->label(__('accounting.reconciliation.filter_to_date'))
                                     ->native(false)
-                                    ->displayFormat('d/m/Y'),
+                                    ->displayFormat('d/m/Y')
+                                    ->afterOrEqual('from')
+                                    ->validationMessages([
+                                        'after_or_equal' => __('accounting.reconciliation.filter_date_invalid_range'),
+                                    ]),
                             ]),
                     ])
                     ->query(function (Builder $query, array $data, $livewire): Builder {
@@ -912,18 +945,35 @@ class ReconciliationsTable
                         $count = 0;
                         $skipped = 0;
 
-                        $finalStatuses = [
-                            GhnOrderStatus::DELIVERED->value,
-                            GhnOrderStatus::RETURNED->value,
-                            GhnOrderStatus::CANCEL->value,
-                            GhnOrderStatus::LOST->value,
-                            GhnOrderStatus::DAMAGE->value,
-                        ];
+                        $finalStatuses = collect([
+                            GhnOrderStatus::DELIVERED,
+                            GhnOrderStatus::RETURNED,
+                            GhnOrderStatus::CANCEL,
+                            GhnOrderStatus::LOST,
+                            GhnOrderStatus::DAMAGE,
+                        ])
+                            ->flatMap(fn(GhnOrderStatus $status) => [
+                                mb_strtolower($status->value),
+                                mb_strtolower($status->label()),
+                            ])
+                            ->push('cancelled')
+                            ->unique()
+                            ->values()
+                            ->all();
 
                         foreach ($records as $record) {
-                            $ghnStatus = $record->order?->ghn_status;
+                            $ghnStatuses = collect([
+                                $record->order?->ghn_status,
+                                $record->ghn_status_label,
+                            ])
+                                ->filter()
+                                ->map(fn($status) => mb_strtolower(trim((string) $status)));
 
-                            if (in_array($ghnStatus, $finalStatuses) && $record->status === ReconciliationStatus::PENDING->value) {
+                            $isFinalStatus = $ghnStatuses->contains(
+                                fn(string $status) => in_array($status, $finalStatuses, true)
+                            );
+
+                            if ($isFinalStatus && $record->status === ReconciliationStatus::PENDING->value) {
                                 $result = $service->confirmReconciliation($record->id);
                                 if (!$result->isError()) {
                                     $count++;
@@ -951,17 +1001,25 @@ class ReconciliationsTable
                     ->visible(fn($livewire) => $livewire->activeTab === strtolower(ReconciliationStatus::CONFIRMED->name) || $livewire->activeTab === 'all')
                     ->action(function (Collection $records, ReconciliationService $service) {
                         $count = 0;
+                        $skipped = 0;
                         foreach ($records as $record) {
                             if ($record->status === ReconciliationStatus::CONFIRMED->value) {
                                 $record->update(['status' => ReconciliationStatus::PAID->value]);
                                 $count++;
+                            } else {
+                                $skipped++;
                             }
                         }
 
-                        Notification::make()
+                        $notification = Notification::make()
                             ->success()
-                            ->title(__('accounting.reconciliation.batch_success', ['count' => $count]))
-                            ->send();
+                            ->title(__('accounting.reconciliation.batch_success', ['count' => $count]));
+
+                        if ($skipped > 0) {
+                            $notification->body(__('accounting.reconciliation.bulk_pay_skipped', ['count' => $skipped]));
+                        }
+
+                        $notification->send();
                     }),
                 BulkAction::make('bulk_print')
                     ->label(__('accounting.reconciliation.bulk_print'))

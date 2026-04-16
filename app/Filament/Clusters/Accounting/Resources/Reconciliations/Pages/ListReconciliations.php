@@ -21,9 +21,12 @@ use Maatwebsite\Excel\Facades\Excel;
 use Storage;
 
 use App\Filament\Clusters\Accounting\Resources\Reconciliations\Widgets\ReconciliationStatsWidget;
+use Filament\Pages\Concerns\ExposesTableToWidgets;
 
 class ListReconciliations extends ListRecords
 {
+    use ExposesTableToWidgets;
+
     protected static string $resource = ReconciliationResource::class;
 
     protected function resolveSyncGhnConfigState(ShippingConfigRepository $shippingConfigRepo): array
