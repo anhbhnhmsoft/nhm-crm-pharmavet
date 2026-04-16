@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Core\GenerateId\GenerateIdSnowflake;
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -51,5 +52,32 @@ class ShippingConfig extends Model
     public function warehouse(): BelongsTo
     {
         return $this->belongsTo(Warehouse::class);
+    }
+
+    public function hasDecryptableApiToken(): bool
+    {
+        try {
+            $this->api_token;
+
+            return true;
+        } catch (DecryptException) {
+            return false;
+        }
+    }
+
+    public function getApiTokenSafely(): ?string
+    {
+        try {
+            $token = $this->api_token;
+
+            return filled($token) ? (string) $token : null;
+        } catch (DecryptException) {
+            return null;
+        }
+    }
+
+    public function hasCompleteGhnCredentials(): bool
+    {
+        return filled($this->default_store_id) && filled($this->getApiTokenSafely());
     }
 }
