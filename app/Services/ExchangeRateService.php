@@ -7,6 +7,7 @@ use App\Models\ExchangeRate;
 use App\Repositories\ExchangeRateRepository;
 use App\Repositories\OrganizationRepository;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Throwable;
@@ -28,7 +29,17 @@ class ExchangeRateService
      * Đảm bảo có tỷ giá USD -> VND cho organization theo ngày đối soát.
      * API hiện tại chỉ lấy latest, nên hệ thống sẽ lưu latest vào đúng rate_date được truyền vào.
      */
-    public function getOrSyncUsdVndRate(int $organizationId, string $rateDate): ?ExchangeRate
+    public function getOrSyncUsdVndRate(int $organizationId, string $rateDate, bool $overwriteManual = false): ?ExchangeRate
+    {
+        $result = $this->syncUsdVndRate($organizationId, $rateDate, $overwriteManual);
+
+        return $result['record'];
+    }
+
+    /**
+     * @return array{status: string, record: ?ExchangeRate}
+     */
+    public function syncUsdVndRate(int $organizationId, string $rateDate, bool $overwriteManual = false): array
     {
         $normalizedDate = Carbon::parse($rateDate)->toDateString();
 
@@ -39,29 +50,58 @@ class ExchangeRateService
             ->where('to_currency', 'VND')
             ->first();
 
-        if ($existingRate) {
-            return $existingRate;
+        if ($existingRate && $existingRate->source === 'manual' && ! $overwriteManual) {
+            return [
+                'status' => 'skipped_manual',
+                'record' => $existingRate,
+            ];
         }
 
         $latestRate = $this->fetchLatestUsdToVndRate();
 
         if ($latestRate === null) {
-            return null;
+            return [
+                'status' => 'failed',
+                'record' => $existingRate,
+            ];
         }
 
-        return $this->exchangeRateRepository->query()->updateOrCreate(
-            [
-                'organization_id' => $organizationId,
-                'rate_date' => $normalizedDate,
-                'from_currency' => 'USD',
-                'to_currency' => 'VND',
-            ],
-            [
+        if ($existingRate) {
+            if ((float) $existingRate->rate === (float) $latestRate && $existingRate->source === 'api') {
+                return [
+                    'status' => 'unchanged_api',
+                    'record' => $existingRate,
+                ];
+            }
+
+            $existingRate->update([
                 'rate' => $latestRate,
                 'source' => 'api',
                 'note' => 'Auto synced from ExchangeRate-API latest/USD',
-            ]
-        );
+                'created_by' => Auth::id(),
+            ]);
+
+            return [
+                'status' => $overwriteManual ? 'overwritten_manual' : 'updated',
+                'record' => $existingRate->fresh(),
+            ];
+        }
+
+        $record = $this->exchangeRateRepository->query()->create([
+            'organization_id' => $organizationId,
+            'rate_date' => $normalizedDate,
+            'from_currency' => 'USD',
+            'to_currency' => 'VND',
+            'rate' => $latestRate,
+            'source' => 'api',
+            'note' => 'Auto synced from ExchangeRate-API latest/USD',
+            'created_by' => Auth::id(),
+        ]);
+
+        return [
+            'status' => 'created',
+            'record' => $record,
+        ];
     }
 
     /**

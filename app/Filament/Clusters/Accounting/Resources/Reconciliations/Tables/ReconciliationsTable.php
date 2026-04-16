@@ -5,6 +5,7 @@ namespace App\Filament\Clusters\Accounting\Resources\Reconciliations\Tables;
 use App\Common\Constants\Accounting\ReconciliationStatus;
 use App\Common\Constants\CacheKey;
 use App\Common\Constants\Order\GhnOrderStatus;
+use App\Common\Constants\Shipping\ProviderShipping;
 use App\Common\Constants\Shipping\RequiredNote;
 use App\Core\Caching;
 use App\Services\ReconciliationService;
@@ -35,6 +36,7 @@ use App\Common\Constants\User\UserPosition;
 use App\Common\Constants\Team\TeamType;
 use App\Common\Constants\Order\OrderStatus;
 use Filament\Tables\Table;
+use Filament\Tables\Enums\RecordActionsPosition;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Actions\BulkAction;
 
@@ -50,7 +52,7 @@ class ReconciliationsTable
                     ->alignCenter()
                     ->size('xs'),
                 TextColumn::make('order.createdBy.name')
-                    ->label('Sale')
+                    ->label(__('accounting.reconciliation.sale'))
                     ->html()
                     ->formatStateUsing(function ($state, $record) {
                         if (!$record->order || !$record->order->createdBy) {
@@ -223,35 +225,128 @@ class ReconciliationsTable
 
                 TextColumn::make('cod_amount')
                     ->label(__('accounting.reconciliation.total_amount'))
-                    ->money('VND')
-                    ->formatStateUsing(fn($state, $record) => $record->order?->total_amount ?? $record->cod_amount)
-                    ->alignEnd()
+                    ->alignCenter()
+                    ->html()
+                    ->formatStateUsing(function ($state, $record) {
+                        $amount = $record->order?->total_amount ?? $record->cod_amount;
+                        $formatted = number_format((float) $amount, 0, ',', '.') . ' đ';
+                        return "
+                            <div style='text-align:center'>
+                                <div style='font-size:12px;font-weight:600'>{$formatted}</div>
+                                <div style='font-size:12px;color:#3b82f6;font-weight:600;cursor:pointer;margin-top:2px'>" . e(__('accounting.reconciliation.finance_detail_link')) . "</div>
+                            </div>
+                        ";
+                    })
+                    ->size('xs')
+                    ->action(
+                        Action::make('view_finance_detail')
+                            ->label(__('accounting.reconciliation.finance_detail_label'))
+                            ->modalHeading(__('accounting.reconciliation.finance_detail_heading'))
+                            ->modalWidth('2xl')
+                            ->mountUsing(function ($form, $record) {
+                                $order  = $record->order;
+                                $exchangeRate = $record->exchangeRate;
+                                $fmtDecimal = fn($v, int $decimals = 2) => rtrim(rtrim(number_format((float) $v, $decimals, '.', ','), '0'), '.');
+                                $fmt    = fn($v) => number_format((float) $v, 0, ',', '.') . ' đ';
+                                $form->fill([
+                                    'total_amount'          => $fmt($order?->total_amount ?? $record->cod_amount),
+                                    'discount'              => $fmt($order?->discount ?? 0),
+                                    'shipping_fee_customer' => $fmt($order?->shipping_fee ?? 0),
+                                    'total_fee'             => $fmt($record->total_fee ?? 0),
+                                    'deposit'               => $fmt($order?->deposit ?? 0),
+                                    'amount_received'       => $fmt($order?->amount_recived_from_customer ?? $record->cod_amount),
+                                    'shipping_fee_service'  => $fmt($record->shipping_fee ?? 0),
+                                    'amount_support_fee'    => $fmt($order?->amout_support_fee ?? 0),
+                                    'exchange_rate_applied' => $exchangeRate
+                                        ? $fmtDecimal((float) $exchangeRate->rate, 6) . ' ' . $exchangeRate->to_currency
+                                        : '-',
+                                    'converted_amount'      => ($record->converted_amount !== null && $exchangeRate)
+                                        ? $fmtDecimal((float) $record->converted_amount, 2) . ' ' . $exchangeRate->from_currency
+                                        : '-',
+                                    'exchange_rate_source'  => match ($exchangeRate?->source) {
+                                        'manual' => __('accounting.exchange_rate.source_manual'),
+                                        'api' => __('accounting.exchange_rate.source_api'),
+                                        default => '-',
+                                    },
+                                    'exchange_rate_date'    => $exchangeRate?->rate_date?->format('d/m/Y') ?? '-',
+                                ]);
+                            })
+                            ->form([
+                                TextInput::make('total_amount')
+                                    ->label(__('accounting.reconciliation.total_amount'))
+                                    ->disabled()
+                                    ->extraInputAttributes(['class' => 'font-semibold text-primary-600']),
+                                TextInput::make('discount')->label(__('accounting.reconciliation.finance_ck'))->disabled(),
+                                TextInput::make('shipping_fee_customer')->label(__('accounting.reconciliation.finance_shipping_fee_customer'))->disabled(),
+                                TextInput::make('total_fee')->label(__('accounting.reconciliation.finance_total_fee'))->disabled(),
+                                TextInput::make('deposit')->label(__('accounting.reconciliation.finance_deposit'))->disabled(),
+                                TextInput::make('amount_received')->label(__('accounting.reconciliation.finance_amount_received'))->disabled(),
+                                TextInput::make('shipping_fee_service')->label(__('accounting.reconciliation.finance_shipping_fee_service'))->disabled(),
+                                TextInput::make('amount_support_fee')->label(__('accounting.reconciliation.finance_amount_support_fee'))->disabled(),
+                                TextInput::make('exchange_rate_applied')->label(__('accounting.reconciliation.exchange_rate_applied_label'))->disabled(),
+                                TextInput::make('converted_amount')->label(__('accounting.reconciliation.converted_amount'))->disabled(),
+                                TextInput::make('exchange_rate_source')->label(__('accounting.reconciliation.exchange_rate_source_label'))->disabled(),
+                                TextInput::make('exchange_rate_date')->label(__('accounting.reconciliation.exchange_rate_date_label'))->disabled(),
+                            ])
+                            ->modalSubmitAction(false)
+                            ->modalCancelActionLabel(__('accounting.reconciliation.finance_detail_close'))
+                    ),
+
+                TextColumn::make('exchange_rate_summary')
+                    ->label(new HtmlString('<div class="text-center font-semibold text-[11px] leading-tight">' . __('accounting.reconciliation.exchange_rate_summary_label') . '</div>'))
+                    ->state(fn ($record) => $record->exchange_rate_id ?? $record->id)
+                    ->html()
+                    ->formatStateUsing(function ($state, $record) {
+                        $exchangeRate = $record->exchangeRate;
+
+                        if (! $exchangeRate) {
+                            return "
+                                <div class='text-[10px] text-gray-400 text-center'>" . e(__('accounting.reconciliation.exchange_rate_summary_empty')) . "</div>
+                                <div class='text-[10px] text-gray-400 text-center'>-</div>
+                            ";
+                        }
+
+                        $rate = rtrim(rtrim(number_format((float) $exchangeRate->rate, 6, '.', ','), '0'), '.') . ' ' . e($exchangeRate->to_currency);
+                        $converted = $record->converted_amount !== null
+                            ? rtrim(rtrim(number_format((float) $record->converted_amount, 2, '.', ','), '0'), '.') . ' ' . e($exchangeRate->from_currency)
+                            : '-';
+
+                        return "
+                            <div class='text-xs font-semibold text-gray-900 text-center'>{$rate}</div>
+                            <div class='text-[10px] text-primary-600 text-center'>{$converted}</div>
+                        ";
+                    })
+                    ->alignCenter()
                     ->size('xs'),
 
                 TextColumn::make('order.discount')
-                    ->label('CK')
-                    ->money('VND')
-                    ->alignEnd()
-                    ->size('xs'),
-
-                TextColumn::make('order.shipping_fee')
-                    ->label(new HtmlString('<div class="text-center font-semibold text-[11px] leading-tight">Phí VC<br>thu của khách</div>'))
+                    ->label(__('accounting.reconciliation.finance_ck'))
                     ->money('VND')
                     ->alignEnd()
                     ->size('xs')
-                    ->width('80px'),
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('order.shipping_fee')
+                    ->label(new HtmlString('<div class="text-center font-semibold text-[11px] leading-tight">' . __('accounting.reconciliation.finance_shipping_fee_customer') . '</div>'))
+                    ->money('VND')
+                    ->alignEnd()
+                    ->size('xs')
+                    ->width('80px')
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('total_fee')
-                    ->label('Tổng tiền')
+                    ->label(__('accounting.reconciliation.finance_total_fee'))
                     ->money('VND')
                     ->alignEnd()
-                    ->size('xs'),
+                    ->size('xs')
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('order.deposit')
-                    ->label('Đặt cọc')
+                    ->label(__('accounting.reconciliation.finance_deposit'))
                     ->money('VND')
                     ->alignEnd()
-                    ->size('xs'),
+                    ->size('xs')
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('id_received')
                     ->label(new HtmlString('<div class="text-center font-semibold text-[11px] leading-tight">Tiền thu<br>của khách</div>'))
@@ -261,19 +356,22 @@ class ReconciliationsTable
                     })
                     ->alignEnd()
                     ->size('xs')
-                    ->width('80px'),
+                    ->width('80px')
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('shipping_fee')
                     ->label(new HtmlString('<div class="text-center font-semibold text-[11px] leading-tight">Giá dịch vụ<br>VC</div>'))
                     ->money('VND')
                     ->alignEnd()
-                    ->size('xs'),
+                    ->size('xs')
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('order.amout_support_fee')
                     ->label(new HtmlString('<div class="text-center font-semibold text-[11px] leading-tight">Phí VC<br>hỗ trợ khách</div>'))
                     ->money('VND')
                     ->alignEnd()
-                    ->size('xs'),
+                    ->size('xs')
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 
 
@@ -315,16 +413,16 @@ class ReconciliationsTable
             ])
             ->filters([
                 Filter::make('date_range')
-                    ->label('Khoảng ngày')
+                    ->label(__('accounting.reconciliation.filter_date_range'))
                     ->form([
                         Grid::make(2)
                             ->schema([
                                 DatePicker::make('from')
-                                    ->label('Từ ngày')
+                                    ->label(__('accounting.reconciliation.filter_from_date'))
                                     ->native(false)
                                     ->displayFormat('d/m/Y'),
                                 DatePicker::make('to')
-                                    ->label('Đến ngày')
+                                    ->label(__('accounting.reconciliation.filter_to_date'))
                                     ->native(false)
                                     ->displayFormat('d/m/Y'),
                             ]),
@@ -344,74 +442,79 @@ class ReconciliationsTable
                     ->indicateUsing(function (array $data): array {
                         $indicators = [];
                         if ($data['from'] ?? null) {
-                            $indicators[] = Indicator::make('Từ ngày: ' . Carbon::parse($data['from'])->format('d/m/Y'))
+                            $indicators[] = Indicator::make(__('accounting.reconciliation.filter_from_indicator', ['date' => Carbon::parse($data['from'])->format('d/m/Y')]))
                                 ->removeField('from');
                         }
                         if ($data['to'] ?? null) {
-                            $indicators[] = Indicator::make('Đến ngày: ' . Carbon::parse($data['to'])->format('d/m/Y'))
+                            $indicators[] = Indicator::make(__('accounting.reconciliation.filter_to_indicator', ['date' => Carbon::parse($data['to'])->format('d/m/Y')]))
                                 ->removeField('to');
                         }
                         return $indicators;
                     }),
 
                 SelectFilter::make('date_type')
-                    ->label('Kiểu ngày')
+                    ->label(__('accounting.reconciliation.filter_date_type'))
                     ->options([
-                        'reconciliation_date' => 'Ngày đối soát',
-                        'ghn_created_at' => 'Ngày GHN về',
-                        'confirmed_at' => 'Ngày xác nhận',
-                        'order_created_at' => 'Ngày tạo đơn',
+                        'reconciliation_date' => __('accounting.reconciliation.filter_date_reconciliation'),
+                        'ghn_created_at'      => __('accounting.reconciliation.filter_date_ghn'),
+                        'confirmed_at'        => __('accounting.reconciliation.filter_date_confirmed'),
+                        'order_created_at'    => __('accounting.reconciliation.filter_date_order_created'),
                     ])
                     ->default('reconciliation_date')
                     ->query(fn($query) => $query),
 
-                SelectFilter::make('is_printed')
-                    ->label('In đơn')
-                    ->options([
-                        '1' => 'Đã in',
-                        '0' => 'Chưa in',
-                    ])
-                    ->query(fn($query, $data) => $query),
+                TernaryFilter::make('is_printed')
+                    ->label(__('accounting.reconciliation.filter_is_printed'))
+                    ->placeholder(__('accounting.reconciliation.filter_deposit_all'))
+                    ->trueLabel(__('accounting.reconciliation.filter_printed'))
+                    ->falseLabel(__('accounting.reconciliation.filter_not_printed'))
+                    ->queries(
+                        true:  fn($query) => $query->whereHas('order', fn($o) => $o->where('is_printed', true)),
+                        false: fn($query) => $query->whereHas('order', fn($o) => $o->where('is_printed', false)),
+                        blank: fn($query) => $query,
+                    ),
 
-                SelectFilter::make('care_status')
-                    ->label('Care đơn')
-                    ->options([
-                        '1' => 'Đã care',
-                        '0' => 'Chưa care',
-                    ])
-                    ->query(fn($query, $data) => $query),
+                TernaryFilter::make('care_status')
+                    ->label(__('accounting.reconciliation.filter_care'))
+                    ->placeholder(__('accounting.reconciliation.filter_deposit_all'))
+                    ->trueLabel(__('accounting.reconciliation.filter_cared'))
+                    ->falseLabel(__('accounting.reconciliation.filter_not_cared'))
+                    ->queries(
+                        true:  fn($query) => $query->whereHas('order', fn($o) => $o->whereNotNull('care_updated_at')),
+                        false: fn($query) => $query->whereHas('order', fn($o) => $o->whereNull('care_updated_at')),
+                        blank: fn($query) => $query,
+                    ),
 
                 SelectFilter::make('care_staff_id')
-                    ->label('Chọn care đơn')
+                    ->label(__('accounting.reconciliation.filter_care_staff'))
                     ->options(fn() => User::where('role', UserRole::SALE->value)->pluck('name', 'id'))
                     ->searchable()
                     ->query(fn($query, $data) => $query->when($data['value'], fn($q, $val) => $q->whereHas('order', fn($o) => $o->where('created_by', $val)))),
 
                 SelectFilter::make('product_id')
-                    ->label('Chọn sản phẩm')
+                    ->label(__('accounting.reconciliation.filter_product'))
                     ->options(fn() => Product::pluck('name', 'id'))
                     ->query(fn($query, $data) => $query->when($data['value'], fn($q, $val) => $q->whereHas('order.items', fn($it) => $it->where('product_id', $val))))
                     ->searchable(),
 
-                SelectFilter::make('internal_reconciliation')
-                    ->label('Chọn đối soát nội bộ')
-                    ->options([
-                        '1' => 'Đã đối soát',
-                        '0' => 'Chưa đối soát',
-                    ])
-                    ->query(fn($query, $data) => $query),
+                TernaryFilter::make('internal_reconciliation')
+                    ->label(__('accounting.reconciliation.filter_internal_reconciliation'))
+                    ->placeholder(__('accounting.reconciliation.filter_deposit_all'))
+                    ->trueLabel(__('accounting.reconciliation.filter_reconciled'))
+                    ->falseLabel(__('accounting.reconciliation.filter_not_reconciled'))
+                    ->queries(
+                        true:  fn($query) => $query->where('is_internal_reconciled', true),
+                        false: fn($query) => $query->where('is_internal_reconciled', false),
+                        blank: fn($query) => $query,
+                    ),
 
                 SelectFilter::make('shipping_method')
-                    ->label('Chọn PTCH')
-                    ->options([
-                        'GHN' => 'Giao Hàng Nhanh',
-                        'Viettel' => 'Viettel Post',
-                        'Manual' => 'Thủ công',
-                    ])
+                    ->label(__('accounting.reconciliation.filter_shipping_method'))
+                    ->options(ProviderShipping::getOptions())
                     ->query(fn($query, $data) => $query->when($data['value'], fn($q, $val) => $q->whereHas('order', fn($o) => $o->where('provider_shipping', $val)))),
 
                 SelectFilter::make('warehouse_id')
-                    ->label('Chọn kho')
+                    ->label(__('accounting.reconciliation.filter_warehouse'))
                     ->options(function () {
                         return Warehouse::pluck('name', 'id');
                     })
@@ -424,10 +527,10 @@ class ReconciliationsTable
                     }),
 
                 TernaryFilter::make('has_deposit')
-                    ->label('Đặt cọc')
-                    ->placeholder('Tất cả')
-                    ->trueLabel('Có đặt cọc')
-                    ->falseLabel('Không/Chưa cọc')
+                    ->label(__('accounting.reconciliation.filter_deposit'))
+                    ->placeholder(__('accounting.reconciliation.filter_deposit_all'))
+                    ->trueLabel(__('accounting.reconciliation.filter_deposit_yes'))
+                    ->falseLabel(__('accounting.reconciliation.filter_deposit_no'))
                     ->queries(
                         true: fn(Builder $query) => $query->whereHas('order', fn($q) => $q->where('deposit', '>', 0)),
                         false: fn(Builder $query) => $query->whereHas('order', fn($q) => $q->where(function ($sub) {
@@ -437,18 +540,18 @@ class ReconciliationsTable
                     ),
 
                 SelectFilter::make('sale_leader_id')
-                    ->label('Chọn trưởng nhóm sale')
+                    ->label(__('accounting.reconciliation.filter_sale_leader'))
                     ->options(fn() => User::where('role', UserRole::SALE->value)->where('position', UserPosition::LEADER->value)->pluck('name', 'id'))
                     ->searchable()
                     ->query(fn($query, $data) => $query->when($data['value'], fn($q, $val) => $q->whereHas('order.createdBy', fn($u) => $u->where('id', $val)))),
 
                 SelectFilter::make('sale_team_id')
-                    ->label('Chọn nhóm sale')
+                    ->label(__('accounting.reconciliation.filter_sale_team'))
                     ->options(fn() => Team::where('type', TeamType::SALE->value)->pluck('name', 'id'))
                     ->query(fn($query, $data) => $query->when($data['value'], fn($q, $val) => $q->whereHas('order.createdBy', fn($uq) => $uq->where('team_id', $val)))),
 
                 SelectFilter::make('sale_id')
-                    ->label('Chọn sale')
+                    ->label(__('accounting.reconciliation.filter_sale'))
                     ->options(function () {
                         return User::where('role', UserRole::SALE->value)->pluck('name', 'id');
                     })
@@ -461,34 +564,61 @@ class ReconciliationsTable
                     }),
 
                 SelectFilter::make('mkt_leader_id')
-                    ->label('Chọn trưởng nhóm marketing')
+                    ->label(__('accounting.reconciliation.filter_mkt_leader'))
                     ->options(fn() => User::where('role', UserRole::MARKETING->value)->where('position', UserPosition::LEADER->value)->pluck('name', 'id'))
                     ->searchable()
                     ->query(fn($query, $data) => $query->when($data['value'], fn($q, $val) => $q->whereHas('order.customer.assignedStaff', fn($uq) => $uq->where('id', $val)))),
 
                 SelectFilter::make('mkt_team_id')
-                    ->label('Chọn nhóm marketing')
+                    ->label(__('accounting.reconciliation.filter_mkt_team'))
                     ->options(fn() => Team::where('type', TeamType::MARKETING->value)->pluck('name', 'id'))
                     ->query(fn($query, $data) => $query->when($data['value'], fn($q, $val) => $q->whereHas('order.customer.assignedStaff', fn($uq) => $uq->where('team_id', $val)))),
 
                 SelectFilter::make('mkt_id')
-                    ->label('Chọn marketing')
+                    ->label(__('accounting.reconciliation.filter_mkt'))
                     ->options(fn() => User::where('role', UserRole::MARKETING->value)->pluck('name', 'id'))
                     ->searchable()
                     ->query(fn($query, $data) => $query->when($data['value'], fn($q, $val) => $q->whereHas('order.customer.assignedStaff', fn($uq) => $uq->where('id', $val)))),
 
                 SelectFilter::make('status')
-                    ->label('Theo dõi đơn')
+                    ->label(__('accounting.reconciliation.filter_follow_order'))
                     ->options(OrderStatus::toOptions())
                     ->query(fn($query, $data) => $query->when($data['value'], fn($q, $val) => $q->whereHas('order', fn($o) => $o->where('status', $val)))),
 
                 SelectFilter::make('qty_status')
-                    ->label('Toàn bộ số lượng')
+                    ->label(__('accounting.reconciliation.filter_qty_status'))
                     ->options([
-                        'all' => 'Toàn bộ số lượng',
-                        'partial' => 'Một phần',
+                        'all'     => __('accounting.reconciliation.filter_qty_all'),
+                        'partial' => __('accounting.reconciliation.filter_qty_partial'),
                     ])
-                    ->query(fn($query, $data) => $query),
+                    ->query(fn($query, $data) => $query->when(
+                        isset($data['value']) && $data['value'] !== '',
+                        function ($q) use ($data) {
+                            if ($data['value'] === 'all') {
+                                // Toàn bộ: tổng qty order_items == tổng qty đã xuất trong inventory_ticket_details
+                                return $q->whereHas('order', function ($o) {
+                                    $o->whereColumn(
+                                        'id',
+                                        'id'
+                                    )->whereRaw(
+                                        '(SELECT COALESCE(SUM(oi.quantity),0) FROM order_items oi WHERE oi.order_id = orders.id)
+                                         = (SELECT COALESCE(SUM(itd.quantity),0) FROM inventory_ticket_details itd
+                                            INNER JOIN inventory_tickets it ON itd.inventory_ticket_id = it.id
+                                            WHERE it.order_id = orders.id AND it.type = 2 AND it.status = 2)'
+                                    );
+                                });
+                            }
+                            // Một phần: số lượng đã xuất < tổng số lượng đặt
+                            return $q->whereHas('order', function ($o) {
+                                $o->whereRaw(
+                                    '(SELECT COALESCE(SUM(oi.quantity),0) FROM order_items oi WHERE oi.order_id = orders.id)
+                                     > (SELECT COALESCE(SUM(itd.quantity),0) FROM inventory_ticket_details itd
+                                        INNER JOIN inventory_tickets it ON itd.inventory_ticket_id = it.id
+                                        WHERE it.order_id = orders.id AND it.type = 2 AND it.status = 2)'
+                                );
+                            });
+                        }
+                    )),
             ], layout: FiltersLayout::AboveContent)
             ->filtersFormColumns(6)
             ->actions([
@@ -726,7 +856,7 @@ class ReconciliationsTable
                         }
                     }),
                 Action::make('confirm')
-                    ->label(__('accounting.reconciliation.confirm'))
+                    ->label(__('accounting.reconciliation.confirm_order'))
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
                     ->requiresConfirmation()
@@ -746,6 +876,29 @@ class ReconciliationsTable
                                 ->title(__('accounting.reconciliation.confirmed'))
                                 ->send();
                         }
+                    }),
+                Action::make('print_order')
+                    ->label(__('accounting.reconciliation.confirm_print'))
+                    ->icon('heroicon-o-printer')
+                    ->color('gray')
+                    ->requiresConfirmation()
+                    ->modalHeading(__('accounting.reconciliation.confirm_print'))
+                    ->modalDescription(fn($record) => __('accounting.reconciliation.confirm_print_modal_desc', [
+                        'code' => $record->order?->code ?? $record->ghn_order_code,
+                    ]))
+                    ->modalSubmitActionLabel(__('accounting.reconciliation.confirm_print_submit'))
+                    ->visible(fn($record) => !($record->order?->is_printed ?? false))
+                    ->action(function ($record) {
+                        if ($record->order) {
+                            $record->order->update(['is_printed' => true]);
+                        }
+                        Notification::make()
+                            ->title(__('accounting.reconciliation.confirm_print_success_title'))
+                            ->body(__('accounting.reconciliation.confirm_print_success_body', [
+                                'code' => $record->order?->code ?? $record->ghn_order_code,
+                            ]))
+                            ->success()
+                            ->send();
                     }),
             ])
             ->bulkActions([
@@ -785,7 +938,7 @@ class ReconciliationsTable
                             ->title(__('accounting.reconciliation.batch_success', ['count' => $count]));
 
                         if ($skipped > 0) {
-                            $notification->body("Đã bỏ qua {$skipped} đơn chưa ở trạng thái kết thúc (Đang giao/Đang hoàn...)");
+                            $notification->body(__('accounting.reconciliation.bulk_confirm_skipped', ['count' => $skipped]));
                         }
 
                         $notification->send();
@@ -810,7 +963,24 @@ class ReconciliationsTable
                             ->title(__('accounting.reconciliation.batch_success', ['count' => $count]))
                             ->send();
                     }),
+                BulkAction::make('bulk_print')
+                    ->label(__('accounting.reconciliation.bulk_print'))
+                    ->icon('heroicon-o-printer')
+                    ->color('gray')
+                    ->requiresConfirmation()
+                    ->modalHeading(__('accounting.reconciliation.bulk_print_modal_heading'))
+                    ->modalSubmitActionLabel(__('accounting.reconciliation.bulk_print_submit'))
+                    ->action(function (Collection $records) {
+                        $orderIds = $records->pluck('order_id')->filter()->unique()->values();
+                        \App\Models\Order::whereIn('id', $orderIds)->update(['is_printed' => true]);
+                        Notification::make()
+                            ->title(__('accounting.reconciliation.bulk_print_success', ['count' => $records->count()]))
+                            ->success()
+                            ->send();
+                    }),
             ])
-            ->defaultSort('reconciliation_date', 'desc');
+            ->defaultSort('reconciliation_date', 'desc')
+            ->actionsPosition(RecordActionsPosition::BeforeColumns)
+            ->actionsColumnLabel(__('accounting.reconciliation.actions_column_label'));
     }
 }
