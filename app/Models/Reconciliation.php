@@ -40,6 +40,7 @@ class Reconciliation extends Model
         'created_by',
         'confirmed_by',
         'confirmed_at',
+        'is_internal_reconciled',
     ];
 
     protected $casts = [
@@ -54,6 +55,7 @@ class Reconciliation extends Model
         'ghn_cod_failed_amount' => 'decimal:2',
         'converted_amount' => 'decimal:2',
         'confirmed_at' => 'datetime',
+        'is_internal_reconciled' => 'boolean',
     ];
 
     public function organization(): BelongsTo

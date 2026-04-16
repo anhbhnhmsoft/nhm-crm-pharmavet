@@ -6,21 +6,23 @@ use App\Common\Constants\User\UserPosition;
 use App\Common\Constants\User\UserRole;
 use App\Common\Constants\Warehouse\StatusTicket;
 use App\Common\Constants\Warehouse\TypeTicket;
+use App\Filament\Clusters\Accounting\AccountingCluster;
 use App\Filament\Clusters\Accounting\Resources\DiscrepancyReportResource\Pages\ListDiscrepancyReports;
 use App\Models\InventoryTicket;
 use App\Models\Order;
+use App\Utils\Helper;
 use Filament\Forms\Components\DatePicker;
 use Filament\Resources\Resource;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Gate;
-use App\Common\Constants\GateKey;
 
 class DiscrepancyReportResource extends Resource
 {
     protected static ?string $model = Order::class;
+
+    protected static ?string $cluster = AccountingCluster::class;
 
     protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-scale';
 
@@ -43,14 +45,23 @@ class DiscrepancyReportResource extends Resource
 
     public static function canAccess(): bool
     {
-        // return Gate::allows(GateKey::IS_CHIEF_ACCOUNTANT->value);
-        return true;
+        $user = Auth::user();
+        if (!$user) return false;
+
+        return Helper::checkPermission([
+            UserRole::SUPER_ADMIN->value,
+            UserRole::ADMIN->value,
+            UserRole::ACCOUNTING->value,
+        ], $user->role);
     }
 
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (Builder $query) => $query->where('organization_id', Auth::user()->organization_id))
+            ->modifyQueryUsing(fn (Builder $query) => $query
+                ->where('organization_id', Auth::user()->organization_id)
+                ->with(['items', 'reconciliation', 'createdBy'])
+            )
             ->columns([
                 TextColumn::make('code')
                     ->label(__('order.table.code'))
@@ -133,7 +144,7 @@ class DiscrepancyReportResource extends Resource
                     ->weight('bold'),
 
                 TextColumn::make('discrepancy_note')
-                    ->label(__('accounting.report.note'))
+                    ->label(__('accounting.report.discrepancy_note'))
                     ->getStateUsing(function (Order $record) {
                         $system = (float) $record->total_amount;
                         $orderItems = $record->items->keyBy('product_id');
@@ -163,7 +174,10 @@ class DiscrepancyReportResource extends Resource
                         if (abs($warehouse - $payment) > 0.1) return __('accounting.report.discrepancy_warehouse_payment_diff');
                         return __('accounting.report.discrepancy_matched');
                     })
-                    ->color(fn($state) => str_contains($state, 'Khớp') ? 'success' : 'danger')
+                    ->color(function ($state): string {
+                        $matched = __('accounting.report.discrepancy_matched');
+                        return $state === $matched ? 'success' : 'danger';
+                    })
                     ->weight('bold'),
             ])
             ->filters([

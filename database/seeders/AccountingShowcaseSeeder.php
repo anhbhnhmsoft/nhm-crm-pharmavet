@@ -21,18 +21,49 @@ class AccountingShowcaseSeeder extends Seeder
 {
     public function run(): void
     {
-        DB::transaction(function (): void {
-            $organization = Organization::query()->first();
-            if (!$organization) {
+        $organization = Organization::query()->first();
+
+        if (! $organization) {
+            return;
+        }
+
+        $this->seedForOrganizationId((int) $organization->id);
+    }
+
+    public function seedForUserEmail(string $email): void
+    {
+        $actor = User::query()
+            ->where('email', $email)
+            ->first();
+
+        if (! $actor) {
+            return;
+        }
+
+        $this->seedForOrganizationId((int) $actor->organization_id, (int) $actor->id);
+    }
+
+    public function seedForOrganizationId(int $organizationId, ?int $actorId = null): void
+    {
+        DB::transaction(function () use ($organizationId, $actorId): void {
+            $organization = Organization::query()->find($organizationId);
+
+            if (! $organization) {
                 return;
             }
 
-            $actor = User::query()
-                ->where('organization_id', $organization->id)
-                ->orderBy('id')
-                ->first();
+            $actor = $actorId
+                ? User::query()->whereKey($actorId)->first()
+                : null;
 
-            if (!$actor) {
+            if (! $actor || (int) $actor->organization_id !== (int) $organization->id) {
+                $actor = User::query()
+                    ->where('organization_id', $organization->id)
+                    ->orderBy('id')
+                    ->first();
+            }
+
+            if (! $actor) {
                 return;
             }
 

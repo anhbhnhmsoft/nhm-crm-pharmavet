@@ -453,6 +453,9 @@
     - invoice_status: (tinyint, default 1) -- trạng thái hóa đơn (1: Chưa xuất, 2: Đã xuất, 3: Đã hủy)
     - invoice_code: (varchar(100), nullable) -- mã số hóa đơn
     - invoice_url: (varchar(255), nullable) -- đường dẫn đến file PDF hóa đơn
+    - is_printed: (boolean, default false) -- đã in phiếu giao hàng / tem nhãn
+    - care_updated_at: (timestamp, nullable) -- thời điểm chăm sóc đơn gần nhất
+    - care_by_id: (int, foreign key -> users.id, nullable, nullOnDelete) -- nhân viên thực hiện care đơn
     - invoice_at: (timestamp, nullable) -- thời điểm phát hành hóa đơn
     - debt_provision_amount: (decimal(15,2), default 0) -- số tiền dự phòng nợ khó đòi
     - is_written_off: (boolean, default false) -- trạng thái xóa nợ
@@ -461,6 +464,8 @@
     - softDeletes
     - timestamps
     - index [status]
+    - index [is_printed]
+    - index [care_updated_at]
     - index [organization_id, status]
     - index [created_at]
 
@@ -819,6 +824,7 @@
     - converted_amount: (decimal(15, 2), nullable) -- số tiền sau khi quy đổi theo tỉ giá
     - status: (tinyint, default 1) -- 1: pending, 2: confirmed, 3: cancelled, 4: paid
     - note: (text, nullable) -- ghi chú
+    - is_internal_reconciled: (boolean, default false) -- đã đối soát nội bộ (phòng kế toán đã kiểm tra)
     - created_by: (int, foreign key -> users.id, nullable) -- người tạo
     - confirmed_by: (int, foreign key -> users.id, nullable) -- người xác nhận
     - confirmed_at: (timestamp, nullable) -- thời gian xác nhận

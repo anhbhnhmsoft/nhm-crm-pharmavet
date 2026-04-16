@@ -92,6 +92,9 @@ class Order extends Model
         'is_written_off',
         'write_off_at',
         'write_off_by',
+        'is_printed',
+        'care_updated_at',
+        'care_by_id',
     ];
 
     protected $casts = [
@@ -109,6 +112,8 @@ class Order extends Model
         'ghn_expected_delivery_time' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
+        'is_printed' => 'boolean',
+        'care_updated_at' => 'datetime',
     ];
 
     public function organization(): BelongsTo
@@ -144,6 +149,11 @@ class Order extends Model
     public function updatedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    public function careBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'care_by_id');
     }
 
     public function province(): BelongsTo
