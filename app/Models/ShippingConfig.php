@@ -80,4 +80,24 @@ class ShippingConfig extends Model
     {
         return filled($this->default_store_id) && filled($this->getApiTokenSafely());
     }
+
+    public function hasInvalidEncryptedApiToken(): bool
+    {
+        return blank($this->getApiTokenSafely()) && filled($this->getRawOriginal('api_token'));
+    }
+
+    public function toSafeFormState(): array
+    {
+        return [
+            'account_name' => $this->account_name,
+            'api_token' => $this->getApiTokenSafely() ?? '',
+            'default_store_id' => $this->default_store_id,
+            'use_insurance' => (bool) $this->use_insurance,
+            'insurance_limit' => $this->insurance_limit,
+            'required_note' => $this->required_note,
+            'allow_cod_on_failed' => (bool) $this->allow_cod_on_failed,
+            'default_pickup_shift' => $this->default_pickup_shift,
+            'default_pickup_time' => $this->default_pickup_time?->format('H:i'),
+        ];
+    }
 }
