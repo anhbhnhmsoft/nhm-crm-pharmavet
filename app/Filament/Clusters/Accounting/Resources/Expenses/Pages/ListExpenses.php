@@ -4,6 +4,7 @@ namespace App\Filament\Clusters\Accounting\Resources\Expenses\Pages;
 
 use App\Common\Constants\Accounting\ExpenseCategory;
 use App\Filament\Clusters\Accounting\Resources\Expenses\ExpenseResource;
+use App\Filament\Clusters\Accounting\Resources\Expenses\Schemas\ExpenseForm;
 use App\Filament\Clusters\Accounting\Widgets\ExpenseSummaryWidget;
 use App\Services\ExpenseService;
 use Filament\Actions\Action;
@@ -31,9 +32,12 @@ class ListExpenses extends ListRecords
     {
         return [
             CreateAction::make()
+                ->createAnother(false)
                 ->mutateFormDataUsing(function (array $data): array {
+                    $data = ExpenseForm::normalizeExpenseData($data);
                     $data['organization_id'] = Auth::user()->organization_id;
                     $data['created_by'] = Auth::id();
+
                     return $data;
                 }),
             \Filament\Actions\Action::make('add_monthly_salary')
@@ -50,27 +54,44 @@ class ListExpenses extends ListRecords
                     \Filament\Forms\Components\TextInput::make('total_salary')
                         ->label('Tổng lương dự kiến')
                         ->numeric()
+                        ->required()
+                        ->minValue(0.01)
                         ->prefix('₫')
                         ->helperText('Hệ thống tự động tính từ lương cơ bản của nhân viên hiện tại.')
-                        ->default(fn() => \App\Models\User::where('organization_id', Auth::user()->organization_id)->where('disable', false)->sum('salary')),
+                        ->default(fn() => \App\Models\User::where('organization_id', Auth::user()->organization_id)->where('disable', false)->sum('salary'))
+                        ->validationMessages([
+                            'required' => __('common.error.required'),
+                            'numeric' => __('common.error.numeric'),
+                            'min' => __('common.error.min_value', ['min' => 0.01]),
+                        ]),
                     \Filament\Forms\Components\FileUpload::make('payroll_file')
                         ->label('Bảng lương (PDF/Excel/Image)')
                         ->disk('public')
                         ->directory('expense_attachments/payroll')
+                        ->acceptedFileTypes([
+                            'application/pdf',
+                            'application/vnd.ms-excel',
+                            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                            'image/*',
+                        ])
                         ->required()
-                        ->helperText('Bắt buộc tải lên bảng lương để audit'),
+                        ->helperText('Bắt buộc tải lên bảng lương để audit')
+                        ->validationMessages([
+                            'required' => __('common.error.required'),
+                        ]),
                 ])
                 ->action(function (array $data) {
                     $month = now()->parse($data['month'])->format('m/Y');
+                    $totalSalary = (float) ($data['total_salary'] ?? 0);
 
                     \App\Models\Expense::create([
                         'organization_id' => Auth::user()->organization_id,
                         'expense_date' => now()->parse($data['month'])->endOfMonth(),
                         'category' => ExpenseCategory::OPERATIONAL->value,
                         'description' => "Tổng lương tháng $month",
-                        'unit_price' => $data['total_salary'],
+                        'unit_price' => $totalSalary,
                         'quantity' => 1,
-                        'amount' => $data['total_salary'],
+                        'amount' => $totalSalary,
                         'attachments' => [$data['payroll_file']],
                         'created_by' => Auth::id(),
                     ]);

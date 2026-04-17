@@ -3,6 +3,7 @@
 namespace App\Filament\Clusters\Accounting\Resources\Expenses\Tables;
 
 use App\Common\Constants\Accounting\ExpenseCategory;
+use App\Filament\Clusters\Accounting\Resources\Expenses\Schemas\ExpenseForm;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -102,7 +103,8 @@ class ExpensesTable
                     })
             ])
             ->actions([
-                EditAction::make(),
+                EditAction::make()
+                    ->mutateFormDataUsing(fn(array $data): array => ExpenseForm::normalizeExpenseData($data)),
                 DeleteAction::make(),
             ])
             ->bulkActions([

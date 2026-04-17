@@ -418,7 +418,8 @@ class ReconciliationService
 
             $fee = $orderDetail['fee'] ?? [];
             $codAmount = $orderDetail['cod_amount'] ?? $reconciliation->cod_amount;
-            $shippingFee = $fee['main_service'] ?? $reconciliation->shipping_fee;
+            $shippingFee = ($fee['main_service'] ?? 0) + ($fee['cod_failed_fee'] ?? 0);
+            $shippingFee = $shippingFee > 0 ? $shippingFee : $reconciliation->shipping_fee;
             $storageFee = $fee['station_do'] ?? $reconciliation->storage_fee;
             $totalFee = $codAmount - (($fee['main_service'] ?? 0) + ($fee['cod_fee'] ?? 0) + ($fee['station_do'] ?? 0) + ($fee['insurance'] ?? 0));
 
@@ -428,6 +429,14 @@ class ReconciliationService
                 'storage_fee' => $storageFee,
                 'total_fee' => $totalFee,
                 'reconciliation_date' => $this->normalizeDate($orderDetail['created_date'] ?? $reconciliation->reconciliation_date),
+                'ghn_to_name' => $orderDetail['to_name'] ?? $reconciliation->ghn_to_name,
+                'ghn_to_phone' => $orderDetail['to_phone'] ?? $reconciliation->ghn_to_phone,
+                'ghn_to_address' => $orderDetail['to_address'] ?? $reconciliation->ghn_to_address,
+                'ghn_payment_type_id' => $orderDetail['payment_type_id'] ?? $reconciliation->ghn_payment_type_id,
+                'ghn_weight' => $orderDetail['weight'] ?? $reconciliation->ghn_weight,
+                'ghn_content' => $orderDetail['content'] ?? $reconciliation->ghn_content,
+                'ghn_required_note' => $orderDetail['required_note'] ?? $reconciliation->ghn_required_note,
+                'ghn_employee_note' => $orderDetail['employee_note'] ?? $reconciliation->ghn_employee_note,
             ];
 
             $reconciliationUpdateData = $this->attachExchangeRateData(
@@ -437,6 +446,38 @@ class ReconciliationService
             );
 
             $reconciliation->update($reconciliationUpdateData);
+
+            if ($reconciliation->order) {
+                $orderUpdateData = [
+                    'shipping_address' => $orderDetail['to_address'] ?? $reconciliation->order->shipping_address,
+                    'weight' => $orderDetail['weight'] ?? $reconciliation->order->weight,
+                    'length' => $orderDetail['length'] ?? $reconciliation->order->length,
+                    'width' => $orderDetail['width'] ?? $reconciliation->order->width,
+                    'height' => $orderDetail['height'] ?? $reconciliation->order->height,
+                    'required_note' => $orderDetail['required_note'] ?? $reconciliation->order->required_note,
+                    'ghn_payment_type_id' => $orderDetail['payment_type_id'] ?? $reconciliation->order->ghn_payment_type_id,
+                    'ghn_content' => $orderDetail['content'] ?? $reconciliation->order->ghn_content,
+                    'updated_by' => Auth::id(),
+                ];
+
+                if (array_key_exists('cod_amount', $updateData)) {
+                    $orderUpdateData['collect_amount'] = (float) $codAmount;
+                }
+
+                if (array_key_exists('note', $updateData)) {
+                    $orderUpdateData['note'] = $orderDetail['note'] ?? $updateData['note'];
+                }
+
+                $reconciliation->order->update($orderUpdateData);
+
+                $customer = $reconciliation->order->customer;
+                if ($customer) {
+                    $customer->update([
+                        'username' => $orderDetail['to_name'] ?? $customer->username,
+                        'phone' => $orderDetail['to_phone'] ?? $customer->phone,
+                    ]);
+                }
+            }
 
             return ServiceReturn::success(
                 data: ['reconciliation' => $reconciliation->fresh(), 'updated_fields' => $updatedFields],

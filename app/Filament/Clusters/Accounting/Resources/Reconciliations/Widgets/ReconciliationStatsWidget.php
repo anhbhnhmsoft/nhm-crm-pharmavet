@@ -6,6 +6,7 @@ use App\Filament\Clusters\Accounting\Resources\Reconciliations\Pages\ListReconci
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Filament\Widgets\Concerns\InteractsWithPageTable;
+use Illuminate\Support\Facades\DB;
 
 class ReconciliationStatsWidget extends BaseWidget
 {
@@ -25,11 +26,25 @@ class ReconciliationStatsWidget extends BaseWidget
 
     protected function getStats(): array
     {
-        $currentPageQuery = $this->getPageTableRecords();
-        $allRecordsQuery = $this->getPageTableQuery();
+        $pageRecords = $this->getPageTableRecords();
 
-        $currentPageTotal = ($currentPageQuery && method_exists($currentPageQuery, 'sum')) ? $currentPageQuery->sum('total_fee') : 0;
-        $allTotal = ($allRecordsQuery && method_exists($allRecordsQuery, 'sum')) ? $allRecordsQuery->sum('total_fee') : 0;
+        if (is_object($pageRecords) && method_exists($pageRecords, 'getCollection')) {
+            $pageRecords = $pageRecords->getCollection();
+        } elseif (is_object($pageRecords) && method_exists($pageRecords, 'items')) {
+            $pageRecords = $pageRecords->items();
+        }
+
+        $currentPageTotal = collect($pageRecords ?? [])
+            ->sum(fn($record) => (float) ($record->order?->total_amount ?? $record->cod_amount ?? 0));
+
+        $allRecordsQuery = $this->getPageTableQuery();
+        $allTotal = 0;
+
+        if ($allRecordsQuery) {
+            $allTotal = (float) (clone $allRecordsQuery)
+                ->leftJoin('orders', 'orders.id', '=', 'reconciliations.order_id')
+                ->sum(DB::raw('COALESCE(orders.total_amount, reconciliations.cod_amount)'));
+        }
 
         return [
             Stat::make(__('accounting.reconciliation.summary.page_total'), number_format($currentPageTotal, 0, ',', '.') . ' đ')
