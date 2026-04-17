@@ -4,10 +4,13 @@ namespace Database\Seeders;
 
 use App\Common\Constants\Accounting\ExpenseCategory;
 use App\Common\Constants\Accounting\ReconciliationStatus;
+use App\Common\Constants\Customer\CustomerType;
 use App\Common\Constants\Organization\FundLockAction;
 use App\Common\Constants\Organization\FundLockScope;
 use App\Common\Constants\Organization\FundTransactionStatus;
 use App\Common\Constants\Organization\FundTransactionType;
+use App\Common\Constants\Order\OrderStatus;
+use App\Common\Constants\Shipping\ProviderShipping;
 use App\Models\Fund;
 use App\Models\Organization;
 use App\Models\User;
@@ -16,23 +19,55 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class AccountingShowcaseSeeder extends Seeder
 {
     public function run(): void
     {
-        DB::transaction(function (): void {
-            $organization = Organization::query()->first();
-            if (!$organization) {
+        $organization = Organization::query()->first();
+
+        if (! $organization) {
+            return;
+        }
+
+        $this->seedForOrganizationId((int) $organization->id);
+    }
+
+    public function seedForUserEmail(string $email): void
+    {
+        $actor = User::query()
+            ->where('email', $email)
+            ->first();
+
+        if (! $actor) {
+            return;
+        }
+
+        $this->seedForOrganizationId((int) $actor->organization_id, (int) $actor->id);
+    }
+
+    public function seedForOrganizationId(int $organizationId, ?int $actorId = null): void
+    {
+        DB::transaction(function () use ($organizationId, $actorId): void {
+            $organization = Organization::query()->find($organizationId);
+
+            if (! $organization) {
                 return;
             }
 
-            $actor = User::query()
-                ->where('organization_id', $organization->id)
-                ->orderBy('id')
-                ->first();
+            $actor = $actorId
+                ? User::query()->whereKey($actorId)->first()
+                : null;
 
-            if (!$actor) {
+            if (! $actor || (int) $actor->organization_id !== (int) $organization->id) {
+                $actor = User::query()
+                    ->where('organization_id', $organization->id)
+                    ->orderBy('id')
+                    ->first();
+            }
+
+            if (! $actor) {
                 return;
             }
 
@@ -303,7 +338,12 @@ class AccountingShowcaseSeeder extends Seeder
     {
         $start = now()->startOfMonth()->subMonth();
         $orderIds = Schema::hasTable('orders')
-            ? DB::table('orders')->where('organization_id', $organizationId)->limit(200)->pluck('id')->all()
+            ? DB::table('orders')
+                ->where('organization_id', $organizationId)
+                ->whereNull('deleted_at')
+                ->limit(200)
+                ->pluck('id')
+                ->all()
             : [];
 
         for ($i = 0; $i < 50; $i++) {
@@ -357,9 +397,7 @@ class AccountingShowcaseSeeder extends Seeder
 
     private function seedReconciliations(int $organizationId, int $actorId, array $exchangeRateIds): void
     {
-        $orderIds = Schema::hasTable('orders')
-            ? DB::table('orders')->where('organization_id', $organizationId)->orderBy('id', 'desc')->limit(40)->pluck('id')->all()
-            : [];
+        $orderIds = $this->resolveReconciliationOrderIds($organizationId, $actorId);
 
         for ($i = 1; $i <= 18; $i++) {
             $date = now()->subDays(20 - $i)->toDateString();
@@ -405,6 +443,118 @@ class AccountingShowcaseSeeder extends Seeder
                 'updated_at' => now(),
             ]);
         }
+    }
+
+    private function resolveReconciliationOrderIds(int $organizationId, int $actorId): array
+    {
+        if (! Schema::hasTable('orders')) {
+            return [];
+        }
+
+        $ordersWithWarehouse = DB::table('orders')
+            ->where('organization_id', $organizationId)
+            ->whereNull('deleted_at')
+            ->whereNotNull('warehouse_id')
+            ->orderByDesc('id')
+            ->limit(40)
+            ->pluck('id')
+            ->all();
+
+        if (! empty($ordersWithWarehouse)) {
+            return $ordersWithWarehouse;
+        }
+
+        $demoOrderIds = $this->createShowcaseOrdersWithWarehouse($organizationId, $actorId);
+
+        if (! empty($demoOrderIds)) {
+            return $demoOrderIds;
+        }
+
+        return DB::table('orders')
+            ->where('organization_id', $organizationId)
+            ->whereNull('deleted_at')
+            ->orderByDesc('id')
+            ->limit(40)
+            ->pluck('id')
+            ->all();
+    }
+
+    private function createShowcaseOrdersWithWarehouse(int $organizationId, int $actorId): array
+    {
+        if (! Schema::hasTable('warehouses') || ! Schema::hasTable('orders')) {
+            return [];
+        }
+
+        $warehouseIds = DB::table('warehouses')
+            ->where('organization_id', $organizationId)
+            ->whereNull('deleted_at')
+            ->orderBy('id')
+            ->pluck('id')
+            ->all();
+
+        if (empty($warehouseIds)) {
+            return [];
+        }
+
+        $customerId = $this->resolveShowcaseCustomerId($organizationId);
+
+        if (! $customerId) {
+            return [];
+        }
+
+        $createdOrderIds = [];
+        $ordersToCreate = min(max(count($warehouseIds), 3), 6);
+
+        for ($i = 1; $i <= $ordersToCreate; $i++) {
+            $warehouseId = $warehouseIds[($i - 1) % count($warehouseIds)];
+            $createdAt = now()->subDays(20 - $i)->setTime(15, 32);
+
+            $createdOrderIds[] = DB::table('orders')->insertGetId([
+                'organization_id' => $organizationId,
+                'customer_id' => $customerId,
+                'warehouse_id' => $warehouseId,
+                'code' => 'ORD-ACC-' . Str::upper(Str::random(8)),
+                'status' => OrderStatus::COMPLETED->value,
+                'total_amount' => rand(450000, 2500000),
+                'discount' => 0,
+                'shipping_fee' => rand(18000, 70000),
+                'shipping_method' => ProviderShipping::GHN->value,
+                'provider_shipping' => ProviderShipping::GHN->value,
+                'created_by' => $actorId,
+                'updated_by' => $actorId,
+                'created_at' => $createdAt,
+                'updated_at' => $createdAt->copy()->addMinutes(rand(10, 90)),
+            ]);
+        }
+
+        return $createdOrderIds;
+    }
+
+    private function resolveShowcaseCustomerId(int $organizationId): ?int
+    {
+        if (! Schema::hasTable('customers')) {
+            return null;
+        }
+
+        $existingCustomerId = DB::table('customers')
+            ->where('organization_id', $organizationId)
+            ->whereNull('deleted_at')
+            ->orderBy('id')
+            ->value('id');
+
+        if ($existingCustomerId) {
+            return (int) $existingCustomerId;
+        }
+
+        return (int) DB::table('customers')->insertGetId([
+            'organization_id' => $organizationId,
+            'username' => 'Khach demo doi soat kho',
+            'phone' => '0909000000',
+            'customer_type' => CustomerType::NEW->value,
+            'interaction_status' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 
     private function seedFinancialSummaries(int $organizationId): void

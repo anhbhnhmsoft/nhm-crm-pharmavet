@@ -66,8 +66,16 @@ class ShippingConfig extends Page
 
         if ($result->isSuccess()) {
             $config = $result->getData();
-            $this->form->fill($config->toArray());
-            $this->isConnected = !empty($config->api_token);
+            $this->form->fill($config->toSafeFormState());
+            $this->isConnected = $config->hasCompleteGhnCredentials();
+
+            if ($config->hasInvalidEncryptedApiToken()) {
+                Notification::make()
+                    ->title(__('filament.shipping.connection_error'))
+                    ->body(__('accounting.reconciliation.config_invalid_token'))
+                    ->warning()
+                    ->send();
+            }
         } else {
             $this->form->fill([
                 'use_insurance' => false,

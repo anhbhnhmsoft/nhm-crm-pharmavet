@@ -4,8 +4,11 @@ namespace App\Filament\Clusters\Accounting\Resources\Expenses\Tables;
 
 use App\Common\Constants\Accounting\ExpenseCategory;
 use App\Filament\Clusters\Accounting\Resources\Expenses\Schemas\ExpenseForm;
+use Filament\Actions\RestoreAction;
+use Filament\Actions\RestoreBulkAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Filament\Actions\EditAction;
 use Filament\Actions\DeleteAction;
@@ -20,6 +23,7 @@ class ExpensesTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->recordClasses(fn ($record) => $record->trashed() ? 'opacity-50 bg-gray-50' : null)
             ->columns([
                 TextColumn::make('expense_date')
                     ->label(__('accounting.expense.expense_date'))
@@ -46,13 +50,13 @@ class ExpensesTable
                     ->limit(50),
 
                 TextColumn::make('unit_price')
-                    ->label('Đơn giá')
+                    ->label(__('accounting.expense.unit_price'))
                     ->money('VND')
                     ->sortable()
                     ->toggleable(),
 
                 TextColumn::make('quantity')
-                    ->label('Số lượng')
+                    ->label(__('accounting.expense.quantity'))
                     ->sortable()
                     ->alignCenter()
                     ->toggleable(),
@@ -65,8 +69,40 @@ class ExpensesTable
                     ->summarize(\Filament\Tables\Columns\Summarizers\Sum::make()->money('VND')),
 
                 TextColumn::make('attachments')
-                    ->label('Chứng từ')
-                    ->formatStateUsing(fn($state) => count($state ?? []) > 0 ? count($state) . ' file' : '-')
+                    ->label(__('accounting.expense.attachments'))
+                    ->formatStateUsing(function ($state) {
+                        if (blank($state)) {
+                            return '-';
+                        }
+
+                        if (is_string($state)) {
+                            $decoded = json_decode($state, true);
+
+                            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                                $state = $decoded;
+                            } else {
+                                return __('accounting.expense.attachments_count', ['count' => 1]);
+                            }
+                        }
+
+                        if (is_array($state)) {
+                            $count = count(array_filter($state));
+
+                            return $count > 0
+                                ? __('accounting.expense.attachments_count', ['count' => $count])
+                                : '-';
+                        }
+
+                        if ($state instanceof \Countable) {
+                            $count = count($state);
+
+                            return $count > 0
+                                ? __('accounting.expense.attachments_count', ['count' => $count])
+                                : '-';
+                        }
+
+                        return '-';
+                    })
                     ->icon('heroicon-o-paper-clip')
                     ->color('info')
                     ->alignCenter(),
@@ -77,6 +113,11 @@ class ExpensesTable
 
                 TextColumn::make('created_at')
                     ->label(__('accounting.exchange_rate.created_at'))
+                    ->dateTime('d/m/Y H:i')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('deleted_at')
+                    ->label(__('common.table.deleted_at'))
                     ->dateTime('d/m/Y H:i')
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
@@ -100,7 +141,10 @@ class ExpensesTable
                                 $data['until'],
                                 fn(Builder $query, $date): Builder => $query->whereDate('expense_date', '<=', $date),
                             );
-                    })
+                    }),
+
+                TrashedFilter::make()
+                    ->label(__('common.table.trashed')),
             ])
             ->actions([
                 EditAction::make()
@@ -109,7 +153,11 @@ class ExpensesTable
             ])
             ->bulkActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->visible(fn ($livewire) => ($livewire->tableFilters['trashed']['value'] ?? null) !== 'only'),
+                    RestoreBulkAction::make()
+                        ->label(__('common.action.restore'))
+                        ->visible(fn ($livewire) => ($livewire->tableFilters['trashed']['value'] ?? null) === 'only'),
                 ]),
             ])
             ->defaultSort('expense_date', 'desc');

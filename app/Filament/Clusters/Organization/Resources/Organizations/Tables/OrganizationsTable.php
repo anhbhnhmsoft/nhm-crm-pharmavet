@@ -59,15 +59,15 @@ class OrganizationsTable
                     ->alignCenter()
                     ->trueIcon('heroicon-o-check-circle')
                     ->falseIcon('heroicon-o-x-circle')
-                    ->trueColor('danger')
-                    ->falseColor('success'),
+                    ->trueColor('success')
+                    ->falseColor('danger'),
 
                 IconColumn::make('disable')
                     ->label(__('organization.form.status'))
                     ->boolean()
                     ->alignCenter()
-                    ->trueIcon('heroicon-o-check-circle')
-                    ->falseIcon('heroicon-o-x-circle')
+                    ->trueIcon('heroicon-o-x-circle')
+                    ->falseIcon('heroicon-o-check-circle')
                     ->trueColor('danger')
                     ->falseColor('success'),
 
@@ -94,9 +94,9 @@ class OrganizationsTable
             ->recordActions([
                 ActionGroup::make([
                     Action::make('list-member')
-                        ->label(__('filament.organization.table.list_member'))
-                        ->tooltip(__('common.tooltip.view'))
-                        ->icon('heroicon-o-ellipsis-horizontal')
+                        ->label(__('organization.table.list_member'))
+                        ->tooltip(__('organization.table.list_member'))
+                        ->icon('heroicon-o-user-group')
                         ->action(fn($record) => redirect(route(
                             'filament.admin.resources.users.index',
                             [

@@ -6,6 +6,8 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class StoreExchangeRateRequest extends FormRequest
 {
+    private const MAX_RATE = 999999999.999999;
+
     public function authorize(): bool
     {
         return true;
@@ -17,9 +19,17 @@ class StoreExchangeRateRequest extends FormRequest
             'rate_date' => ['required', 'date'],
             'from_currency' => ['required', 'string', 'size:3'],
             'to_currency' => ['required', 'string', 'size:3'],
-            'rate' => ['required', 'numeric', 'min:0'],
+            'rate' => ['required', 'numeric', 'min:0', 'lte:' . self::MAX_RATE],
             'source' => ['nullable', 'string', 'in:manual,api'],
             'note' => ['nullable', 'string'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'rate.lte' => __('accounting.exchange_rate.rate_max_error'),
+            'rate.numeric' => __('accounting.exchange_rate.rate_numeric_error'),
         ];
     }
 }

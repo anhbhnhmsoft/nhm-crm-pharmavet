@@ -1,13 +1,11 @@
 <?php
 
-namespace App\Filament\Clusters\Accounting\Resources\Reconciliations;
+namespace App\Filament\Clusters\Accounting\Resources\ExchangeRates;
 
-use App\Common\Constants\Accounting\ReconciliationStatus;
 use App\Common\Constants\User\UserRole;
-use App\Filament\Clusters\Accounting\Resources\Reconciliations\Pages\ListReconciliations;
-use App\Filament\Clusters\Accounting\Resources\Reconciliations\Schemas\ReconciliationForm;
-use App\Filament\Clusters\Accounting\Resources\Reconciliations\Tables\ReconciliationsTable;
-use App\Models\Reconciliation;
+use App\Filament\Clusters\Accounting\AccountingCluster;
+use App\Filament\Clusters\Accounting\Resources\ExchangeRates\Pages\ListExchangeRates;
+use App\Models\ExchangeRate;
 use App\Utils\Helper;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -17,51 +15,56 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Auth;
 
-class ReconciliationResource extends Resource
+class ExchangeRateResource extends Resource
 {
-    protected static ?string $model = Reconciliation::class;
+    protected static ?string $model = ExchangeRate::class;
 
-    protected static string|BackedEnum|null $navigationIcon = '';
+    protected static ?string $cluster = AccountingCluster::class;
 
-    protected static ?int $navigationSort = 1;
+    protected static ?string $slug = 'exchange-rates';
 
-    public static function getNavigationGroup(): \UnitEnum|string|null
-    {
-        return __('filament.navigation.unit_accounting');
-    }
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-arrows-right-left';
+
+    protected static ?int $navigationSort = 2;
 
     public static function getModelLabel(): string
     {
-        return __('accounting.reconciliation.label');
+        return __('accounting.exchange_rate.label');
     }
 
     public static function getPluralModelLabel(): string
     {
-        return __('accounting.reconciliation.plural_label');
+        return __('accounting.exchange_rate.plural_label');
     }
 
     public static function getNavigationLabel(): string
     {
-        return __('accounting.reconciliation.navigation_label');
+        return __('accounting.exchange_rate.navigation_label');
     }
 
     public static function canAccess(): bool
     {
+        $user = Auth::user();
+
+        if (! $user) {
+            return false;
+        }
+
         return Helper::checkPermission([
             UserRole::SUPER_ADMIN->value,
             UserRole::ADMIN->value,
             UserRole::ACCOUNTING->value,
-        ], Auth::user()->role);
+        ], $user->role);
     }
 
     public static function form(Schema $schema): Schema
     {
-        return ReconciliationForm::configure($schema);
+        return ExchangeRateForm::configure($schema);
     }
 
     public static function table(Table $table): Table
     {
-        return ReconciliationsTable::configure($table);
+        return ExchangeRateTable::configure($table);
     }
 
     public static function getRelations(): array
@@ -74,7 +77,7 @@ class ReconciliationResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => ListReconciliations::route('/'),
+            'index' => ListExchangeRates::route('/'),
         ];
     }
 
@@ -86,8 +89,7 @@ class ReconciliationResource extends Resource
             ]);
 
         $organizationId = Auth::user()->organization_id;
-        return $query
-            ->where('organization_id', $organizationId)
-            ->with('exchangeRate');
+
+        return $query->where('organization_id', $organizationId);
     }
 }

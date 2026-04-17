@@ -7,10 +7,8 @@ use App\Common\Constants\Shipping\ShiftGetGood;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
-use App\Services\GhnShippingService;
 use App\Services\GHNService;
 use Filament\Actions\Action;
-use Filament\Actions\ActionGroup;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Forms\Components\Hidden;
@@ -55,13 +53,14 @@ class WarehousesTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->recordActions([
-                ActionGroup::make([
-
-                    EditAction::make(),
-                    Action::make('configureShipping')
-                        ->label(__('warehouse.actions.configure_shipping'))
-                        ->icon('heroicon-o-truck')
-                        ->schema([
+                EditAction::make()
+                    ->label(__('common.action.edit'))
+                    ->button(),
+                Action::make('configureShipping')
+                    ->label(__('warehouse.actions.configure_shipping'))
+                    ->icon('heroicon-o-truck')
+                    ->button()
+                    ->schema([
                             Hidden::make('is_connected')->default(false),
                             Hidden::make('shops_list'),
 
@@ -236,44 +235,43 @@ class WarehousesTable
                                     'is_connected' => false,
                                 ]);
                             }
-                        })
-                        ->action(function ($record, array $data) {
-                            try {
-                                // Validate shops loaded
-                                if (empty($data['shops_list'])) {
-                                    Notification::make()
-                                        ->title(__('filament.shipping.test_connection_first'))
-                                        ->warning()
-                                        ->send();
-                                    return;
-                                }
-
-                                // Remove temporary fields
-                                unset($data['is_connected'], $data['shops_list']);
-
-                                $configData = array_merge($data, [
-                                    'organization_id' => $record->organization_id
-                                ]);
-
-                                if ($record->shippingConfig) {
-                                    $record->shippingConfig->update($configData);
-                                } else {
-                                    $record->shippingConfig()->create($configData);
-                                }
-
+                    })
+                    ->action(function ($record, array $data) {
+                        try {
+                            // Validate shops loaded
+                            if (empty($data['shops_list'])) {
                                 Notification::make()
-                                    ->title(__('filament.shipping.saved_successfully'))
-                                    ->success()
+                                    ->title(__('filament.shipping.test_connection_first'))
+                                    ->warning()
                                     ->send();
-                            } catch (\Exception $e) {
-                                Notification::make()
-                                    ->title(__('filament.shipping.save_error'))
-                                    ->body($e->getMessage())
-                                    ->danger()
-                                    ->send();
+                                return;
                             }
-                        }),
-                ])
+
+                            // Remove temporary fields
+                            unset($data['is_connected'], $data['shops_list']);
+
+                            $configData = array_merge($data, [
+                                'organization_id' => $record->organization_id
+                            ]);
+
+                            if ($record->shippingConfig) {
+                                $record->shippingConfig->update($configData);
+                            } else {
+                                $record->shippingConfig()->create($configData);
+                            }
+
+                            Notification::make()
+                                ->title(__('filament.shipping.saved_successfully'))
+                                ->success()
+                                ->send();
+                        } catch (\Exception $e) {
+                            Notification::make()
+                                ->title(__('filament.shipping.save_error'))
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
+                    }),
             ], position: \Filament\Tables\Enums\RecordActionsPosition::BeforeColumns)
             ->filters([
                 TrashedFilter::make(),

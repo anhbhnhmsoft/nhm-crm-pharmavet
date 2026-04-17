@@ -3,14 +3,19 @@
 namespace App\Filament\Clusters\Accounting\Resources\Reconciliations\Widgets;
 
 use App\Filament\Clusters\Accounting\Resources\Reconciliations\Pages\ListReconciliations;
+use App\Models\Reconciliation;
+use Filament\Widgets\Concerns\InteractsWithPageTable;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
-use Filament\Widgets\Concerns\InteractsWithPageTable;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\HtmlString;
+use Illuminate\Support\Facades\Auth;
 
 class ReconciliationStatsWidget extends BaseWidget
 {
     use InteractsWithPageTable;
+
+    protected static bool $isLazy = false;
 
     protected int | string | array $columnSpan = 'full';
 
@@ -24,35 +29,79 @@ class ReconciliationStatsWidget extends BaseWidget
         return ListReconciliations::class;
     }
 
+    protected function resolveDisplayedAmount(Model $record): float
+    {
+        /** @var \App\Models\Reconciliation $record */
+        return (float) ($record->order?->total_amount ?? $record->cod_amount ?? 0);
+    }
+
+    protected function getCachedStats(): array
+    {
+        return $this->getStats();
+    }
+
     protected function getStats(): array
     {
-        $pageRecords = $this->getPageTableRecords();
-
-        if (is_object($pageRecords) && method_exists($pageRecords, 'getCollection')) {
-            $pageRecords = $pageRecords->getCollection();
-        } elseif (is_object($pageRecords) && method_exists($pageRecords, 'items')) {
-            $pageRecords = $pageRecords->items();
+        if (isset($this->tablePage)) {
+            unset($this->tablePage);
         }
 
-        $currentPageTotal = collect($pageRecords ?? [])
-            ->sum(fn($record) => (float) ($record->order?->total_amount ?? $record->cod_amount ?? 0));
-
-        $allRecordsQuery = $this->getPageTableQuery();
+        $filteredTotal = 0;
         $allTotal = 0;
 
-        if ($allRecordsQuery) {
-            $allTotal = (float) (clone $allRecordsQuery)
-                ->leftJoin('orders', 'orders.id', '=', 'reconciliations.order_id')
-                ->sum(DB::raw('COALESCE(orders.total_amount, reconciliations.cod_amount)'));
+        try {
+            $filteredRecords = $this->getTablePageInstance()
+                ->getFilteredTableQuery()
+                ?->select('reconciliations.*')
+                ->with(['order:id,total_amount,deleted_at'])
+                ->lazy(200);
+
+            if ($filteredRecords !== null) {
+                foreach ($filteredRecords as $record) {
+                    $filteredTotal += $this->resolveDisplayedAmount($record);
+                }
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        try {
+            $allRecords = Reconciliation::query()
+                ->where('organization_id', Auth::user()?->organization_id)
+                ->select('reconciliations.*')
+                ->with(['order:id,total_amount,deleted_at'])
+                ->lazy(200);
+
+            foreach ($allRecords as $record) {
+                $allTotal += $this->resolveDisplayedAmount($record);
+            }
+        } catch (\Throwable $e) {
+            report($e);
         }
 
         return [
-            Stat::make(__('accounting.reconciliation.summary.page_total'), number_format($currentPageTotal, 0, ',', '.') . ' đ')
+            Stat::make(
+                new HtmlString(
+                    e(__('accounting.reconciliation.summary.page_total')) .
+                    ' <span class="text-primary-500 cursor-help" title="' .
+                    e(__('accounting.reconciliation.summary.page_total_formula')) .
+                    '">&#9432;</span>'
+                ),
+                number_format((float) $filteredTotal, 0, ',', '.') . ' VND'
+            )
                 ->description(__('accounting.reconciliation.summary.page_total_desc'))
                 ->descriptionIcon('heroicon-m-banknotes')
                 ->color('info'),
 
-            Stat::make(__('accounting.reconciliation.summary.all_total'), number_format($allTotal, 0, ',', '.') . ' đ')
+            Stat::make(
+                new HtmlString(
+                    e(__('accounting.reconciliation.summary.all_total')) .
+                    ' <span class="text-primary-500 cursor-help" title="' .
+                    e(__('accounting.reconciliation.summary.all_total_formula')) .
+                    '">&#9432;</span>'
+                ),
+                number_format((float) $allTotal, 0, ',', '.') . ' VND'
+            )
                 ->description(__('accounting.reconciliation.summary.all_total_desc'))
                 ->descriptionIcon('heroicon-m-calculator')
                 ->color('success'),

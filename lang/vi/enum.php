@@ -18,6 +18,22 @@ return [
         'marketing' => 'Nhân viên marketing',
         'sale' => 'Nhân viên kinh doanh',
     ],
+    'currency_code' => [
+        'usd' => 'Đô la Mỹ',
+        'vnd' => 'Việt Nam Đồng',
+        'eur' => 'Euro',
+        'gbp' => 'Bảng Anh',
+        'jpy' => 'Yên Nhật',
+        'cny' => 'Nhân dân tệ',
+        'thb' => 'Baht Thái',
+        'sgd' => 'Đô la Singapore',
+        'aud' => 'Đô la Úc',
+    ],
+    'provider_shipping' => [
+        'ghn' => 'Giao Hàng Nhanh (GHN)',
+        'viettel' => 'Viettel Post',
+        'manual' => 'Thủ công',
+    ],
     'product_field' => [
         'fashion' => 'Thời trang',
         'spa_clinic' => 'Spa Thẩm mỹ viện',

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Core\GenerateId\GenerateIdSnowflake;
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -51,5 +52,52 @@ class ShippingConfig extends Model
     public function warehouse(): BelongsTo
     {
         return $this->belongsTo(Warehouse::class);
+    }
+
+    public function hasDecryptableApiToken(): bool
+    {
+        try {
+            $this->api_token;
+
+            return true;
+        } catch (DecryptException) {
+            return false;
+        }
+    }
+
+    public function getApiTokenSafely(): ?string
+    {
+        try {
+            $token = $this->api_token;
+
+            return filled($token) ? (string) $token : null;
+        } catch (DecryptException) {
+            return null;
+        }
+    }
+
+    public function hasCompleteGhnCredentials(): bool
+    {
+        return filled($this->default_store_id) && filled($this->getApiTokenSafely());
+    }
+
+    public function hasInvalidEncryptedApiToken(): bool
+    {
+        return blank($this->getApiTokenSafely()) && filled($this->getRawOriginal('api_token'));
+    }
+
+    public function toSafeFormState(): array
+    {
+        return [
+            'account_name' => $this->account_name,
+            'api_token' => $this->getApiTokenSafely() ?? '',
+            'default_store_id' => $this->default_store_id,
+            'use_insurance' => (bool) $this->use_insurance,
+            'insurance_limit' => $this->insurance_limit,
+            'required_note' => $this->required_note,
+            'allow_cod_on_failed' => (bool) $this->allow_cod_on_failed,
+            'default_pickup_shift' => $this->default_pickup_shift,
+            'default_pickup_time' => $this->default_pickup_time?->format('H:i'),
+        ];
     }
 }

@@ -153,8 +153,7 @@ class OrderForm
                                     ->disabled(),
                             ]),
                     ])
-                    ->collapsible()
-                    ->collapsed(),
+                    ->collapsible(),
 
                 Section::make(__('order.form.section.package_info'))
                     ->schema([
@@ -201,8 +200,7 @@ class OrderForm
                                     ->maxLength(50),
                             ]),
                     ])
-                    ->collapsible()
-                    ->collapsed(),
+                    ->collapsible(),
 
                 Section::make(__('order.form.section.financial_info'))
                     ->schema([
@@ -263,8 +261,7 @@ class OrderForm
                             ->rows(3)
                             ->columnSpanFull(),
                     ])
-                    ->collapsible()
-                    ->collapsed(),
+                    ->collapsible(),
 
                 Section::make(__('order.form.section.system_info'))
                     ->schema([
@@ -287,8 +284,7 @@ class OrderForm
                                     ->content(fn($record) => $record?->updatedBy?->name),
                             ]),
                     ])
-                    ->collapsible()
-                    ->collapsed(),
+                    ->collapsible(),
             ]);
     }
 }
