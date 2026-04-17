@@ -3,6 +3,7 @@
 namespace App\Filament\Clusters\Accounting\Resources\Expenses\Tables;
 
 use App\Common\Constants\Accounting\ExpenseCategory;
+use App\Filament\Clusters\Accounting\Resources\Expenses\Schemas\ExpenseForm;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Tables\Columns\TextColumn;
@@ -147,12 +148,8 @@ class ExpensesTable
             ])
             ->actions([
                 EditAction::make()
-                    ->visible(fn ($record) => ! $record->trashed()),
-                DeleteAction::make()
-                    ->visible(fn ($record) => ! $record->trashed()),
-                RestoreAction::make()
-                    ->label(__('common.action.restore'))
-                    ->visible(fn ($record) => $record->trashed()),
+                    ->mutateFormDataUsing(fn(array $data): array => ExpenseForm::normalizeExpenseData($data)),
+                DeleteAction::make(),
             ])
             ->bulkActions([
                 BulkActionGroup::make([

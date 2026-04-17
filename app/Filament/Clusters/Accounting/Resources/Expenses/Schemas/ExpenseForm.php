@@ -36,8 +36,15 @@ class ExpenseForm
                             ->label('Đơn giá')
                             ->numeric()
                             ->required()
+                            ->minValue(0.01)
                             ->prefix('₫')
                             ->live()
+                            ->validationMessages([
+                                'required' => __('common.error.required'),
+                                'numeric' => __('common.error.numeric'),
+                                'min' => __('common.error.min_value', ['min' => 0.01]),
+                            ])
+                            ->afterStateHydrated(fn($state, $set, $get) => self::calculateTotal($set, $get))
                             ->afterStateUpdated(fn($state, $set, $get) => self::calculateTotal($set, $get)),
 
                         TextInput::make('quantity')
@@ -45,23 +52,38 @@ class ExpenseForm
                             ->numeric()
                             ->required()
                             ->default(1)
+                            ->minValue(1)
                             ->live()
+                            ->validationMessages([
+                                'required' => __('common.error.required'),
+                                'numeric' => __('common.error.numeric'),
+                                'min' => __('common.error.min_value', ['min' => 1]),
+                            ])
+                            ->afterStateHydrated(fn($state, $set, $get) => self::calculateTotal($set, $get))
                             ->afterStateUpdated(fn($state, $set, $get) => self::calculateTotal($set, $get)),
 
                         TextInput::make('amount')
                             ->label(__('accounting.expense.amount'))
                             ->numeric()
                             ->required()
-                            ->minValue(0)
+                            ->minValue(0.01)
                             ->prefix('₫')
                             ->readOnly()
                             ->helperText('Thành tiền (Đơn giá x Số lượng)')
+                            ->validationMessages([
+                                'required' => __('common.error.required'),
+                                'numeric' => __('common.error.numeric'),
+                                'min' => __('common.error.min_value', ['min' => 0.01]),
+                            ])
                             ->columnSpanFull(),
 
                         TextInput::make('description')
                             ->label(__('accounting.expense.description'))
                             ->required()
                             ->maxLength(255)
+                            ->validationMessages([
+                                'required' => __('common.error.required'),
+                            ])
                             ->columnSpanFull(),
 
                         \Filament\Forms\Components\FileUpload::make('attachments')
@@ -72,6 +94,9 @@ class ExpenseForm
                             ->acceptedFileTypes(['application/pdf', 'image/*'])
                             ->required()
                             ->helperText('Bắt buộc tải lên chứng từ để audit')
+                            ->validationMessages([
+                                'required' => __('common.error.required'),
+                            ])
                             ->columnSpanFull(),
 
                         Textarea::make('note')
@@ -88,5 +113,17 @@ class ExpenseForm
         $unitPrice = (float) ($get('unit_price') ?? 0);
         $quantity = (float) ($get('quantity') ?? 0);
         $set('amount', $unitPrice * $quantity);
+    }
+
+    public static function normalizeExpenseData(array $data): array
+    {
+        $unitPrice = (float) ($data['unit_price'] ?? 0);
+        $quantity = (float) ($data['quantity'] ?? 0);
+
+        $data['unit_price'] = $unitPrice;
+        $data['quantity'] = $quantity;
+        $data['amount'] = round($unitPrice * $quantity, 2);
+
+        return $data;
     }
 }
