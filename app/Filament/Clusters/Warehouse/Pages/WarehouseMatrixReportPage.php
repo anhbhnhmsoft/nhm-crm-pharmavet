@@ -2,11 +2,14 @@
 
 namespace App\Filament\Clusters\Warehouse\Pages;
 
+use App\Exports\SimpleArrayExport;
 use App\Models\Warehouse;
 use App\Models\ProductWarehouse;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Auth;
+use Maatwebsite\Excel\Facades\Excel;
 
 class WarehouseMatrixReportPage extends Page
 {
@@ -61,5 +64,34 @@ class WarehouseMatrixReportPage extends Page
     public function getTitle(): string
     {
         return __('warehouse.reports.matrix_title');
+    }
+
+    public function exportExcel()
+    {
+        return Excel::download(
+            new SimpleArrayExport(
+                [
+                    __('warehouse.form.name'),
+                    __('warehouse.reports.quantity'),
+                    __('warehouse.reports.pending'),
+                ],
+                collect($this->rows)->map(fn (array $row) => [
+                    $row['warehouse'] ?? '',
+                    (int) ($row['quantity'] ?? 0),
+                    (int) ($row['pending'] ?? 0),
+                ])->all()
+            ),
+            'warehouse-matrix-report-' . now()->format('YmdHis') . '.xlsx'
+        );
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('export_excel')
+                ->label(__('warehouse.reports.export_excel'))
+                ->icon('heroicon-o-arrow-down-tray')
+                ->action('exportExcel'),
+        ];
     }
 }

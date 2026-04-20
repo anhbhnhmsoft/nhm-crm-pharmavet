@@ -25,9 +25,15 @@ class FundLockAuditsRelationManager extends RelationManager
                     ->sortable(),
                 TextColumn::make('action')
                     ->label(__('accounting.fund_lock.action'))
+                    ->formatStateUsing(fn (?string $state): string => __('accounting.fund_lock.actions.' . $state) !== 'accounting.fund_lock.actions.' . $state
+                        ? __('accounting.fund_lock.actions.' . $state)
+                        : __('common.unknown'))
                     ->badge(),
                 TextColumn::make('scope_type')
                     ->label(__('accounting.fund_lock.scope'))
+                    ->formatStateUsing(fn (?string $state): string => __('accounting.fund_lock.scopes.' . $state) !== 'accounting.fund_lock.scopes.' . $state
+                        ? __('accounting.fund_lock.scopes.' . $state)
+                        : __('common.unknown'))
                     ->badge(),
                 TextColumn::make('is_locked')
                     ->label(__('accounting.fund_lock.status'))
@@ -38,9 +44,6 @@ class FundLockAuditsRelationManager extends RelationManager
                     ->label(__('accounting.fund_lock.changed_by'))
                     ->default('-'),
             ])
-            ->headerActions([])
-            ->actions([])
-            ->bulkActions([])
             ->defaultSort('changed_at', 'desc');
     }
 }

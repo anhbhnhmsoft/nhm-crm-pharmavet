@@ -22,9 +22,13 @@ class FundForm
                     ->schema([
                         TextInput::make('balance')
                             ->label(__('accounting.fund.balance'))
-                            ->numeric()
+                            ->rule('numeric')
                             ->maxValue(999999999999999.99)
                             ->validationAttribute(__('accounting.fund.balance'))
+                            ->validationMessages([
+                                'numeric' => __('common.error.numeric'),
+                                'max' => __('common.error.max_value', ['max' => 999999999999999.99]),
+                            ])
                             ->helperText(function (?Fund $record): ?string {
                                 if (!$record) {
                                     return null;
@@ -54,6 +58,7 @@ class FundForm
                                     && $user->organization_id === $record->organization_id
                                 );
                             })
+                            ->extraInputAttributes(['required' => false])
                             ->prefix(fn(?Fund $record): string => $record?->currency ?? 'VND'),
                         Select::make('currency')
                             ->label(__('accounting.fund.currency'))

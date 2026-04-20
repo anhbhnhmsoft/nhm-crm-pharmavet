@@ -13,14 +13,14 @@ class FundObserver
             return;
         }
 
-        if ($fund->transactions()->exists()) {
+        if ($fund->hasTransactions()) {
             throw new BadRequestHttpException(__('accounting.fund.notifications.opening_balance_locked'));
         }
     }
 
     public function deleting(Fund $fund): void
     {
-        if ($fund->transactions()->exists()) {
+        if ($fund->hasTransactions()) {
             throw new BadRequestHttpException(__('accounting.fund.notifications.delete_blocked_has_transactions'));
         }
     }

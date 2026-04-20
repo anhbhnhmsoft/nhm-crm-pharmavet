@@ -84,7 +84,9 @@ class FundLedgerReportService
             $query->whereHas('fund', fn ($q) => $q->where('organization_id', $organizationId));
         }
 
-        $query->whereBetween('transaction_date', [$fromDate, $toDate]);
+        $query
+            ->whereDate('transaction_date', '>=', $fromDate)
+            ->whereDate('transaction_date', '<=', $toDate);
 
         if ($fundId > 0) {
             $query->where('fund_id', $fundId);

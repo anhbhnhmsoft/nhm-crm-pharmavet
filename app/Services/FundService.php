@@ -18,6 +18,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Throwable;
 
 class FundService
@@ -40,9 +41,27 @@ class FundService
 
         try {
             return DB::transaction(function () use ($fund, $data, $actor) {
-                $transactionDate = (string) ($data['transaction_date'] ?? now()->toDateString());
-                $type = (int) ($data['type'] ?? 0);
-                $amount = (float) ($data['amount'] ?? 0);
+                $openingBalance = $this->getOpeningBalance($fund->fresh());
+                $payload = [
+                    'transaction_date' => $data['transaction_date'] ?? now()->toDateString(),
+                    'type' => $data['type'] ?? null,
+                    'amount' => $data['amount'] ?? null,
+                    'counterparty_name' => $data['counterparty_name'] ?? null,
+                    'currency' => $data['currency'] ?? ($fund->currency ?? 'VND'),
+                    'exchange_rate' => $data['exchange_rate'] ?? null,
+                    'description' => $data['description'] ?? null,
+                    'purpose' => $data['purpose'] ?? null,
+                    'note' => $data['note'] ?? null,
+                    'updated_by' => $actor?->id,
+                ];
+
+                if ($validationError = $this->validateTransactionPayload($payload)) {
+                    return ServiceReturn::error($validationError);
+                }
+
+                $transactionDate = (string) $payload['transaction_date'];
+                $type = (int) $payload['type'];
+                $amount = (float) $payload['amount'];
 
                 if ($amount <= 0) {
                     return ServiceReturn::error(__('accounting.fund.notifications.invalid_amount'));
@@ -61,17 +80,17 @@ class FundService
                     'type' => $type,
                     'transaction_date' => $transactionDate,
                     'amount' => $amount,
-                    'counterparty_name' => $data['counterparty_name'] ?? null,
-                    'currency' => $data['currency'] ?? ($fund->currency ?? 'VND'),
-                    'exchange_rate' => $data['exchange_rate'] ?? null,
+                    'counterparty_name' => $payload['counterparty_name'],
+                    'currency' => $payload['currency'],
+                    'exchange_rate' => $payload['exchange_rate'],
                     'amount_base' => $this->toBaseAmount(
                         amount: $amount,
-                        currency: (string) ($data['currency'] ?? ($fund->currency ?? 'VND')),
-                        exchangeRate: $data['exchange_rate'] ?? null
+                        currency: (string) $payload['currency'],
+                        exchangeRate: $payload['exchange_rate']
                     ),
-                    'description' => $data['description'] ?? '',
-                    'purpose' => $data['purpose'] ?? null,
-                    'note' => $data['note'] ?? null,
+                    'description' => (string) $payload['description'],
+                    'purpose' => $payload['purpose'],
+                    'note' => $payload['note'],
                     'status' => FundTransactionStatus::COMPLETED->value,
                     'balance_after' => $balanceAfter,
                     'transaction_code' => 'FT' . now()->format('YmdHis') . random_int(100, 999),
@@ -84,7 +103,7 @@ class FundService
                     actorId: $actor?->id
                 );
 
-                $this->recalculateFundBalances($fund);
+                $this->recalculateFundBalances($fund->fresh(), $openingBalance);
 
                 return ServiceReturn::success($transaction);
             });
@@ -99,7 +118,7 @@ class FundService
     public function updateTransaction(FundTransaction $transaction, array $data, ?User $actor = null): ServiceReturn
     {
         $actor ??= Auth::user();
-        $fund = $transaction->fund;
+        $fund = $transaction->fund()->withTrashed()->first();
 
         if (!$fund) {
             return ServiceReturn::error(__('accounting.fund.notifications.fund_not_found'));
@@ -111,10 +130,11 @@ class FundService
 
         try {
             return DB::transaction(function () use ($transaction, $data, $actor, $fund) {
+                $openingBalance = $this->getOpeningBalance($fund->fresh());
                 $payload = [
                     'transaction_date' => $data['transaction_date'] ?? $transaction->transaction_date?->toDateString(),
-                    'type' => (int) ($data['type'] ?? $transaction->type),
-                    'amount' => (float) ($data['amount'] ?? $transaction->amount),
+                    'type' => $data['type'] ?? $transaction->type,
+                    'amount' => $data['amount'] ?? $transaction->amount,
                     'counterparty_name' => $data['counterparty_name'] ?? $transaction->counterparty_name,
                     'currency' => $data['currency'] ?? $transaction->currency ?? ($fund->currency ?? 'VND'),
                     'exchange_rate' => $data['exchange_rate'] ?? $transaction->exchange_rate,
@@ -123,6 +143,13 @@ class FundService
                     'note' => $data['note'] ?? $transaction->note,
                     'updated_by' => $actor?->id,
                 ];
+
+                if ($validationError = $this->validateTransactionPayload($payload)) {
+                    return ServiceReturn::error($validationError);
+                }
+
+                $payload['type'] = (int) $payload['type'];
+                $payload['amount'] = (float) $payload['amount'];
 
                 $payload['amount_base'] = $this->toBaseAmount(
                     amount: (float) $payload['amount'],
@@ -138,7 +165,7 @@ class FundService
                     actorId: $actor?->id
                 );
 
-                $this->recalculateFundBalances($fund->fresh());
+                $this->recalculateFundBalances($fund->fresh(), $openingBalance);
 
                 return ServiceReturn::success($transaction->fresh());
             });
@@ -153,7 +180,7 @@ class FundService
     public function deleteTransaction(FundTransaction $transaction, ?User $actor = null): ServiceReturn
     {
         $actor ??= Auth::user();
-        $fund = $transaction->fund;
+        $fund = $transaction->fund()->withTrashed()->first();
 
         if (!$fund) {
             return ServiceReturn::error(__('accounting.fund.notifications.fund_not_found'));
@@ -165,8 +192,9 @@ class FundService
 
         try {
             DB::transaction(function () use ($transaction, $fund) {
+                $openingBalance = $this->getOpeningBalance($fund->fresh());
                 $transaction->delete();
-                $this->recalculateFundBalances($fund->fresh());
+                $this->recalculateFundBalances($fund->fresh(), $openingBalance);
             });
 
             return ServiceReturn::success(message: __('common.notification.success'));
@@ -180,36 +208,13 @@ class FundService
 
     public function canPerformAction(Fund $fund, User $user, FundLockAction $action): bool
     {
+        $fund = $fund->fresh() ?? $fund;
+
         if ($fund->is_locked) {
             return false;
         }
-        $rules = $this->fundLockRuleRepository->query()
-            ->where('fund_id', $fund->id)
-            ->where('action', $action->value)
-            ->where('is_locked', true)
-            ->get();
 
-        if ($rules->isEmpty()) {
-            return true;
-        }
-
-        $teamIds = $user->teams()->pluck('teams.id')->toArray();
-
-        foreach ($rules as $rule) {
-            if ($rule->scope_type === FundLockScope::GLOBAL->value) {
-                return false;
-            }
-
-            if ($rule->scope_type === FundLockScope::USER->value && (int) $rule->user_id === (int) $user->id) {
-                return false;
-            }
-
-            if ($rule->scope_type === FundLockScope::TEAM->value && in_array((int) $rule->team_id, $teamIds, true)) {
-                return false;
-            }
-        }
-
-        return true;
+        return !$this->fundLockRuleRepository->isActionLockedForUser((int) $fund->id, $user, $action);
     }
 
     public function upsertLockRule(Fund $fund, array $payload, ?User $actor = null): ServiceReturn
@@ -217,11 +222,20 @@ class FundService
         $actor ??= Auth::user();
 
         try {
-            $action = (string) ($payload['action'] ?? '');
+            $actions = array_values(array_unique(array_filter(array_map(
+                static fn ($action): string => (string) $action,
+                Arr::wrap($payload['actions'] ?? $payload['action'] ?? [])
+            ))));
             $scopeType = (string) ($payload['scope_type'] ?? FundLockScope::GLOBAL->value);
 
-            if (!in_array($action, array_keys(FundLockAction::options()), true)) {
+            if (empty($actions)) {
                 return ServiceReturn::error(__('accounting.fund_lock.notifications.invalid_action'));
+            }
+
+            foreach ($actions as $action) {
+                if (!in_array($action, array_keys(FundLockAction::options()), true)) {
+                    return ServiceReturn::error(__('accounting.fund_lock.notifications.invalid_action'));
+                }
             }
 
             if (!in_array($scopeType, array_keys(FundLockScope::options()), true)) {
@@ -237,13 +251,56 @@ class FundService
                     return ServiceReturn::error(__('accounting.fund_lock.notifications.user_required'));
                 }
 
-                foreach ($userIds as $userId) {
+                foreach ($actions as $action) {
+                    foreach ($userIds as $userId) {
+                        $rules[] = $this->fundLockRuleRepository->query()->updateOrCreate(
+                            [
+                                'fund_id' => $fund->id,
+                                'action' => $action,
+                                'scope_type' => $scopeType,
+                                'user_id' => $userId,
+                                'team_id' => null,
+                            ],
+                            [
+                                'is_locked' => $isLocked,
+                                'updated_by' => $actor?->id,
+                                'created_by' => $actor?->id,
+                            ]
+                        );
+                    }
+                }
+            } elseif ($scopeType === FundLockScope::TEAM->value) {
+                $teamIds = array_values(array_unique(array_map('intval', Arr::wrap($payload['team_ids'] ?? $payload['team_id'] ?? []))));
+                if (empty($teamIds)) {
+                    return ServiceReturn::error(__('accounting.fund_lock.notifications.team_required'));
+                }
+
+                foreach ($actions as $action) {
+                    foreach ($teamIds as $teamId) {
+                        $rules[] = $this->fundLockRuleRepository->query()->updateOrCreate(
+                            [
+                                'fund_id' => $fund->id,
+                                'action' => $action,
+                                'scope_type' => $scopeType,
+                                'user_id' => null,
+                                'team_id' => $teamId,
+                            ],
+                            [
+                                'is_locked' => $isLocked,
+                                'updated_by' => $actor?->id,
+                                'created_by' => $actor?->id,
+                            ]
+                        );
+                    }
+                }
+            } else {
+                foreach ($actions as $action) {
                     $rules[] = $this->fundLockRuleRepository->query()->updateOrCreate(
                         [
                             'fund_id' => $fund->id,
                             'action' => $action,
                             'scope_type' => $scopeType,
-                            'user_id' => $userId,
+                            'user_id' => null,
                             'team_id' => null,
                         ],
                         [
@@ -253,48 +310,11 @@ class FundService
                         ]
                     );
                 }
-            } elseif ($scopeType === FundLockScope::TEAM->value) {
-                $teamIds = array_values(array_unique(array_map('intval', Arr::wrap($payload['team_ids'] ?? $payload['team_id'] ?? []))));
-                if (empty($teamIds)) {
-                    return ServiceReturn::error(__('accounting.fund_lock.notifications.team_required'));
-                }
-
-                foreach ($teamIds as $teamId) {
-                    $rules[] = $this->fundLockRuleRepository->query()->updateOrCreate(
-                        [
-                            'fund_id' => $fund->id,
-                            'action' => $action,
-                            'scope_type' => $scopeType,
-                            'user_id' => null,
-                            'team_id' => $teamId,
-                        ],
-                        [
-                            'is_locked' => $isLocked,
-                            'updated_by' => $actor?->id,
-                            'created_by' => $actor?->id,
-                        ]
-                    );
-                }
-            } else {
-                $rules[] = $this->fundLockRuleRepository->query()->updateOrCreate(
-                    [
-                        'fund_id' => $fund->id,
-                        'action' => $action,
-                        'scope_type' => $scopeType,
-                        'user_id' => null,
-                        'team_id' => null,
-                    ],
-                    [
-                        'is_locked' => $isLocked,
-                        'updated_by' => $actor?->id,
-                        'created_by' => $actor?->id,
-                    ]
-                );
             }
 
             foreach ($rules as $rule) {
                 $this->auditLockRule($fund, [
-                    'action' => $action,
+                    'action' => $rule->action,
                     'scope_type' => $scopeType,
                     'is_locked' => (bool) $rule->is_locked,
                     'target_user_id' => $rule->user_id,
@@ -341,24 +361,27 @@ class FundService
         }
     }
 
-    public function recalculateFundBalances(Fund $fund): void
+    public function recalculateFundBalances(Fund $fund, ?float $openingBalance = null): void
     {
-        DB::transaction(function () use ($fund) {
-            $running = 0.0;
+        DB::transaction(function () use ($fund, $openingBalance) {
             $transactions = $fund->transactions()
                 ->where('status', FundTransactionStatus::COMPLETED->value)
                 ->orderBy('transaction_date')
                 ->orderBy('id')
                 ->get();
 
+            $openingBalance ??= $this->getOpeningBalance($fund);
+            $running = $openingBalance;
+
             foreach ($transactions as $transaction) {
                 $signedAmount = $this->signedAmountByType((int) $transaction->type, (float) $transaction->amount);
                 $running += $signedAmount;
+
                 if ($running < 0) {
                     throw new \RuntimeException(__('accounting.fund.notifications.insufficient_balance'));
                 }
 
-                $this->fundTransactionRepository->update([
+                $transaction->updateQuietly([
                     'balance_after' => $running,
                 ]);
             }
@@ -443,6 +466,58 @@ class FundService
             'changed_by' => $actorId,
             'changed_at' => now(),
         ]);
+    }
+
+    public function getOpeningBalance(Fund $fund): float
+    {
+        $firstTransaction = $fund->transactions()
+            ->where('status', FundTransactionStatus::COMPLETED->value)
+            ->orderBy('transaction_date')
+            ->orderBy('id')
+            ->first();
+
+        if (!$firstTransaction) {
+            return round((float) $fund->balance, 2);
+        }
+
+        return round(
+            (float) $firstTransaction->balance_after
+            - $this->signedAmountByType((int) $firstTransaction->type, (float) $firstTransaction->amount),
+            2
+        );
+    }
+
+    protected function validateTransactionPayload(array $payload): ?string
+    {
+        $validator = Validator::make(
+            $payload,
+            [
+                'transaction_date' => ['bail', 'required', 'date'],
+                'type' => ['bail', 'required'],
+                'counterparty_name' => ['bail', 'required'],
+                'amount' => ['bail', 'required', 'numeric', 'min:0.01'],
+                'currency' => ['bail', 'required'],
+                'purpose' => ['bail', 'required'],
+                'description' => ['bail', 'required'],
+            ],
+            [
+                'transaction_date.required' => __('common.error.required'),
+                'type.required' => __('common.error.required'),
+                'counterparty_name.required' => __('common.error.required'),
+                'amount.required' => __('common.error.required'),
+                'amount.numeric' => __('common.error.numeric'),
+                'amount.min' => __('common.error.min_value', ['min' => 0.01]),
+                'currency.required' => __('common.error.required'),
+                'purpose.required' => __('common.error.required'),
+                'description.required' => __('common.error.required'),
+            ]
+        );
+
+        if ($validator->fails()) {
+            return $validator->errors()->first();
+        }
+
+        return null;
     }
 
     public function deleteFund(Fund $fund): ServiceReturn

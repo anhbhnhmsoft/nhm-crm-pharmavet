@@ -3,9 +3,11 @@
 namespace App\Filament\Clusters\Warehouse\Resources\InventoryTickets;
 
 use App\Common\Constants\User\UserRole;
+use App\Filament\Clusters\Warehouse\Resources\InventoryTickets\RelationManagers\InventoryTicketLogsRelationManager;
 use App\Filament\Clusters\Warehouse\Resources\InventoryTickets\Pages\CreateInventoryTicket;
 use App\Filament\Clusters\Warehouse\Resources\InventoryTickets\Pages\EditInventoryTicket;
 use App\Filament\Clusters\Warehouse\Resources\InventoryTickets\Pages\ListInventoryTickets;
+use App\Filament\Clusters\Warehouse\Resources\InventoryTickets\Pages\ViewInventoryTicket;
 use App\Filament\Clusters\Warehouse\Resources\InventoryTickets\Schemas\InventoryTicketForm;
 use App\Filament\Clusters\Warehouse\Resources\InventoryTickets\Tables\InventoryTicketsTable;
 use App\Models\InventoryTicket;
@@ -81,7 +83,7 @@ class InventoryTicketResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            InventoryTicketLogsRelationManager::class,
         ];
     }
 
@@ -90,6 +92,7 @@ class InventoryTicketResource extends Resource
         return [
             'index' => ListInventoryTickets::route('/'),
             'create' => CreateInventoryTicket::route('/create'),
+            'view' => ViewInventoryTicket::route('/{record}'),
             'edit' => EditInventoryTicket::route('/{record}/edit'),
         ];
     }
