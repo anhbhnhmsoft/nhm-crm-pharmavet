@@ -20,6 +20,7 @@ return [
     ],
     'organization' => [
         'label' => 'Tổ chức',
+        'cluster_label' => 'Tổ chức quản lý',
         'plural' => 'Danh sách tổ chức',
         'name' => 'Tên tổ chức',
         'code' => 'Mã tổ chức',

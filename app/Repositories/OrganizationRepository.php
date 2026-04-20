@@ -11,4 +11,11 @@ class OrganizationRepository extends BaseRepository
     {
         return new Organization();
     }
+
+    public function isForeignById(int $organizationId): bool
+    {
+        return (bool) $this->query()
+            ->where('id', $organizationId)
+            ->value('is_foreign');
+    }
 }

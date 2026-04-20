@@ -22,78 +22,110 @@ class ExpenseForm
                         DatePicker::make('expense_date')
                             ->label(__('accounting.expense.expense_date'))
                             ->required()
+                            ->extraInputAttributes(['required' => false])
                             ->default(now())
                             ->native(false)
-                            ->displayFormat('d/m/Y'),
+                            ->displayFormat('d/m/Y')
+                            ->validationMessages([
+                                'required' => __('common.error.required'),
+                            ]),
 
                         Select::make('category')
                             ->label(__('accounting.expense.category'))
                             ->options(ExpenseCategory::getOptions())
                             ->required()
-                            ->default(ExpenseCategory::OPERATIONAL->value),
+                            ->extraInputAttributes(['required' => false])
+                            ->default(ExpenseCategory::OPERATIONAL->value)
+                            ->validationMessages([
+                                'required' => __('common.error.required'),
+                                'in' => __('common.error.in'),
+                            ]),
 
                         TextInput::make('unit_price')
-                            ->label('Đơn giá')
+                            ->label(__('accounting.expense.unit_price'))
                             ->numeric()
                             ->required()
-                            ->minValue(0.01)
+                            ->extraInputAttributes([
+                                'type' => 'text',
+                                'inputmode' => 'decimal',
+                                'required' => false,
+                                'min' => null,
+                                'max' => null,
+                                'step' => null,
+                            ])
+                            ->minValue(0)
                             ->prefix('₫')
                             ->live()
+                            ->afterStateUpdated(fn ($state, $set, $get) => self::calculateTotal($set, $get))
                             ->validationMessages([
                                 'required' => __('common.error.required'),
                                 'numeric' => __('common.error.numeric'),
-                                'min' => __('common.error.min_value', ['min' => 0.01]),
-                            ])
-                            ->afterStateHydrated(fn($state, $set, $get) => self::calculateTotal($set, $get))
-                            ->afterStateUpdated(fn($state, $set, $get) => self::calculateTotal($set, $get)),
+                                'min' => __('common.error.min_value', ['min' => 0]),
+                            ]),
 
                         TextInput::make('quantity')
-                            ->label('Số lượng')
+                            ->label(__('accounting.expense.quantity'))
                             ->numeric()
                             ->required()
-                            ->default(1)
+                            ->extraInputAttributes([
+                                'type' => 'text',
+                                'inputmode' => 'decimal',
+                                'required' => false,
+                                'min' => null,
+                                'max' => null,
+                                'step' => null,
+                            ])
                             ->minValue(1)
+                            ->default(1)
                             ->live()
+                            ->afterStateUpdated(fn ($state, $set, $get) => self::calculateTotal($set, $get))
                             ->validationMessages([
                                 'required' => __('common.error.required'),
                                 'numeric' => __('common.error.numeric'),
                                 'min' => __('common.error.min_value', ['min' => 1]),
-                            ])
-                            ->afterStateHydrated(fn($state, $set, $get) => self::calculateTotal($set, $get))
-                            ->afterStateUpdated(fn($state, $set, $get) => self::calculateTotal($set, $get)),
+                            ]),
 
                         TextInput::make('amount')
                             ->label(__('accounting.expense.amount'))
                             ->numeric()
-                            ->required()
-                            ->minValue(0.01)
+                            ->extraInputAttributes([
+                                'type' => 'text',
+                                'inputmode' => 'decimal',
+                                'min' => null,
+                                'max' => null,
+                                'step' => null,
+                            ])
+                            ->minValue(0)
                             ->prefix('₫')
                             ->readOnly()
-                            ->helperText('Thành tiền (Đơn giá x Số lượng)')
+                            ->dehydrateStateUsing(fn ($state, $get): float => self::calculateAmount($get))
+                            ->helperText(__('accounting.expense.amount_help'))
                             ->validationMessages([
-                                'required' => __('common.error.required'),
                                 'numeric' => __('common.error.numeric'),
-                                'min' => __('common.error.min_value', ['min' => 0.01]),
+                                'min' => __('common.error.min_value', ['min' => 0]),
                             ])
                             ->columnSpanFull(),
 
                         TextInput::make('description')
                             ->label(__('accounting.expense.description'))
                             ->required()
+                            ->extraInputAttributes(['required' => false, 'maxlength' => null])
                             ->maxLength(255)
                             ->validationMessages([
                                 'required' => __('common.error.required'),
+                                'max' => __('common.error.max_length', ['max' => 255]),
                             ])
                             ->columnSpanFull(),
 
-                        \Filament\Forms\Components\FileUpload::make('attachments')
-                            ->label('Chứng từ/Hóa đơn (PDF/Image)')
+                        FileUpload::make('attachments')
+                            ->label(__('accounting.expense.attachments_upload_label'))
                             ->multiple()
                             ->disk('public')
                             ->directory('expense_attachments')
                             ->acceptedFileTypes(['application/pdf', 'image/*'])
                             ->required()
-                            ->helperText('Bắt buộc tải lên chứng từ để audit')
+                            ->extraInputAttributes(['required' => false])
+                            ->helperText(__('accounting.expense.attachments_upload_help'))
                             ->validationMessages([
                                 'required' => __('common.error.required'),
                             ])
@@ -110,20 +142,14 @@ class ExpenseForm
 
     protected static function calculateTotal($set, $get): void
     {
-        $unitPrice = (float) ($get('unit_price') ?? 0);
-        $quantity = (float) ($get('quantity') ?? 0);
-        $set('amount', $unitPrice * $quantity);
+        $set('amount', self::calculateAmount($get));
     }
 
-    public static function normalizeExpenseData(array $data): array
+    protected static function calculateAmount(callable $get): float
     {
-        $unitPrice = (float) ($data['unit_price'] ?? 0);
-        $quantity = (float) ($data['quantity'] ?? 0);
+        $unitPrice = (float) ($get('unit_price') ?? 0);
+        $quantity = (float) ($get('quantity') ?? 0);
 
-        $data['unit_price'] = $unitPrice;
-        $data['quantity'] = $quantity;
-        $data['amount'] = round($unitPrice * $quantity, 2);
-
-        return $data;
+        return $unitPrice * $quantity;
     }
 }

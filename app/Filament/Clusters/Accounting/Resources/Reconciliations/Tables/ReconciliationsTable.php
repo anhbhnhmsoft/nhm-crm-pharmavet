@@ -5,6 +5,8 @@ namespace App\Filament\Clusters\Accounting\Resources\Reconciliations\Tables;
 use App\Common\Constants\Accounting\ReconciliationStatus;
 use App\Common\Constants\CacheKey;
 use App\Common\Constants\Order\GhnOrderStatus;
+use App\Common\Constants\Order\OrderCareStatus;
+use App\Common\Constants\Order\PaymentType;
 use App\Common\Constants\Shipping\ProviderShipping;
 use App\Common\Constants\Shipping\RequiredNote;
 use App\Core\Caching;
@@ -27,52 +29,449 @@ use Filament\Schemas\Components\Grid;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\HtmlString;
-use App\Models\User;
 use App\Models\Warehouse;
-use App\Models\Team;
-use App\Models\Product;
-use App\Common\Constants\User\UserRole;
-use App\Common\Constants\User\UserPosition;
-use App\Common\Constants\Team\TeamType;
 use App\Common\Constants\Order\OrderStatus;
-use App\Services\Telesale\OrderFinanceService;
 use Filament\Tables\Table;
 use Filament\Tables\Enums\RecordActionsPosition;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Actions\BulkAction;
-use Filament\Forms\Components\Hidden;
-use Illuminate\Support\Facades\Auth;
 
 class ReconciliationsTable
 {
+    protected static function getOrganizationId(): ?int
+    {
+        return auth()->user()?->organization_id;
+    }
+
+    protected static function getReconciliationService(): ReconciliationService
+    {
+        return app(ReconciliationService::class);
+    }
+
+    protected static function getLikeOperator(Builder $query): string
+    {
+        return $query->getConnection()->getDriverName() === 'pgsql'
+            ? 'ilike'
+            : 'like';
+    }
+
+    protected static function wrapLike(string $search): string
+    {
+        return '%' . trim($search) . '%';
+    }
+
+    protected static function getMatchingOptionValues(array $options, string $search, bool $castToInt = true): array
+    {
+        $normalizedSearch = mb_strtolower(trim(strip_tags($search)));
+
+        if ($normalizedSearch === '') {
+            return [];
+        }
+
+        return collect($options)
+            ->filter(function ($label) use ($normalizedSearch): bool {
+                $normalizedLabel = mb_strtolower(trim(strip_tags((string) $label)));
+
+                return $normalizedLabel !== '' && str_contains($normalizedLabel, $normalizedSearch);
+            })
+            ->keys()
+            ->map(fn ($value) => $castToInt ? (int) $value : (string) $value)
+            ->values()
+            ->all();
+    }
+
+    protected static function applyGlobalTableSearch(Builder $query, string $search): Builder
+    {
+        $search = trim($search);
+
+        if ($search === '') {
+            return $query;
+        }
+
+        $like = self::wrapLike($search);
+        $likeOperator = self::getLikeOperator($query);
+        $numericSearch = preg_replace('/\D+/', '', $search);
+        $numericLike = filled($numericSearch) ? "%{$numericSearch}%" : null;
+
+        $matchingReconciliationStatuses = self::getMatchingOptionValues(ReconciliationStatus::getOptions(), $search);
+        $matchingCareStatuses = self::getMatchingOptionValues(OrderCareStatus::toOptions(), $search);
+        $matchingShippingStatuses = self::getMatchingOptionValues(GhnOrderStatus::toOptions(), $search, castToInt: false);
+
+        return $query->where(function (Builder $searchQuery) use (
+            $like,
+            $likeOperator,
+            $numericLike,
+            $matchingReconciliationStatuses,
+            $matchingCareStatuses,
+            $matchingShippingStatuses
+        ): void {
+            $searchQuery
+                ->where('reconciliations.ghn_order_code', $likeOperator, $like)
+                ->orWhere('reconciliations.ghn_to_name', $likeOperator, $like)
+                ->orWhere('reconciliations.ghn_to_phone', $likeOperator, $like)
+                ->orWhere('reconciliations.ghn_to_address', $likeOperator, $like)
+                ->orWhere('reconciliations.ghn_status_label', $likeOperator, $like)
+                ->orWhere('reconciliations.ghn_employee_note', $likeOperator, $like)
+                ->orWhere('reconciliations.note', $likeOperator, $like);
+
+            if ($matchingReconciliationStatuses !== []) {
+                $searchQuery->orWhereIn('reconciliations.status', $matchingReconciliationStatuses);
+            }
+
+            if ($numericLike !== null) {
+                $searchQuery
+                    ->orWhereRaw("regexp_replace(COALESCE(reconciliations.cod_amount::text, ''), '[^0-9]', '', 'g') LIKE ?", [$numericLike])
+                    ->orWhereRaw("regexp_replace(COALESCE(reconciliations.total_fee::text, ''), '[^0-9]', '', 'g') LIKE ?", [$numericLike])
+                    ->orWhereRaw("regexp_replace(COALESCE(reconciliations.shipping_fee::text, ''), '[^0-9]', '', 'g') LIKE ?", [$numericLike]);
+            }
+
+            $searchQuery->orWhereHas('order', function (Builder $orderQuery) use (
+                $like,
+                $likeOperator,
+                $numericLike,
+                $matchingCareStatuses,
+                $matchingShippingStatuses
+            ): void {
+                $orderQuery
+                    ->where('orders.code', $likeOperator, $like)
+                    ->orWhere('orders.ghn_order_code', $likeOperator, $like)
+                    ->orWhere('orders.provider_shipping', $likeOperator, $like)
+                    ->orWhere('orders.shipping_method', $likeOperator, $like)
+                    ->orWhere('orders.ghn_status', $likeOperator, $like)
+                    ->orWhere('orders.shipping_address', $likeOperator, $like)
+                    ->orWhere('orders.note', $likeOperator, $like)
+                    ->orWhereHas('warehouse', fn (Builder $warehouseQuery) => $warehouseQuery->where('warehouses.name', $likeOperator, $like))
+                    ->orWhereHas('createdBy', fn (Builder $userQuery) => $userQuery->where('users.name', $likeOperator, $like))
+                    ->orWhereHas('careBy', fn (Builder $userQuery) => $userQuery->where('users.name', $likeOperator, $like))
+                    ->orWhereHas('customer', function (Builder $customerQuery) use ($like, $likeOperator): void {
+                        $customerQuery
+                            ->where('customers.username', $likeOperator, $like)
+                            ->orWhere('customers.phone', $likeOperator, $like)
+                            ->orWhere('customers.address', $likeOperator, $like)
+                            ->orWhere('customers.shipping_address', $likeOperator, $like)
+                            ->orWhereHas('assignedStaffPrimary', fn (Builder $userQuery) => $userQuery->where('users.name', $likeOperator, $like));
+                    })
+                    ->orWhereHas('items.product', fn (Builder $productQuery) => $productQuery->where('products.name', $likeOperator, $like));
+
+                if ($matchingCareStatuses !== []) {
+                    $orderQuery->orWhereIn('orders.care_status', $matchingCareStatuses);
+                }
+
+                if ($matchingShippingStatuses !== []) {
+                    $orderQuery->orWhereIn('orders.ghn_status', $matchingShippingStatuses);
+                }
+
+                if ($numericLike !== null) {
+                    $orderQuery
+                        ->orWhereRaw("regexp_replace(COALESCE(orders.total_amount::text, ''), '[^0-9]', '', 'g') LIKE ?", [$numericLike])
+                        ->orWhereRaw("regexp_replace(COALESCE(orders.discount::text, ''), '[^0-9]', '', 'g') LIKE ?", [$numericLike])
+                        ->orWhereRaw("regexp_replace(COALESCE(orders.shipping_fee::text, ''), '[^0-9]', '', 'g') LIKE ?", [$numericLike])
+                        ->orWhereRaw("regexp_replace(COALESCE(orders.deposit::text, ''), '[^0-9]', '', 'g') LIKE ?", [$numericLike])
+                        ->orWhereRaw("regexp_replace(COALESCE(orders.amount_recived_from_customer::text, ''), '[^0-9]', '', 'g') LIKE ?", [$numericLike])
+                        ->orWhereRaw("regexp_replace(COALESCE(orders.amout_support_fee::text, ''), '[^0-9]', '', 'g') LIKE ?", [$numericLike]);
+                }
+            });
+
+            $searchQuery->orWhereRaw(
+                "EXISTS (
+                    SELECT 1
+                    FROM json_array_elements(COALESCE(reconciliations.ghn_items, '[]'::json)) AS item
+                    WHERE COALESCE(item->>'name', '') {$likeOperator} ?
+                )",
+                [$like]
+            );
+        });
+    }
+
+    protected static function hasInvalidDateRange(array $data): bool
+    {
+        $from = $data['from'] ?? null;
+        $to = $data['to'] ?? null;
+
+        if (blank($from) || blank($to)) {
+            return false;
+        }
+
+        try {
+            return Carbon::parse($from)->gt(Carbon::parse($to));
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    protected static function getProductFilterOptions(): array
+    {
+        return self::getReconciliationService()->getProductFilterOptions(self::getOrganizationId());
+    }
+
+    protected static function applyProductFilter(Builder $query, ?string $selectedProduct): Builder
+    {
+        return self::getReconciliationService()->applyProductFilter(
+            $query,
+            $selectedProduct,
+            self::getOrganizationId(),
+        );
+    }
+
+    protected static function getQuantityThresholdFilterOptions(): array
+    {
+        return collect([
+            ...range(1, 10),
+            ...range(20, 100, 10),
+        ])
+            ->mapWithKeys(fn (int $threshold): array => [
+                (string) $threshold => __('accounting.reconciliation.filter_qty_from', ['quantity' => $threshold]),
+            ])
+            ->all();
+    }
+
+    protected static function applyQuantityThresholdFilter(Builder $query, int|string|null $minimumQuantity): Builder
+    {
+        if (blank($minimumQuantity)) {
+            return $query;
+        }
+
+        $minimumQuantity = (int) $minimumQuantity;
+
+        if ($minimumQuantity <= 0) {
+            return $query;
+        }
+
+        return $query->where(function (Builder $quantityQuery) use ($minimumQuantity): void {
+            $quantityQuery
+                ->whereHas('order', fn (Builder $orderQuery): Builder => $orderQuery->whereRaw(
+                    '(SELECT COALESCE(SUM(oi.quantity), 0) FROM order_items oi WHERE oi.order_id = orders.id) >= ?',
+                    [$minimumQuantity]
+                ))
+                ->orWhere(function (Builder $ghnFallbackQuery) use ($minimumQuantity): void {
+                    $ghnFallbackQuery
+                        ->whereDoesntHave('order.items')
+                        ->whereRaw(
+                            "(SELECT COALESCE(SUM(COALESCE(NULLIF(item->>'quantity', '')::numeric, 0)), 0)
+                                FROM json_array_elements(COALESCE(ghn_items, '[]'::json)) AS item) >= ?",
+                            [$minimumQuantity]
+                        );
+                });
+        });
+    }
+
+    protected static function getFollowOrderFilterDefinitions(): array
+    {
+        $deliveryThresholds = [
+            ['key' => 'delivery_24h', 'index' => 1, 'hours' => 24, 'duration' => '24h'],
+            ['key' => 'delivery_36h', 'index' => 2, 'hours' => 36, 'duration' => '36h'],
+            ['key' => 'delivery_48h', 'index' => 3, 'hours' => 48, 'duration' => '48h'],
+            ['key' => 'delivery_72h', 'index' => 4, 'hours' => 72, 'duration' => '72h'],
+            ['key' => 'delivery_4d', 'index' => 5, 'hours' => 96, 'duration' => '4 ngày'],
+            ['key' => 'delivery_5d', 'index' => 6, 'hours' => 120, 'duration' => '5 ngày'],
+            ['key' => 'delivery_6d', 'index' => 7, 'hours' => 144, 'duration' => '6 ngày'],
+            ['key' => 'delivery_7d', 'index' => 8, 'hours' => 168, 'duration' => '7 ngày'],
+        ];
+
+        $pickupThresholds = [
+            ['key' => 'pickup_24h', 'index' => 21, 'hours' => 24, 'duration' => '24h'],
+            ['key' => 'pickup_36h', 'index' => 22, 'hours' => 36, 'duration' => '36h'],
+            ['key' => 'pickup_48h', 'index' => 23, 'hours' => 48, 'duration' => '48h'],
+            ['key' => 'pickup_72h', 'index' => 24, 'hours' => 72, 'duration' => '72h'],
+        ];
+
+        $postingThresholds = [
+            ['key' => 'posting_24h', 'index' => 31, 'hours' => 24, 'duration' => '24h'],
+            ['key' => 'posting_36h', 'index' => 32, 'hours' => 36, 'duration' => '36h'],
+            ['key' => 'posting_48h', 'index' => 33, 'hours' => 48, 'duration' => '48h'],
+            ['key' => 'posting_72h', 'index' => 34, 'hours' => 72, 'duration' => '72h'],
+        ];
+
+        return collect($deliveryThresholds)
+            ->mapWithKeys(fn (array $definition): array => [
+                $definition['key'] => [
+                    ...$definition,
+                    'type' => 'delivery',
+                    'label' => __('accounting.reconciliation.filter_follow_order_delivery', [
+                        'index' => $definition['index'],
+                        'duration' => $definition['duration'],
+                    ]),
+                ],
+            ])
+            ->merge(collect($pickupThresholds)->mapWithKeys(fn (array $definition): array => [
+                $definition['key'] => [
+                    ...$definition,
+                    'type' => 'pickup',
+                    'label' => __('accounting.reconciliation.filter_follow_order_pickup', [
+                        'index' => $definition['index'],
+                        'duration' => $definition['duration'],
+                    ]),
+                ],
+            ]))
+            ->merge(collect($postingThresholds)->mapWithKeys(fn (array $definition): array => [
+                $definition['key'] => [
+                    ...$definition,
+                    'type' => 'posting',
+                    'label' => __('accounting.reconciliation.filter_follow_order_posting', [
+                        'index' => $definition['index'],
+                        'duration' => $definition['duration'],
+                    ]),
+                ],
+            ]))
+            ->all();
+    }
+
+    protected static function getFollowOrderFilterOptions(): array
+    {
+        return collect(self::getFollowOrderFilterDefinitions())
+            ->mapWithKeys(fn (array $definition, string $key): array => [$key => $definition['label']])
+            ->all();
+    }
+
+    protected static function getFinalShippingStatuses(): array
+    {
+        return [
+            GhnOrderStatus::DELIVERED->value,
+            GhnOrderStatus::RETURNED->value,
+            GhnOrderStatus::CANCEL->value,
+            GhnOrderStatus::LOST->value,
+            GhnOrderStatus::DAMAGE->value,
+            'cancelled',
+        ];
+    }
+
+    protected static function getNotPickedShippingStatuses(): array
+    {
+        return [
+            GhnOrderStatus::READY_TO_PICK->value,
+            GhnOrderStatus::PICKING->value,
+            GhnOrderStatus::MONEY_COLLECT_PICKING->value,
+        ];
+    }
+
+    protected static function applyFollowOrderFilter(Builder $query, ?string $selectedValue): Builder
+    {
+        if (blank($selectedValue)) {
+            return $query;
+        }
+
+        $definition = self::getFollowOrderFilterDefinitions()[$selectedValue] ?? null;
+
+        if (! $definition) {
+            return $query;
+        }
+
+        $cutoff = now()->subHours((int) $definition['hours']);
+
+        return match ($definition['type']) {
+            'delivery' => $query->whereHas('order', function (Builder $orderQuery) use ($cutoff): void {
+                $orderQuery
+                    ->whereNotNull('ghn_posted_at')
+                    ->where('ghn_posted_at', '<=', $cutoff)
+                    ->where(function (Builder $statusQuery): void {
+                        $statusQuery
+                            ->whereNull('ghn_status')
+                            ->orWhereNotIn('ghn_status', self::getFinalShippingStatuses());
+                    });
+            }),
+            'pickup' => $query->whereHas('order', function (Builder $orderQuery) use ($cutoff): void {
+                $orderQuery
+                    ->whereNotNull('ghn_posted_at')
+                    ->where('ghn_posted_at', '<=', $cutoff)
+                    ->where(function (Builder $statusQuery): void {
+                        $statusQuery
+                            ->whereNull('ghn_status')
+                            ->orWhereIn('ghn_status', self::getNotPickedShippingStatuses());
+                    });
+            }),
+            'posting' => $query->whereHas('order', function (Builder $orderQuery) use ($cutoff): void {
+                $orderQuery
+                    ->where('status', OrderStatus::CONFIRMED->value)
+                    ->whereRaw(
+                        'COALESCE(
+                            (
+                                SELECT MAX(osl.created_at)
+                                FROM order_status_logs osl
+                                WHERE osl.order_id = orders.id
+                                    AND osl.to_status = ?
+                            ),
+                            orders.created_at
+                        ) <= ?',
+                        [OrderStatus::CONFIRMED->value, $cutoff]
+                    )
+                    ->whereNull('ghn_posted_at');
+            }),
+            default => $query,
+        };
+    }
+
+    protected static function getCareStatusLabel(int|string|null $status): string
+    {
+        return OrderCareStatus::getLabel(
+            filled($status) ? (int) $status : null
+        );
+    }
+
+    protected static function getCareStatusTextClass(int|string|null $status): string
+    {
+        return OrderCareStatus::color(
+            filled($status) ? (int) $status : null
+        );
+    }
+
+    protected static function getSaleLeaderFilterOptions(): array
+    {
+        return self::getReconciliationService()->getSaleLeaderFilterOptions(self::getOrganizationId());
+    }
+
+    protected static function getSaleLeaderTeamIds(int|string|null $leaderId): array
+    {
+        return self::getReconciliationService()->getSaleLeaderTeamIds(self::getOrganizationId(), $leaderId);
+    }
+
+    protected static function getSaleTeamFilterOptions(int|string|null $leaderId = null): array
+    {
+        return self::getReconciliationService()->getSaleTeamFilterOptions(self::getOrganizationId(), $leaderId);
+    }
+
+    protected static function getSaleFilterOptions(int|string|null $leaderId = null, int|string|null $teamId = null): array
+    {
+        return self::getReconciliationService()->getSaleFilterOptions(
+            self::getOrganizationId(),
+            $leaderId,
+            $teamId,
+        );
+    }
+
+    protected static function applySaleTeamConstraintToReconciliationQuery(Builder $query, array $teamIds): Builder
+    {
+        if ($teamIds === []) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereHas('order.createdBy', function (Builder $userQuery) use ($teamIds): void {
+            $userQuery->where(function (Builder $teamScopedUserQuery) use ($teamIds): void {
+                $teamScopedUserQuery
+                    ->whereIn('team_id', $teamIds)
+                    ->orWhereHas('teams', fn (Builder $teamQuery) => $teamQuery->whereIn('teams.id', $teamIds));
+            });
+        });
+    }
+
+    protected static function getActiveFilterValue(object $livewire, string $filterName): int|string|null
+    {
+        return data_get($livewire, "tableDeferredFilters.{$filterName}.value")
+            ?? data_get($livewire, "tableFilters.{$filterName}.value");
+    }
+
     public static function configure(Table $table): Table
     {
         return $table
             ->columns([
                 TextColumn::make('status')
-                    ->label(new HtmlString('<div class="text-center font-semibold text-[11px] leading-tight">Trạng thái<br>đối soát</div>'))
+                    ->label(new HtmlString(
+                        '<div class="text-center font-semibold text-[11px] leading-tight">' .
+                        __('accounting.reconciliation.status_compact_label') .
+                        '</div>'
+                    ))
                     ->formatStateUsing(fn($state) => ReconciliationStatus::getOptions()[$state] ?? '-')
                     ->alignCenter()
                     ->size('xs'),
-                TextColumn::make('order.createdBy.name')
-                    ->label(__('accounting.reconciliation.sale'))
-                    ->html()
-                    ->formatStateUsing(function ($state, $record) {
-                        if (!$record->order || !$record->order->createdBy) {
-                            return '-';
-                        }
-
-                        $name = mb_strtoupper($record->order->createdBy->name);
-                        $username = strtolower($record->order->createdBy->username);
-
-                        return "<div class='text-sm font-medium text-gray-900 mb-0.5 text-center'>{$name}</div>
-                                <div class='text-xs text-gray-400 text-center'>({$username})</div>";
-                    })
-                    ->searchable()
-                    ->sortable()
-                    ->alignCenter()
-                    ->size('xs'),
-
                 TextColumn::make('ghn_order_code')
                     ->label(new HtmlString('<div class="text-center font-semibold">' .
                         __('accounting.reconciliation.data_arrival_date') . '<br>' .
@@ -83,7 +482,9 @@ class ReconciliationsTable
                     ->formatStateUsing(function ($state, $record) {
                         $dataDate = $record->created_at?->format('d/m/Y H:i') ?? '-';
                         $code = $record->order?->code ?? $record->ghn_order_code ?? '-';
-                        $confirmedDate = $record->confirmed_at?->format('d/m/Y H:i') ?? '-';
+                        $confirmedDate = $record->status !== ReconciliationStatus::PENDING->value
+                            ? ($record->confirmed_at?->format('d/m/Y H:i') ?? '-')
+                            : '-';
 
                         return "
                             <div class='text-[10px] text-gray-500 whitespace-nowrap mb-1 text-center'>{$dataDate}</div>
@@ -93,19 +494,9 @@ class ReconciliationsTable
                     })
                     ->copyable()
                     ->copyableState(fn($record) => $record->order?->code ?? $record->ghn_order_code)
-                    ->searchable(query: function (Builder $query, string $search): Builder {
-                        $search = trim($search);
-
-                        if ($search === '') {
-                            return $query;
-                        }
-
-                        return $query->where(function (Builder $subQuery) use ($search): void {
-                            $subQuery
-                                ->where('ghn_order_code', 'like', "%{$search}%")
-                                ->orWhereHas('order', fn(Builder $orderQuery) => $orderQuery->where('code', 'like', "%{$search}%"));
-                        });
-                    })
+                    ->searchable(
+                        query: fn (Builder $query, string $search): Builder => self::applyGlobalTableSearch($query, $search)
+                    )
                     ->alignCenter()
                     ->size('xs'),
 
@@ -138,11 +529,20 @@ class ReconciliationsTable
                         '</div>'))
                     ->html()
                     ->formatStateUsing(function ($state, $record) {
-                        $updated = $record->updated_at?->format('d/m/Y H:i') ?? '-';
-                        $care = $record->order?->updatedBy?->name ?? '-';
-                        
+                        $updated = $record->order?->care_updated_at?->format('d/m/Y H:i')
+                            ?? $record->updated_at?->format('d/m/Y H:i')
+                            ?? '-';
+
+                        $careStaff = $record->order?->careBy
+                            ?? $record->order?->customer?->assignedStaffPrimary
+                            ?? $record->order?->createdBy;
+
+                        $care = e($careStaff?->name ?? '-');
+                        $careStatus = e(self::getCareStatusLabel($record->order?->care_status));
+                        $careStatusClass = self::getCareStatusTextClass($record->order?->care_status);
+
                         $noteText = !empty($record->ghn_employee_note) ? strip_tags($record->ghn_employee_note) : strip_tags($record->note ?? '');
-                        
+
                         if (empty($noteText)) {
                             $note = "<span style='color: #2563eb; font-weight: 600;'>" . __('accounting.reconciliation.no_note') . "</span>";
                         } else {
@@ -153,6 +553,7 @@ class ReconciliationsTable
                             <div class='w-full h-full cursor-pointer py-1'>
                                 <div class='text-[10px] text-gray-500 text-center'>{$updated}</div>
                                 <div class='text-xs text-gray-900 text-center'>{$care}</div>
+                                <div class='text-[10px] font-semibold text-center {$careStatusClass}'>{$careStatus}</div>
                                 <div class='text-[10px] text-center line-clamp-2'>{$note}</div>
                             </div>
                         ";
@@ -161,24 +562,109 @@ class ReconciliationsTable
                     ->alignCenter()
                     ->size('xs')
                     ->action(
-                        Action::make('edit_note_inline_stacked')
-                            ->label(__('accounting.reconciliation.accounting_note'))
+                        Action::make('update_care_status')
+                            ->label(__('accounting.reconciliation.care_status_action'))
                             ->icon('heroicon-o-pencil-square')
-                            ->slideOver()
                             ->modalWidth('4xl')
+                            ->modalHeading(__('accounting.reconciliation.care_status_heading'))
+                            ->modalSubmitActionLabel(__('common.action.save'))
                             ->form([
-                                RichEditor::make('ghn_employee_note')
+                                Grid::make(2)
+                                    ->schema([
+                                        TextInput::make('order_code_display')
+                                            ->label(__('accounting.reconciliation.order_code'))
+                                            ->disabled()
+                                            ->dehydrated(false),
+                                        TextInput::make('customer_name_display')
+                                            ->label(__('accounting.reconciliation.customer_name'))
+                                            ->disabled()
+                                            ->dehydrated(false),
+                                        TextInput::make('customer_phone_display')
+                                            ->label(__('accounting.reconciliation.customer_phone'))
+                                            ->disabled()
+                                            ->dehydrated(false),
+                                        TextInput::make('shipping_provider_display')
+                                            ->label(__('accounting.reconciliation.shipping_provider'))
+                                            ->disabled()
+                                            ->dehydrated(false),
+                                        TextInput::make('ghn_order_code_display')
+                                            ->label(__('accounting.reconciliation.shipping_code'))
+                                            ->disabled()
+                                            ->dehydrated(false),
+                                        TextInput::make('current_care_status_display')
+                                            ->label(__('accounting.reconciliation.care_status_current'))
+                                            ->disabled()
+                                            ->dehydrated(false),
+                                    ]),
+                                Select::make('care_status')
+                                    ->label(__('accounting.reconciliation.care_status_next'))
+                                    ->options(OrderCareStatus::toOptions())
+                                    ->placeholder(__('accounting.reconciliation.care_status_placeholder'))
+                                    ->native(false)
+                                    ->searchable(),
+                                Textarea::make('ghn_employee_note')
                                     ->label(__('accounting.reconciliation.accounting_note'))
                                     ->columnSpanFull()
-                                    ->extraAttributes(['style' => 'min-height: 500px;']),
+                                    ->rows(6),
                             ])
-                            ->fillForm(fn ($record) => ['ghn_employee_note' => $record->ghn_employee_note])
+                            ->fillForm(fn ($record) => [
+                                'order_code_display' => $record->order?->code ?? $record->ghn_order_code ?? '-',
+                                'customer_name_display' => $record->order?->customer?->username ?? $record->ghn_to_name ?? '-',
+                                'customer_phone_display' => $record->order?->customer?->phone ?? $record->ghn_to_phone ?? '-',
+                                'shipping_provider_display' => $record->order?->provider_shipping ?? $record->order?->shipping_method ?? 'GHN',
+                                'ghn_order_code_display' => $record->ghn_order_code ?? $record->order?->ghn_order_code ?? '-',
+                                'current_care_status_display' => self::getCareStatusLabel($record->order?->care_status),
+                                'care_status' => $record->order?->care_status,
+                                'ghn_employee_note' => trim((string) strip_tags($record->ghn_employee_note ?? '')),
+                            ])
                             ->action(function ($record, array $data) {
-                                $record->update(['ghn_employee_note' => $data['ghn_employee_note']]);
-                                
+                                $order = $record->order()->first([
+                                    'id',
+                                    'organization_id',
+                                    'created_at',
+                                    'care_status',
+                                    'care_by_id',
+                                    'care_updated_at',
+                                ]);
+
+                                $currentNote = trim((string) strip_tags($record->ghn_employee_note ?? ''));
+                                $nextNote = trim((string) ($data['ghn_employee_note'] ?? ''));
+                                $noteChanged = $currentNote !== $nextNote;
+
+                                $currentStatus = $order?->care_status;
+                                $nextStatus = filled($data['care_status'] ?? null)
+                                    ? (int) $data['care_status']
+                                    : null;
+                                $statusChanged = $order && ((string) ($currentStatus ?? '') !== (string) ($nextStatus ?? ''));
+
+                                if (! $noteChanged && ! $statusChanged) {
+                                    Notification::make()
+                                        ->info()
+                                        ->title(__('accounting.reconciliation.no_changes'))
+                                        ->send();
+
+                                    return;
+                                }
+
+                                if ($noteChanged) {
+                                    $record->update([
+                                        'ghn_employee_note' => $nextNote !== '' ? $nextNote : null,
+                                    ]);
+                                }
+
+                                if ($statusChanged) {
+                                    $order->update([
+                                        'care_status' => $nextStatus,
+                                        'care_by_id' => auth()->id(),
+                                        'care_updated_at' => now(),
+                                    ]);
+                                }
+
                                 Notification::make()
                                     ->success()
-                                    ->title(__('accounting.reconciliation.order_updated'))
+                                    ->title($statusChanged
+                                        ? __('accounting.reconciliation.care_status_updated')
+                                        : __('accounting.reconciliation.order_updated'))
                                     ->send();
                             })
                     ),
@@ -389,7 +875,11 @@ class ReconciliationsTable
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('id_received')
-                    ->label(new HtmlString('<div class="text-center font-semibold text-[11px] leading-tight">Tiền thu<br>của khách</div>'))
+                    ->label(new HtmlString(
+                        '<div class="text-center font-semibold text-[11px] leading-tight">' .
+                        __('accounting.reconciliation.finance_amount_received_short_label') .
+                        '</div>'
+                    ))
                     ->money('VND')
                     ->formatStateUsing(function ($state, $record) {
                         return $record->order?->amount_recived_from_customer ?? $record->cod_amount;
@@ -400,21 +890,28 @@ class ReconciliationsTable
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('shipping_fee')
-                    ->label(new HtmlString('<div class="text-center font-semibold text-[11px] leading-tight">Giá dịch vụ<br>VC</div>'))
+                    ->label(new HtmlString(
+                        '<div class="text-center font-semibold text-[11px] leading-tight">' .
+                        __('accounting.reconciliation.finance_shipping_fee_service_short_label') .
+                        '</div>'
+                    ))
                     ->money('VND')
                     ->alignEnd()
                     ->size('xs')
                     ->toggleable(isToggledHiddenByDefault: true),
 
-                TextColumn::make('order.cod_support_amount')
-                    ->label(new HtmlString('<div class="text-center font-semibold text-[11px] leading-tight">Phí VC<br>hỗ trợ khách</div>'))
+                TextColumn::make('order.amout_support_fee')
+                    ->label(new HtmlString(
+                        '<div class="text-center font-semibold text-[11px] leading-tight">' .
+                        __('accounting.reconciliation.finance_amount_support_fee_short_label') .
+                        '</div>'
+                    ))
                     ->money('VND')
-                    ->formatStateUsing(fn($state, $record) => $record->order?->cod_support_amount ?? $record->order?->amout_support_fee)
                     ->alignEnd()
                     ->size('xs')
                     ->toggleable(isToggledHiddenByDefault: true),
 
-                
+
 
                 TextColumn::make('ghn_to_phone')
                     ->label(new HtmlString('<div class="text-center font-semibold">' .
@@ -450,7 +947,7 @@ class ReconciliationsTable
                         ";
                     }),
 
-                
+
             ])
             ->filters([
                 Filter::make('date_range')
@@ -477,16 +974,11 @@ class ReconciliationsTable
                             ]),
                     ])
                     ->query(function (Builder $query, array $data, $livewire): Builder {
-                        $dateType = $livewire->tableFilters['date_type']['value'] ?? 'reconciliation_date';
-
-                        if (
-                            filled($data['from'] ?? null)
-                            && filled($data['to'] ?? null)
-                            && Carbon::parse($data['from'])->gt(Carbon::parse($data['to']))
-                        ) {
-                            return $query->whereRaw('1 = 0');
+                        if (self::hasInvalidDateRange($data)) {
+                            return $query;
                         }
 
+                        $dateType = $livewire->tableFilters['date_type']['value'] ?? 'reconciliation_date';
                         return $query
                             ->when(
                                 $data['from'],
@@ -498,6 +990,10 @@ class ReconciliationsTable
                             );
                     })
                     ->indicateUsing(function (array $data): array {
+                        if (self::hasInvalidDateRange($data)) {
+                            return [];
+                        }
+
                         $indicators = [];
                         if ($data['from'] ?? null) {
                             $indicators[] = Indicator::make(__('accounting.reconciliation.filter_from_indicator', ['date' => Carbon::parse($data['from'])->format('d/m/Y')]))
@@ -532,27 +1028,31 @@ class ReconciliationsTable
                         blank: fn($query) => $query,
                     ),
 
-                TernaryFilter::make('care_status')
+                SelectFilter::make('care_status')
                     ->label(__('accounting.reconciliation.filter_care'))
                     ->placeholder(__('accounting.reconciliation.filter_deposit_all'))
-                    ->trueLabel(__('accounting.reconciliation.filter_cared'))
-                    ->falseLabel(__('accounting.reconciliation.filter_not_cared'))
-                    ->queries(
-                        true:  fn($query) => $query->whereHas('order', fn($o) => $o->whereNotNull('care_updated_at')),
-                        false: fn($query) => $query->whereHas('order', fn($o) => $o->whereNull('care_updated_at')),
-                        blank: fn($query) => $query,
-                    ),
+                    ->options(fn (): array => [
+                        '__not_cared__' => __('accounting.reconciliation.filter_not_cared'),
+                    ] + OrderCareStatus::toOptions())
+                    ->query(function (Builder $query, array $data): Builder {
+                        $value = $data['value'] ?? null;
 
-                SelectFilter::make('care_staff_id')
-                    ->label(__('accounting.reconciliation.filter_care_staff'))
-                    ->options(fn() => User::where('role', UserRole::SALE->value)->pluck('name', 'id'))
-                    ->searchable()
-                    ->query(fn($query, $data) => $query->when($data['value'], fn($q, $val) => $q->whereHas('order', fn($o) => $o->where('updated_by', $val)))),
+                        if (blank($value)) {
+                            return $query;
+                        }
 
-                SelectFilter::make('product_id')
+                        if ($value === '__not_cared__') {
+                            return $query->whereHas('order', fn (Builder $orderQuery): Builder => $orderQuery->whereNull('care_status'));
+                        }
+
+                        return $query->whereHas('order', fn (Builder $orderQuery): Builder => $orderQuery->where('care_status', $value));
+                    })
+                    ->searchable(),
+
+                SelectFilter::make('product_name')
                     ->label(__('accounting.reconciliation.filter_product'))
-                    ->options(fn() => Product::pluck('name', 'id'))
-                    ->query(fn($query, $data) => $query->when($data['value'], fn($q, $val) => $q->whereHas('order.items', fn($it) => $it->where('product_id', $val))))
+                    ->options(fn() => self::getProductFilterOptions())
+                    ->query(fn (Builder $query, array $data): Builder => self::applyProductFilter($query, $data['value'] ?? null))
                     ->searchable(),
 
                 TernaryFilter::make('internal_reconciliation')
@@ -561,8 +1061,14 @@ class ReconciliationsTable
                     ->trueLabel(__('accounting.reconciliation.filter_reconciled'))
                     ->falseLabel(__('accounting.reconciliation.filter_not_reconciled'))
                     ->queries(
-                        true:  fn($query) => $query->where('is_internal_reconciled', true),
-                        false: fn($query) => $query->where('is_internal_reconciled', false),
+                        true: fn (Builder $query): Builder => $query
+                            ->whereNotNull('confirmed_at')
+                            ->where('status', '!=', ReconciliationStatus::PENDING->value),
+                        false: fn (Builder $query): Builder => $query->where(function (Builder $statusQuery): void {
+                            $statusQuery
+                                ->whereNull('confirmed_at')
+                                ->orWhere('status', ReconciliationStatus::PENDING->value);
+                        }),
                         blank: fn($query) => $query,
                     ),
 
@@ -599,32 +1105,39 @@ class ReconciliationsTable
 
                 SelectFilter::make('sale_leader_id')
                     ->label(__('accounting.reconciliation.filter_sale_leader'))
-                    ->options(fn() => User::where('role', UserRole::SALE->value)->where('position', UserPosition::LEADER->value)->pluck('name', 'id'))
+                    ->options(fn () => self::getSaleLeaderFilterOptions())
                     ->searchable()
                     ->query(function (Builder $query, array $data): Builder {
-                        $leader = filled($data['value'] ?? null)
-                            ? User::query()
-                                ->where('organization_id', self::currentOrganizationId())
-                                ->find($data['value'])
-                            : null;
-
-                        if (!$leader?->team_id) {
+                        if (blank($data['value'] ?? null)) {
                             return $query;
                         }
 
-                        return $query->whereHas('order.createdBy', fn(Builder $userQuery) => $userQuery->where('team_id', $leader->team_id));
+                        return self::applySaleTeamConstraintToReconciliationQuery(
+                            $query,
+                            self::getSaleLeaderTeamIds($data['value'])
+                        );
                     }),
 
                 SelectFilter::make('sale_team_id')
                     ->label(__('accounting.reconciliation.filter_sale_team'))
-                    ->options(fn() => Team::where('type', TeamType::SALE->value)->pluck('name', 'id'))
-                    ->query(fn($query, $data) => $query->when($data['value'], fn($q, $val) => $q->whereHas('order.createdBy', fn($uq) => $uq->where('team_id', $val)))),
+                    ->options(fn ($livewire) => self::getSaleTeamFilterOptions(
+                        self::getActiveFilterValue($livewire, 'sale_leader_id')
+                    ))
+                    ->searchable()
+                    ->query(function (Builder $query, array $data): Builder {
+                        if (blank($data['value'] ?? null)) {
+                            return $query;
+                        }
+
+                        return self::applySaleTeamConstraintToReconciliationQuery($query, [(int) $data['value']]);
+                    }),
 
                 SelectFilter::make('sale_id')
                     ->label(__('accounting.reconciliation.filter_sale'))
-                    ->options(function () {
-                        return User::where('role', UserRole::SALE->value)->pluck('name', 'id');
-                    })
+                    ->options(fn ($livewire) => self::getSaleFilterOptions(
+                        self::getActiveFilterValue($livewire, 'sale_leader_id'),
+                        self::getActiveFilterValue($livewire, 'sale_team_id'),
+                    ))
                     ->searchable()
                     ->query(function (Builder $query, array $data): Builder {
                         if (!empty($data['value']) || $data['value'] === '0') {
@@ -632,217 +1145,22 @@ class ReconciliationsTable
                         }
                         return $query;
                     }),
-
-                SelectFilter::make('mkt_leader_id')
-                    ->label(__('accounting.reconciliation.filter_mkt_leader'))
-                    ->options(fn() => User::where('role', UserRole::MARKETING->value)->where('position', UserPosition::LEADER->value)->pluck('name', 'id'))
-                    ->searchable()
-                    ->query(function (Builder $query, array $data): Builder {
-                        $leader = filled($data['value'] ?? null)
-                            ? User::query()
-                                ->where('organization_id', self::currentOrganizationId())
-                                ->find($data['value'])
-                            : null;
-
-                        if (!$leader?->team_id) {
-                            return $query;
-                        }
-
-                        return self::applyMarketingTeamFilter($query, (int) $leader->team_id);
-                    }),
-
-                SelectFilter::make('mkt_team_id')
-                    ->label(__('accounting.reconciliation.filter_mkt_team'))
-                    ->options(fn() => Team::where('type', TeamType::MARKETING->value)->pluck('name', 'id'))
-                    ->query(fn($query, $data) => $query->when($data['value'], fn($q, $val) => $q->whereHas('order.customer.assignedStaff', fn($uq) => $uq->where('team_id', $val)))),
-
-                SelectFilter::make('mkt_id')
-                    ->label(__('accounting.reconciliation.filter_mkt'))
-                    ->options(fn() => User::where('role', UserRole::MARKETING->value)->pluck('name', 'id'))
-                    ->searchable()
-                    ->query(fn($query, $data) => $query->when($data['value'], fn($q, $val) => $q->whereHas('order.customer.assignedStaff', fn($uq) => $uq->where('id', $val)))),
-
-                SelectFilter::make('status')
+                SelectFilter::make('follow_order')
                     ->label(__('accounting.reconciliation.filter_follow_order'))
-                    ->options(OrderStatus::toOptions())
-                    ->query(fn($query, $data) => $query->when($data['value'], fn($q, $val) => $q->whereHas('order', fn($o) => $o->where('status', $val)))),
+                    ->placeholder(__('accounting.reconciliation.filter_follow_order_placeholder'))
+                    ->options(fn (): array => self::getFollowOrderFilterOptions())
+                    ->query(fn (Builder $query, array $data): Builder => self::applyFollowOrderFilter($query, $data['value'] ?? null))
+                    ->searchable(),
 
                 SelectFilter::make('qty_status')
                     ->label(__('accounting.reconciliation.filter_qty_status'))
-                    ->options([
-                        'all'     => __('accounting.reconciliation.filter_qty_all'),
-                        'partial' => __('accounting.reconciliation.filter_qty_partial'),
-                    ])
-                    ->query(fn($query, $data) => $query->when(
-                        isset($data['value']) && $data['value'] !== '',
-                        function ($q) use ($data) {
-                            if ($data['value'] === 'all') {
-                                // Toàn bộ: tổng qty order_items == tổng qty đã xuất trong inventory_ticket_details
-                                return $q->whereHas('order', function ($o) {
-                                    $o->whereColumn(
-                                        'id',
-                                        'id'
-                                    )->whereRaw(
-                                        '(SELECT COALESCE(SUM(oi.quantity),0) FROM order_items oi WHERE oi.order_id = orders.id)
-                                         = (SELECT COALESCE(SUM(itd.quantity),0) FROM inventory_ticket_details itd
-                                            INNER JOIN inventory_tickets it ON itd.inventory_ticket_id = it.id
-                                            WHERE it.order_id = orders.id AND it.type = 2 AND it.status = 2)'
-                                    );
-                                });
-                            }
-                            // Một phần: số lượng đã xuất < tổng số lượng đặt
-                            return $q->whereHas('order', function ($o) {
-                                $o->whereRaw(
-                                    '(SELECT COALESCE(SUM(oi.quantity),0) FROM order_items oi WHERE oi.order_id = orders.id)
-                                     > (SELECT COALESCE(SUM(itd.quantity),0) FROM inventory_ticket_details itd
-                                        INNER JOIN inventory_tickets it ON itd.inventory_ticket_id = it.id
-                                        WHERE it.order_id = orders.id AND it.type = 2 AND it.status = 2)'
-                                );
-                            });
-                        }
-                    )),
+                    ->placeholder(__('accounting.reconciliation.filter_qty_placeholder'))
+                    ->options(fn (): array => self::getQuantityThresholdFilterOptions())
+                    ->query(fn (Builder $query, array $data): Builder => self::applyQuantityThresholdFilter($query, $data['value'] ?? null))
+                    ->searchable(),
             ], layout: FiltersLayout::AboveContent)
             ->filtersFormColumns(6)
             ->actions([
-                Action::make('edit_order_financials')
-                    ->label('Sửa số liệu đơn hàng')
-                    ->icon('heroicon-o-pencil-square')
-                    ->color('warning')
-                    ->visible(fn($record) => (bool) $record->order)
-                    ->mountUsing(function ($form, $record) {
-                        $order = $record->order?->loadMissing('items');
-
-                        if (!$order) {
-                            return;
-                        }
-
-                        $productTotal = (float) $order->items->sum(fn($item) => (float) $item->price * (int) $item->quantity);
-                        $productDiscount = $productTotal * (((float) $order->ck1 + (float) $order->ck2) / 100);
-                        $manualDiscount = max(0, (float) $order->discount - $productDiscount);
-
-                        $form->fill([
-                            'product_total' => round($productTotal, 2),
-                            'ck1' => (float) $order->ck1,
-                            'ck2' => (float) $order->ck2,
-                            'discount' => round($manualDiscount, 2),
-                            'shipping_fee' => (float) $order->shipping_fee,
-                            'cod_fee' => (float) $order->cod_fee,
-                            'deposit' => (float) $order->deposit,
-                            'cod_support_amount' => (float) ($order->cod_support_amount ?? $order->amout_support_fee ?? 0),
-                            'total_amount' => (float) $order->total_amount,
-                            'collect_amount' => (float) $order->collect_amount,
-                        ]);
-                    })
-                    ->form([
-                        Hidden::make('product_total'),
-                        Hidden::make('ck1'),
-                        Hidden::make('ck2'),
-                        Hidden::make('cod_fee'),
-                        TextInput::make('discount')
-                            ->label('Chiết khấu điều chỉnh')
-                            ->numeric()
-                            ->required()
-                            ->minValue(0)
-                            ->prefix('₫')
-                            ->live()
-                            ->helperText('Hệ thống giữ nguyên CK sản phẩm, chỉ sửa phần điều chỉnh kế toán.')
-                            ->validationMessages([
-                                'required' => __('common.error.required'),
-                                'numeric' => __('common.error.numeric'),
-                                'min' => __('common.error.min_value', ['min' => 0]),
-                            ])
-                            ->afterStateUpdated(fn($state, $set, $get) => self::updateOrderFinancialPreview($set, $get)),
-                        TextInput::make('shipping_fee')
-                            ->label('Phí VC thu của khách')
-                            ->numeric()
-                            ->required()
-                            ->minValue(0)
-                            ->prefix('₫')
-                            ->live()
-                            ->validationMessages([
-                                'required' => __('common.error.required'),
-                                'numeric' => __('common.error.numeric'),
-                                'min' => __('common.error.min_value', ['min' => 0]),
-                            ])
-                            ->afterStateUpdated(fn($state, $set, $get) => self::updateOrderFinancialPreview($set, $get)),
-                        TextInput::make('deposit')
-                            ->label('Đặt cọc')
-                            ->numeric()
-                            ->required()
-                            ->minValue(0)
-                            ->prefix('₫')
-                            ->live()
-                            ->validationMessages([
-                                'required' => __('common.error.required'),
-                                'numeric' => __('common.error.numeric'),
-                                'min' => __('common.error.min_value', ['min' => 0]),
-                            ])
-                            ->afterStateUpdated(fn($state, $set, $get) => self::updateOrderFinancialPreview($set, $get)),
-                        TextInput::make('cod_support_amount')
-                            ->label('Phí VC hỗ trợ khách')
-                            ->numeric()
-                            ->required()
-                            ->minValue(0)
-                            ->prefix('₫')
-                            ->live()
-                            ->validationMessages([
-                                'required' => __('common.error.required'),
-                                'numeric' => __('common.error.numeric'),
-                                'min' => __('common.error.min_value', ['min' => 0]),
-                            ])
-                            ->afterStateUpdated(fn($state, $set, $get) => self::updateOrderFinancialPreview($set, $get)),
-                        TextInput::make('total_amount')
-                            ->label('Tổng tiền')
-                            ->numeric()
-                            ->readOnly()
-                            ->prefix('₫'),
-                        TextInput::make('collect_amount')
-                            ->label('Tiền thu của khách')
-                            ->numeric()
-                            ->readOnly()
-                            ->prefix('₫'),
-                    ])
-                    ->action(function ($record, array $data, OrderFinanceService $financeService) {
-                        $order = $record->order?->loadMissing('items');
-
-                        if (!$order) {
-                            Notification::make()
-                                ->danger()
-                                ->title('Không tìm thấy đơn hàng cần chỉnh sửa')
-                                ->send();
-
-                            return;
-                        }
-
-                        $finance = $financeService->calculateCollectAmount([
-                            'product_total' => (float) ($data['product_total'] ?? 0),
-                            'discount' => (float) ($data['discount'] ?? 0),
-                            'ck1' => (float) ($data['ck1'] ?? 0),
-                            'ck2' => (float) ($data['ck2'] ?? 0),
-                            'shipping_fee' => (float) ($data['shipping_fee'] ?? 0),
-                            'cod_fee' => (float) ($data['cod_fee'] ?? 0),
-                            'deposit' => (float) ($data['deposit'] ?? 0),
-                            'cod_support_amount' => (float) ($data['cod_support_amount'] ?? 0),
-                        ]);
-
-                        $supportAmount = (float) ($data['cod_support_amount'] ?? 0);
-
-                        $order->update([
-                            'discount' => (float) $finance['total_discount'],
-                            'shipping_fee' => (float) ($data['shipping_fee'] ?? 0),
-                            'deposit' => (float) ($data['deposit'] ?? 0),
-                            'cod_support_amount' => $supportAmount,
-                            'amout_support_fee' => $supportAmount,
-                            'collect_amount' => (float) $finance['collect_amount'],
-                            'total_amount' => (float) $finance['gross_total'],
-                            'updated_by' => Auth::id(),
-                        ]);
-
-                        Notification::make()
-                            ->success()
-                            ->title('Sửa số liệu đơn hàng thành công')
-                            ->send();
-                    }),
                 Action::make('view_detail')
                     ->label(__('accounting.reconciliation.view_detail'))
                     ->icon('heroicon-o-eye')
@@ -957,46 +1275,54 @@ class ReconciliationsTable
                                     ->label(__('accounting.reconciliation.weight'))
                                     ->numeric()
                                     ->required()
-                                    ->minValue(0)
+                                    ->minValue(1)
+                                    ->maxValue(20000)
                                     ->suffix('g')
                                     ->helperText(__('accounting.reconciliation.weight_help'))
                                     ->validationMessages([
                                         'required' => __('common.error.required'),
                                         'numeric' => __('common.error.numeric'),
-                                        'min' => __('common.error.min_value', ['min' => 0]),
+                                        'min' => __('common.error.min_value', ['min' => 1]),
+                                        'max' => __('common.error.max_value', ['max' => 20000]),
                                     ]),
                                 TextInput::make('length')
                                     ->label(__('accounting.reconciliation.length'))
                                     ->numeric()
                                     ->required()
-                                    ->minValue(0)
+                                    ->minValue(1)
+                                    ->maxValue(200)
                                     ->suffix('cm')
                                     ->validationMessages([
                                         'required' => __('common.error.required'),
                                         'numeric' => __('common.error.numeric'),
-                                        'min' => __('common.error.min_value', ['min' => 0]),
+                                        'min' => __('common.error.min_value', ['min' => 1]),
+                                        'max' => __('common.error.max_value', ['max' => 200]),
                                     ]),
                                 TextInput::make('width')
                                     ->label(__('accounting.reconciliation.width'))
                                     ->numeric()
                                     ->required()
-                                    ->minValue(0)
+                                    ->minValue(1)
+                                    ->maxValue(200)
                                     ->suffix('cm')
                                     ->validationMessages([
                                         'required' => __('common.error.required'),
                                         'numeric' => __('common.error.numeric'),
-                                        'min' => __('common.error.min_value', ['min' => 0]),
+                                        'min' => __('common.error.min_value', ['min' => 1]),
+                                        'max' => __('common.error.max_value', ['max' => 200]),
                                     ]),
                                 TextInput::make('height')
                                     ->label(__('accounting.reconciliation.height'))
                                     ->numeric()
                                     ->required()
-                                    ->minValue(0)
+                                    ->minValue(1)
+                                    ->maxValue(200)
                                     ->suffix('cm')
                                     ->validationMessages([
                                         'required' => __('common.error.required'),
                                         'numeric' => __('common.error.numeric'),
-                                        'min' => __('common.error.min_value', ['min' => 0]),
+                                        'min' => __('common.error.min_value', ['min' => 1]),
+                                        'max' => __('common.error.max_value', ['max' => 200]),
                                     ]),
                             ])
                             ->columns(4),
@@ -1012,7 +1338,12 @@ class ReconciliationsTable
                                 Select::make('required_note')
                                     ->label(__('accounting.reconciliation.required_note'))
                                     ->options(RequiredNote::getOptions())
-                                    ->native(false),
+                                    ->native(false)
+                                    ->required()
+                                    ->validationMessages([
+                                        'required' => __('common.error.required'),
+                                        'in' => __('common.error.in'),
+                                    ]),
                             ])
                             ->columns(1),
 
@@ -1023,22 +1354,21 @@ class ReconciliationsTable
                                     ->numeric()
                                     ->required()
                                     ->minValue(0)
-                                    ->prefix('₫')
                                     ->validationMessages([
                                         'required' => __('common.error.required'),
                                         'numeric' => __('common.error.numeric'),
                                         'min' => __('common.error.min_value', ['min' => 0]),
-                                    ]),
-                                TextInput::make('payment_type_id')
+                                    ])
+                                    ->prefix('₫'),
+                                Select::make('payment_type_id')
                                     ->label(__('accounting.reconciliation.payment_type'))
-                                    ->numeric()
+                                    ->options(PaymentType::toOptions())
+                                    ->native(false)
                                     ->required()
-                                    ->minValue(1)
                                     ->helperText(__('accounting.reconciliation.payment_type_help'))
                                     ->validationMessages([
                                         'required' => __('common.error.required'),
-                                        'numeric' => __('common.error.numeric'),
-                                        'min' => __('common.error.min_value', ['min' => 1]),
+                                        'in' => __('common.error.in'),
                                     ]),
                                 TextInput::make('main_service_fee')
                                     ->label(__('accounting.reconciliation.main_service_fee'))
@@ -1177,45 +1507,6 @@ class ReconciliationsTable
                     }),
             ])
             ->bulkActions([
-                BulkAction::make('bulk_print')
-                    ->label('In hàng loạt')
-                    ->icon('heroicon-o-printer')
-                    ->color('info')
-                    ->action(function (Collection $records, $livewire) {
-                        $printableRecords = $records
-                            ->loadMissing(['order.customer', 'order.items.product'])
-                            ->filter(fn($record) => (bool) $record->order)
-                            ->values();
-
-                        if ($printableRecords->isEmpty()) {
-                            Notification::make()
-                                ->danger()
-                                ->title('Không có đơn hàng hợp lệ để in')
-                                ->send();
-
-                            return;
-                        }
-
-                        $html = self::buildBulkPrintHtml($printableRecords);
-
-                        if (method_exists($livewire, 'js')) {
-                            $livewire->js(<<<JS
-                                const printWindow = window.open('', '_blank');
-                                if (printWindow) {
-                                    printWindow.document.open();
-                                    printWindow.document.write({$html});
-                                    printWindow.document.close();
-                                    printWindow.focus();
-                                    setTimeout(() => printWindow.print(), 250);
-                                }
-                            JS);
-                        }
-
-                        Notification::make()
-                            ->success()
-                            ->title('Đã mở popup in hàng loạt')
-                            ->send();
-                    }),
                 BulkAction::make('bulk_confirm')
                     ->label(__('accounting.reconciliation.batch_confirm'))
                     ->icon('heroicon-o-check-circle')
@@ -1320,168 +1611,11 @@ class ReconciliationsTable
             ])
             ->defaultSort('reconciliation_date', 'desc')
             ->actionsPosition(RecordActionsPosition::BeforeColumns)
-            ->actionsColumnLabel(__('accounting.reconciliation.actions_column_label'));
-    }
-
-    private static function currentOrganizationId(): ?int
-    {
-        return Auth::user()?->organization_id;
-    }
-
-    private static function userOptions(?int $role = null, ?int $position = null): array
-    {
-        $query = User::query()
-            ->where('organization_id', self::currentOrganizationId())
-            ->where('disable', false)
-            ->orderBy('name');
-
-        if ($role !== null) {
-            $query->where('role', $role);
-        }
-
-        if ($position !== null) {
-            $query->where('position', $position);
-        }
-
-        return $query->pluck('name', 'id')->all();
-    }
-
-    private static function teamOptions(int $type): array
-    {
-        return Team::query()
-            ->where('organization_id', self::currentOrganizationId())
-            ->where('type', $type)
-            ->orderBy('name')
-            ->pluck('name', 'id')
-            ->all();
-    }
-
-    private static function productOptions(): array
-    {
-        return Product::query()
-            ->where('organization_id', self::currentOrganizationId())
-            ->whereIn('id', function ($query): void {
-                $query->from('order_items')
-                    ->join('orders', 'orders.id', '=', 'order_items.order_id')
-                    ->join('reconciliations', 'reconciliations.order_id', '=', 'orders.id')
-                    ->where('reconciliations.organization_id', self::currentOrganizationId())
-                    ->select('order_items.product_id');
-            })
-            ->orderBy('name')
-            ->pluck('name', 'id')
-            ->all();
-    }
-
-    private static function applyMarketingStaffFilter(Builder $query, int $staffId): Builder
-    {
-        return $query->whereHas('order.customer.assignedStaff', function (Builder $staffQuery) use ($staffId): void {
-            $staffQuery
-                ->where('users.id', $staffId)
-                ->where('users.role', UserRole::MARKETING->value);
-        });
-    }
-
-    private static function applyMarketingTeamFilter(Builder $query, int $teamId): Builder
-    {
-        return $query->whereHas('order.customer.assignedStaff', function (Builder $staffQuery) use ($teamId): void {
-            $staffQuery
-                ->where('users.role', UserRole::MARKETING->value)
-                ->where('users.team_id', $teamId);
-        });
-    }
-
-    private static function updateOrderFinancialPreview(callable $set, callable $get): void
-    {
-        $productTotal = (float) ($get('product_total') ?? 0);
-        $discount = (float) ($get('discount') ?? 0);
-        $ck1 = (float) ($get('ck1') ?? 0);
-        $ck2 = (float) ($get('ck2') ?? 0);
-        $shippingFee = (float) ($get('shipping_fee') ?? 0);
-        $codFee = (float) ($get('cod_fee') ?? 0);
-        $deposit = (float) ($get('deposit') ?? 0);
-        $codSupportAmount = (float) ($get('cod_support_amount') ?? 0);
-
-        $productDiscount = $productTotal * (($ck1 + $ck2) / 100);
-        $totalDiscount = $productDiscount + $discount;
-        $grossTotal = max(0, $productTotal - $totalDiscount + $shippingFee + $codFee);
-        $collectAmount = max(0, $grossTotal - $deposit - $codSupportAmount);
-
-        $set('total_amount', round($grossTotal, 2));
-        $set('collect_amount', round($collectAmount, 2));
-    }
-
-    private static function buildBulkPrintHtml(Collection $records): string
-    {
-        $cards = $records->map(function ($record): string {
-            $order = $record->order;
-            $customerName = e($order?->customer?->username ?? $record->ghn_to_name ?? '-');
-            $customerPhone = e($order?->customer?->phone ?? $record->ghn_to_phone ?? '-');
-            $address = e($order?->shipping_address ?? $record->ghn_to_address ?? '-');
-            $orderCode = e($order?->code ?? $record->ghn_order_code ?? '-');
-            $ghnCode = e($record->ghn_order_code ?? '-');
-            $note = e($order?->note ?? '');
-            $amount = number_format((float) ($order?->total_amount ?? $record->cod_amount ?? 0), 0, ',', '.');
-
-            $items = $order?->items?->map(function ($item): string {
-                $productName = e($item->product?->name ?? 'Sản phẩm');
-                $quantity = number_format((float) $item->quantity, 0, ',', '.');
-
-                return "<li>{$productName} x {$quantity}</li>";
-            })->implode('') ?? '<li>Không có dữ liệu sản phẩm</li>';
-
-            return <<<HTML
-                <article class="print-card">
-                    <header class="print-card__header">
-                        <div>
-                            <h2>Mã đơn: {$orderCode}</h2>
-                            <p>Mã GHN: {$ghnCode}</p>
-                        </div>
-                        <div class="print-card__amount">{$amount} đ</div>
-                    </header>
-                    <section class="print-card__body">
-                        <p><strong>Khách hàng:</strong> {$customerName}</p>
-                        <p><strong>Số điện thoại:</strong> {$customerPhone}</p>
-                        <p><strong>Địa chỉ:</strong> {$address}</p>
-                        <p><strong>Ghi chú:</strong> {$note}</p>
-                        <div class="print-card__items">
-                            <strong>Sản phẩm</strong>
-                            <ul>{$items}</ul>
-                        </div>
-                    </section>
-                </article>
-            HTML;
-        })->implode('');
-
-        return json_encode(<<<HTML
-            <!DOCTYPE html>
-            <html lang="vi">
-            <head>
-                <meta charset="utf-8">
-                <title>In hàng loạt đơn đối soát</title>
-                <style>
-                    * { box-sizing: border-box; }
-                    body { font-family: Arial, sans-serif; margin: 24px; color: #111827; }
-                    .print-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-                    .print-card { border: 1px solid #d1d5db; border-radius: 12px; padding: 16px; break-inside: avoid; }
-                    .print-card__header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 12px; }
-                    .print-card__header h2 { margin: 0 0 4px; font-size: 18px; }
-                    .print-card__header p { margin: 0; color: #4b5563; font-size: 13px; }
-                    .print-card__amount { font-size: 18px; font-weight: 700; color: #1d4ed8; white-space: nowrap; }
-                    .print-card__body p { margin: 0 0 8px; line-height: 1.4; }
-                    .print-card__items ul { margin: 8px 0 0; padding-left: 18px; }
-                    @media print {
-                        body { margin: 12px; }
-                        .print-grid { gap: 12px; }
-                        .print-card { page-break-inside: avoid; }
-                    }
-                </style>
-            </head>
-            <body>
-                <div class="print-grid">
-                    {$cards}
-                </div>
-            </body>
-            </html>
-        HTML);
+            ->recordActionsAlignment('start')
+            ->actionsColumnLabel(new HtmlString(
+                '<div style="display: flex; width: 100%; justify-content: center; text-align: center;">'
+                . e(__('accounting.reconciliation.actions_column_label')) .
+                '</div>'
+            ));
     }
 }

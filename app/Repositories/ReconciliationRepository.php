@@ -5,8 +5,10 @@ namespace App\Repositories;
 use App\Common\Constants\Accounting\ReconciliationStatus;
 use App\Core\BaseRepository;
 use App\Models\Reconciliation;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 class ReconciliationRepository extends BaseRepository
 {
@@ -49,5 +51,34 @@ class ReconciliationRepository extends BaseRepository
             ->whereBetween('reconciliation_date', [$fromDate, $toDate])
             ->sum('total_fee');
     }
-}
 
+    public function getUnlinkedGhnItemNamesByOrganization(int $organizationId): Collection
+    {
+        return $this->query()
+            ->where('organization_id', $organizationId)
+            ->whereNotNull('ghn_items')
+            ->whereDoesntHave('order.items')
+            ->get(['ghn_items'])
+            ->flatMap(fn (Reconciliation $reconciliation) => collect($reconciliation->ghn_items)->pluck('name'))
+            ->map(fn ($name) => trim((string) $name))
+            ->filter()
+            ->values();
+    }
+
+    public function sumDisplayedAmount(Builder $query): float
+    {
+        return (float) (clone $query)
+            ->sum(DB::raw("
+                COALESCE(
+                    (
+                        SELECT orders.total_amount
+                        FROM orders
+                        WHERE orders.id = reconciliations.order_id
+                            AND orders.deleted_at IS NULL
+                        LIMIT 1
+                    ),
+                    reconciliations.cod_amount
+                )
+            "));
+    }
+}
