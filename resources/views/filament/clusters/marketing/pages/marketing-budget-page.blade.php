@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+    @vite(['resources/css/app.css'])
     <div class="space-y-6">
         <form wire:submit.prevent="save" class="space-y-4">
             {{ $this->form }}

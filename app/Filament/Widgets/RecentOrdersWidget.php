@@ -41,7 +41,7 @@ class RecentOrdersWidget extends BaseWidget
                     ->searchable()
                     ->weight('bold')
                     ->copyable(),
-                Tables\Columns\TextColumn::make('customer.name')
+                Tables\Columns\TextColumn::make('customer.username')
                     ->label(__('dashboard.recent_orders.customer')),
                 Tables\Columns\TextColumn::make('total_amount')
                     ->label(__('dashboard.recent_orders.amount'))

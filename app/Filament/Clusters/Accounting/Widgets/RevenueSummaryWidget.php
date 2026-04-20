@@ -31,16 +31,16 @@ class RevenueSummaryWidget extends BaseWidget
         $totalRevenue = $orderRevenue + $otherRevenue;
 
         return [
-            Stat::make('Tổng doanh thu tháng này', number_format($totalRevenue, 0, ',', '.') . ' ₫')
-                ->description('Bao gồm đơn hàng và doanh thu khác')
+            Stat::make(__('accounting.revenue.summary_widget.total_revenue_month'), number_format($totalRevenue, 0, ',', '.') . ' ₫')
+                ->description(__('accounting.revenue.summary_widget.total_revenue_month_desc'))
                 ->descriptionIcon('heroicon-m-presentation-chart-line')
                 ->color('success'),
-            Stat::make('Doanh thu từ đơn hàng', number_format($orderRevenue, 0, ',', '.') . ' ₫')
-                ->description('Chỉ tính các đơn hàng đã hoàn thành')
+            Stat::make(__('accounting.revenue.summary_widget.order_revenue'), number_format($orderRevenue, 0, ',', '.') . ' ₫')
+                ->description(__('accounting.revenue.summary_widget.order_revenue_desc'))
                 ->descriptionIcon('heroicon-m-shopping-cart')
                 ->color('primary'),
-            Stat::make('Doanh thu khác', number_format($otherRevenue, 0, ',', '.') . ' ₫')
-                ->description('Các nguồn thu nhập ngoài đơn hàng')
+            Stat::make(__('accounting.revenue.summary_widget.other_revenue'), number_format($otherRevenue, 0, ',', '.') . ' ₫')
+                ->description(__('accounting.revenue.summary_widget.other_revenue_desc'))
                 ->descriptionIcon('heroicon-m-plus-circle')
                 ->color('info'),
         ];

@@ -417,14 +417,14 @@
                         <x-slot name="heading">{{ __('accounting.report.profit_section') }}</x-slot>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div class="p-8 rounded-2xl flex flex-col items-center justify-center border-2 transition-all duration-500"
-                                :class="(reportData.business.profit?.amount || 0) >= 0 ? 'bg-green-50 border-green-200 dark:bg-green-900/10 dark:border-green-900/20' : 'bg-red-50 border-red-200 dark:bg-red-900/10 dark:border-red-900/20'">
+                                :class="(reportData.business.profit?.net || 0) >= 0 ? 'bg-green-50 border-green-200 dark:bg-green-900/10 dark:border-green-900/20' : 'bg-red-50 border-red-200 dark:bg-red-900/10 dark:border-red-900/20'">
                                 <p class="text-sm font-bold uppercase tracking-widest mb-3"
-                                    :class="(reportData.business.profit?.amount || 0) >= 0 ? 'text-green-600' : 'text-red-600'">
+                                    :class="(reportData.business.profit?.net || 0) >= 0 ? 'text-green-600' : 'text-red-600'">
                                     {{ __('accounting.report.profit_amount') }}
                                 </p>
                                 <p class="text-5xl font-black tracking-tighter"
-                                    :class="(reportData.business.profit?.amount || 0) >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'"
-                                    x-text="new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(reportData.business.profit?.amount || 0)">
+                                    :class="(reportData.business.profit?.net || 0) >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'"
+                                    x-text="new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(reportData.business.profit?.net || 0)">
                                 </p>
                             </div>
                             <div class="p-8 rounded-2xl flex flex-col items-center justify-center border-2 transition-all duration-500"

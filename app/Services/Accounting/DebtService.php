@@ -57,12 +57,21 @@ class DebtService
             return ServiceReturn::error(__('accounting.bad_debt.already_written_off'));
         }
 
+        $note = trim($note);
+
+        if ($note === '') {
+            return ServiceReturn::error(__('common.error.required'));
+        }
+
         try {
+            $currentNote = trim((string) $order->note);
+            $writeOffNote = __('accounting.bad_debt.write_off_note', ['note' => $note]);
+
             $this->orderRepository->updateById($order->id, [
                 'is_written_off' => true,
                 'write_off_at' => now(),
                 'write_off_by' => $userId,
-                'note' => $order->note . "\n" . __('accounting.bad_debt.write_off_note', ['note' => $note]),
+                'note' => $currentNote !== '' ? $currentNote . PHP_EOL . $writeOffNote : $writeOffNote,
             ]);
 
             return ServiceReturn::success($order);

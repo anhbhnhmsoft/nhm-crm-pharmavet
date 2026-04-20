@@ -11,6 +11,7 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 
 class BadDebtsTable
@@ -23,10 +24,23 @@ class BadDebtsTable
                     ->label(__('order.table.code'))
                     ->searchable()
                     ->sortable(),
-                TextColumn::make('customer.name')
+                TextColumn::make('customer.username')
                     ->label(__('order.table.customer'))
-                    ->description(fn (Order $record) => $record->customer->phone)
-                    ->searchable(),
+                    ->description(fn (Order $record) => $record->customer?->phone)
+                    ->searchable(
+                        query: function (Builder $query, string $search): Builder {
+                            $likeOperator = $query->getConnection()->getDriverName() === 'pgsql'
+                                ? 'ilike'
+                                : 'like';
+                            $like = '%' . trim($search) . '%';
+
+                            return $query->whereHas('customer', function (Builder $customerQuery) use ($likeOperator, $like): void {
+                                $customerQuery
+                                    ->where('customers.username', $likeOperator, $like)
+                                    ->orWhere('customers.phone', $likeOperator, $like);
+                            });
+                        }
+                    ),
                 TextColumn::make('total_amount')
                     ->label(__('order.table.total_amount'))
                     ->money('VND')
@@ -46,7 +60,28 @@ class BadDebtsTable
                     ->weight('bold'),
                 TextColumn::make('debt_age')
                     ->label(__('accounting.bad_debt.debt_age'))
-                    ->sortable()
+                    ->sortable(
+                        query: function (Builder $query, string $direction): Builder {
+                            $direction = strtolower($direction) === 'asc' ? 'asc' : 'desc';
+                            $driver = $query->getConnection()->getDriverName();
+
+                            $debtAgeExpression = $driver === 'pgsql'
+                                ? "CASE
+                                        WHEN COALESCE(is_written_off, false) = true
+                                            OR COALESCE(collect_amount, 0) - COALESCE(amount_recived_from_customer, 0) <= 0
+                                        THEN 0
+                                        ELSE GREATEST(DATE_PART('day', NOW() - created_at), 0)
+                                   END"
+                                : "CASE
+                                        WHEN COALESCE(is_written_off, false) = true
+                                            OR COALESCE(collect_amount, 0) - COALESCE(amount_recived_from_customer, 0) <= 0
+                                        THEN 0
+                                        ELSE GREATEST(TIMESTAMPDIFF(DAY, created_at, NOW()), 0)
+                                   END";
+
+                            return $query->orderByRaw("{$debtAgeExpression} {$direction}");
+                        }
+                    )
                     ->alignCenter()
                     ->color(fn (int $state): string => match (true) {
                         $state >= 90 => 'danger',
@@ -56,6 +91,11 @@ class BadDebtsTable
                 TextColumn::make('debt_provision_amount')
                     ->label(__('accounting.bad_debt.provision_amount'))
                     ->money('VND'),
+                TextColumn::make('note')
+                    ->label(__('accounting.expense.note'))
+                    ->limit(50)
+                    ->tooltip(fn (?string $state): ?string => filled($state) ? $state : null)
+                    ->toggleable(),
                 IconColumn::make('is_written_off')
                     ->label(__('accounting.bad_debt.is_written_off'))
                     ->boolean(),
@@ -68,8 +108,21 @@ class BadDebtsTable
                         TextInput::make('amount')
                             ->required()
                             ->numeric()
+                            ->extraInputAttributes([
+                                'type' => 'text',
+                                'inputmode' => 'decimal',
+                                'required' => false,
+                                'min' => null,
+                                'max' => null,
+                                'step' => null,
+                            ])
                             ->maxValue(fn (Order $record) => $record->remaining_debt)
-                            ->label(__('accounting.expense.amount')),
+                            ->label(__('accounting.expense.amount'))
+                            ->validationMessages([
+                                'required' => __('common.error.required'),
+                                'numeric' => __('common.error.numeric'),
+                                'max' => __('common.error.max_value', ['max' => ':max']),
+                            ]),
                         Textarea::make('note')
                             ->label(__('accounting.expense.note')),
                     ])
@@ -92,7 +145,12 @@ class BadDebtsTable
                     ->modalDescription(__('accounting.bad_debt.actions.confirm_write_off'))
                     ->form([
                         Textarea::make('note')
-                            ->label(__('accounting.expense.note')),
+                            ->label(__('accounting.expense.note'))
+                            ->required()
+                            ->extraInputAttributes(['required' => false])
+                            ->validationMessages([
+                                'required' => __('common.error.required'),
+                            ]),
                     ])
                     ->action(function (Order $record, array $data, DebtService $service) {
                         $result = $service->writeOffDebt($record, Auth::id(), $data['note'] ?? '');
