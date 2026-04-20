@@ -456,6 +456,7 @@
     - is_printed: (boolean, default false) -- đã in phiếu giao hàng / tem nhãn
     - care_updated_at: (timestamp, nullable) -- thời điểm chăm sóc đơn gần nhất
     - care_by_id: (int, foreign key -> users.id, nullable, nullOnDelete) -- nhân viên thực hiện care đơn
+    - care_status: (unsigned tiny integer, nullable) -- trạng thái care đơn
     - invoice_at: (timestamp, nullable) -- thời điểm phát hành hóa đơn
     - debt_provision_amount: (decimal(15,2), default 0) -- số tiền dự phòng nợ khó đòi
     - is_written_off: (boolean, default false) -- trạng thái xóa nợ
@@ -466,6 +467,7 @@
     - index [status]
     - index [is_printed]
     - index [care_updated_at]
+    - index [care_status]
     - index [organization_id, status]
     - index [created_at]
 

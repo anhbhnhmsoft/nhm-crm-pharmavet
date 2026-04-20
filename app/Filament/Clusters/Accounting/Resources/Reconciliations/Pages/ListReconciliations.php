@@ -2,26 +2,24 @@
 
 namespace App\Filament\Clusters\Accounting\Resources\Reconciliations\Pages;
 
+use App\Common\Constants\Accounting\ReconciliationStatus;
 use App\Exports\ReconciliationReportExport;
 use App\Filament\Clusters\Accounting\Resources\Reconciliations\ReconciliationResource;
-use App\Repositories\ShippingConfigRepository;
+use App\Filament\Clusters\Accounting\Resources\Reconciliations\Widgets\ReconciliationStatsWidget;
 use App\Services\ReconciliationService;
+use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Placeholder;
 use Filament\Notifications\Notification;
+use Filament\Pages\Concerns\ExposesTableToWidgets;
 use Filament\Resources\Pages\ListRecords;
-use Illuminate\Support\Facades\Auth;
 use Filament\Schemas\Components\Tabs\Tab;
 use Illuminate\Database\Eloquent\Builder;
-use App\Common\Constants\Accounting\ReconciliationStatus;
-use App\Core\Logging;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Facades\Excel;
-use Storage;
-
-use App\Filament\Clusters\Accounting\Resources\Reconciliations\Widgets\ReconciliationStatsWidget;
-use Filament\Pages\Concerns\ExposesTableToWidgets;
 
 class ListReconciliations extends ListRecords
 {
@@ -29,37 +27,93 @@ class ListReconciliations extends ListRecords
 
     protected static string $resource = ReconciliationResource::class;
 
-    protected function resolveSyncGhnConfigState(ShippingConfigRepository $shippingConfigRepo): array
+    protected bool $hasSentInvalidDateRangeNotification = false;
+
+    protected function hasInvalidDateRange(?array $filters): bool
     {
-        $config = $shippingConfigRepo->query()
-            ->where('organization_id', Auth::user()->organization_id)
-            ->first();
+        $from = data_get($filters, 'date_range.from');
+        $to = data_get($filters, 'date_range.to');
 
-        if (! $config) {
-            return [
-                'ready' => false,
-                'tooltip' => __('accounting.reconciliation.config_not_found'),
-            ];
+        if (blank($from) || blank($to)) {
+            return false;
         }
 
-        if (! $config->hasDecryptableApiToken()) {
-            return [
-                'ready' => false,
-                'tooltip' => __('accounting.reconciliation.config_invalid_token'),
-            ];
+        try {
+            return Carbon::parse($from)->gt(Carbon::parse($to));
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    protected function clearDateRange(?array $filters): ?array
+    {
+        $filters ??= [];
+
+        Arr::forget($filters, [
+            'date_range.from',
+            'date_range.to',
+        ]);
+
+        if (blank(data_get($filters, 'date_range'))) {
+            Arr::forget($filters, 'date_range');
         }
 
-        if (! $config->hasCompleteGhnCredentials()) {
-            return [
-                'ready' => false,
-                'tooltip' => __('accounting.reconciliation.config_incomplete'),
-            ];
+        return blank($filters) ? null : $filters;
+    }
+
+    protected function notifyInvalidDateRange(): void
+    {
+        if ($this->hasSentInvalidDateRangeNotification) {
+            return;
         }
 
-        return [
-            'ready' => true,
-            'tooltip' => null,
-        ];
+        $this->hasSentInvalidDateRangeNotification = true;
+
+        Notification::make()
+            ->danger()
+            ->title(__('accounting.reconciliation.error'))
+            ->body(__('accounting.reconciliation.filter_date_invalid_range'))
+            ->send();
+    }
+
+    protected function resetInvalidDateRangeFilter(bool $notify = true): bool
+    {
+        if (! $this->hasInvalidDateRange($this->tableFilters)) {
+            return false;
+        }
+
+        $this->tableFilters = $this->clearDateRange($this->tableFilters);
+        $this->tableDeferredFilters = $this->clearDateRange($this->tableDeferredFilters);
+
+        $this->getTableFiltersForm()->fill($this->tableDeferredFilters ?? $this->tableFilters ?? []);
+        $this->handleTableFilterUpdates();
+
+        if ($notify) {
+            $this->notifyInvalidDateRange();
+        }
+
+        return true;
+    }
+
+    protected function resetInvalidDeferredDateRangeFilter(bool $notify = true): bool
+    {
+        if (! $this->hasInvalidDateRange($this->tableDeferredFilters)) {
+            return false;
+        }
+
+        $this->tableDeferredFilters = $this->clearDateRange($this->tableDeferredFilters);
+        $this->getTableFiltersForm()->fill($this->tableDeferredFilters ?? []);
+
+        if ($notify) {
+            $this->notifyInvalidDateRange();
+        }
+
+        return true;
+    }
+
+    protected function resolveSyncGhnConfigState(): array
+    {
+        return app(ReconciliationService::class)->getSyncGhnConfigState(Auth::user()->organization_id);
     }
 
     protected function getHeaderWidgets(): array
@@ -69,14 +123,39 @@ class ListReconciliations extends ListRecords
         ];
     }
 
+    public function bootedInteractsWithTable(): void
+    {
+        parent::bootedInteractsWithTable();
+
+        $this->resetInvalidDateRangeFilter();
+    }
+
+    public function updatedTableFilters(): void
+    {
+        if ($this->resetInvalidDateRangeFilter()) {
+            return;
+        }
+
+        parent::updatedTableFilters();
+    }
+
+    public function applyTableFilters(): void
+    {
+        if ($this->resetInvalidDeferredDateRangeFilter()) {
+            return;
+        }
+
+        parent::applyTableFilters();
+    }
+
     protected function getHeaderActions(): array
     {
         return [
             Action::make('sync_ghn')
                 ->label(__('accounting.reconciliation.sync_from_ghn'))
                 ->icon('heroicon-o-arrow-path')
-                ->disabled(fn (ShippingConfigRepository $shippingConfigRepo) => ! $this->resolveSyncGhnConfigState($shippingConfigRepo)['ready'])
-                ->tooltip(fn (ShippingConfigRepository $shippingConfigRepo) => $this->resolveSyncGhnConfigState($shippingConfigRepo)['tooltip'])
+                ->disabled(fn () => ! $this->resolveSyncGhnConfigState()['ready'])
+                ->tooltip(fn () => $this->resolveSyncGhnConfigState()['tooltip'])
                 ->form([
                     DatePicker::make('from_date')
                         ->label(__('accounting.reconciliation.from_date'))
@@ -88,11 +167,11 @@ class ListReconciliations extends ListRecords
                         ->default(now())
                         ->after('from_date'),
                 ])
-                ->action(function (array $data, ReconciliationService $service) {
+                ->action(function (array $data, ReconciliationService $service): void {
                     $result = $service->syncReconciliationFromGHN(
                         organizationId: Auth::user()->organization_id,
                         fromDate: $data['from_date'],
-                        toDate: $data['to_date']
+                        toDate: $data['to_date'],
                     );
 
                     if ($result->isError()) {
@@ -101,21 +180,25 @@ class ListReconciliations extends ListRecords
                             ->title(__('accounting.reconciliation.sync_failed'))
                             ->body($result->getMessage())
                             ->send();
-                    } else {
-                        $backfilledCount = $service->applyExchangeRateForDateRange(
-                            organizationId: Auth::user()->organization_id,
-                            fromDate: $data['from_date'],
-                            toDate: $data['to_date']
-                        );
 
-                        Notification::make()
-                            ->success()
-                            ->title(__('accounting.reconciliation.synced', ['count' => ($result->getData()['created'] ?? 0) + ($result->getData()['updated'] ?? 0)]))
-                            ->body(__('accounting.reconciliation.exchange_rate_auto_attached', ['count' => $backfilledCount]))
-                            ->send();
-
-                        $this->dispatch('$refresh');
+                        return;
                     }
+
+                    $backfilledCount = $service->applyExchangeRateForDateRange(
+                        organizationId: Auth::user()->organization_id,
+                        fromDate: $data['from_date'],
+                        toDate: $data['to_date'],
+                    );
+
+                    Notification::make()
+                        ->success()
+                        ->title(__('accounting.reconciliation.synced', [
+                            'count' => ($result->getData()['created'] ?? 0) + ($result->getData()['updated'] ?? 0),
+                        ]))
+                        ->body(__('accounting.reconciliation.exchange_rate_auto_attached', ['count' => $backfilledCount]))
+                        ->send();
+
+                    $this->dispatch('$refresh');
                 }),
             Action::make('batch_reconciliation')
                 ->label(__('accounting.reconciliation.batch_reconciliation'))
@@ -124,157 +207,61 @@ class ListReconciliations extends ListRecords
                 ->form([
                     FileUpload::make('file')
                         ->label(__('accounting.reconciliation.upload_excel'))
-                        ->acceptedFileTypes(['application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'text/csv'])
+                        ->acceptedFileTypes([
+                            'application/vnd.ms-excel',
+                            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                            'text/csv',
+                        ])
                         ->required()
+                        ->extraInputAttributes(['required' => false])
+                        ->validationMessages([
+                            'required' => __('common.error.required'),
+                        ])
                         ->disk('local')
                         ->directory('temp_imports'),
                     Placeholder::make('note')
-                        ->content(__('accounting.reconciliation.import.upload_placeholder'))
+                        ->content(__('accounting.reconciliation.import.upload_placeholder')),
                 ])
-                ->action(function (array $data, ReconciliationService $service) {
-                    $disk = 'local';
-                    $filePath = Storage::disk($disk)->path($data['file']);
+                ->action(function (array $data, ReconciliationService $service): void {
+                    $result = $service->importBatchReconciliationFromUploadedFile(
+                        organizationId: Auth::user()->organization_id,
+                        disk: 'local',
+                        path: (string) $data['file'],
+                    );
 
-                    try {
-                        if (!Storage::disk($disk)->exists($data['file'])) {
-                            throw new \Exception(__('accounting.reconciliation.import.file_not_found'));
-                        }
-
-                        $rows = Excel::toArray(new class {}, $filePath);
-                        $sheet = $rows[0] ?? [];
-
-                        if (empty($sheet)) {
-                            throw new \Exception(__('accounting.reconciliation.import.file_empty'));
-                        }
-
-                        $header = array_shift($sheet);
-                        $normalizedHeader = array_map(fn($h) => trim(mb_strtolower((string) $h)), $header);
-
-                        $requiredHeaders = __('accounting.reconciliation.import.headers');
-
-                        $colMapping = [];
-                        foreach ($requiredHeaders as $key => $aliases) {
-                            foreach ($aliases as $alias) {
-                                $idx = array_search(trim(mb_strtolower($alias)), $normalizedHeader);
-                                if ($idx !== false) {
-                                    $colMapping[$key] = $idx;
-                                    break;
-                                }
-                            }
-                        }
-
-                        $missing = [];
-                        foreach ($requiredHeaders as $key => $aliases) {
-                            if (!isset($colMapping[$key])) {
-                                $missing[] = '"' . ($aliases[0] ?? $key) . '"';
-                            }
-                        }
-
-                        if (!empty($missing)) {
-                            throw new \Exception(__('accounting.reconciliation.import.missing_columns', ['columns' => implode(', ', $missing)]));
-                        }
-
-                        $items = [];
-                        $statusKeywords = __('accounting.reconciliation.import.status_keywords');
-
-                        foreach ($sheet as $row) {
-                            $code = trim((string) ($row[$colMapping['ghn_code']] ?? ''));
-                            $statusText = trim(mb_strtolower((string) ($row[$colMapping['status']] ?? '')));
-
-                            if (empty($code)) {
-                                continue;
-                            }
-
-                            $targetStatus = null;
-                            foreach ($statusKeywords['confirmed'] as $kw) {
-                                if (str_contains($statusText, mb_strtolower($kw))) {
-                                    $targetStatus = ReconciliationStatus::CONFIRMED->value;
-                                    break;
-                                }
-                            }
-
-                            if (!$targetStatus) {
-                                foreach ($statusKeywords['paid'] as $kw) {
-                                    if (str_contains($statusText, mb_strtolower($kw))) {
-                                        $targetStatus = ReconciliationStatus::PAID->value;
-                                        break;
-                                    }
-                                }
-                            }
-
-                            if ($targetStatus) {
-                                $items[] = [
-                                    'ghn_order_code' => $code,
-                                    'target_status' => $targetStatus,
-                                    'cod_amount' => (float) str_replace([',', '.'], '', $row[$colMapping['cod']] ?? 0),
-                                    'shipping_fee' => (float) str_replace([',', '.'], '', $row[$colMapping['shipping']] ?? 0),
-                                    'total_fee' => (float) str_replace([',', '.'], '', $row[$colMapping['total']] ?? 0),
-                                    'reconciliation_date' => trim((string) ($row[$colMapping['reconciliation_date']] ?? '')),
-                                    'ghn_employee_note' => trim((string) ($row[$colMapping['note']] ?? '')),
-                                    'ghn_to_name' => trim((string) ($row[$colMapping['name']] ?? '')),
-                                    'ghn_to_phone' => trim((string) ($row[$colMapping['phone']] ?? '')),
-                                    'ghn_to_address' => trim((string) ($row[$colMapping['address']] ?? '')),
-                                ];
-                            }
-                        }
-
-                        if (empty($items)) {
-                            throw new \Exception(__('accounting.reconciliation.import.no_valid_data'));
-                        }
-
-                        $result = $service->processBatchReconciliation(
-                            organizationId: Auth::user()->organization_id,
-                            items: $items
-                        );
-
-                        if ($result->isError()) {
-                            Notification::make()
-                                ->danger()
-                                ->title(__('accounting.reconciliation.batch_failed'))
-                                ->body($result->getMessage())
-                                ->send();
-                        } else {
-                            $resData = $result->getData();
-                            Notification::make()
-                                ->success()
-                                ->title(__('accounting.reconciliation.batch_success', ['count' => $resData['updated']]))
-                                ->body(__('accounting.reconciliation.import.batch_summary_body', [
-                                    'updated' => $resData['updated'],
-                                    'skipped' => $resData['skipped'],
-                                    'not_found' => count($resData['not_found']),
-                                ]))
-                                ->send();
-
-                            if (!empty($resData['not_found'])) {
-                                Logging::web('Batch reconciliation unmatched codes from Excel', [
-                                    'not_found' => $resData['not_found']
-                                ]);
-                            }
-
-                            $this->dispatch('$refresh');
-                        }
-                    } catch (\Exception $e) {
+                    if ($result->isError()) {
                         Notification::make()
                             ->danger()
                             ->title(__('accounting.reconciliation.import.process_error'))
-                            ->body($e->getMessage())
+                            ->body($result->getMessage())
                             ->send();
-                    } finally {
-                        if (Storage::disk($disk)->exists($data['file'])) {
-                            Storage::disk($disk)->delete($data['file']);
-                        }
+
+                        return;
                     }
+
+                    $summary = $result->getData();
+
+                    Notification::make()
+                        ->success()
+                        ->title(__('accounting.reconciliation.batch_success', ['count' => $summary['updated'] ?? 0]))
+                        ->body(__('accounting.reconciliation.import.batch_summary_body', [
+                            'updated' => $summary['updated'] ?? 0,
+                            'skipped' => $summary['skipped'] ?? 0,
+                            'not_found' => count($summary['not_found'] ?? []),
+                        ]))
+                        ->send();
+
+                    $this->dispatch('$refresh');
                 }),
             Action::make('export_excel')
-                ->label('Xuất báo cáo (Excel)')
+                ->label(__('accounting.reconciliation.export_excel'))
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('info')
-                ->action(function () {
-                    $query = $this->getFilteredTableQuery();
-                    $rows = $query->with(['order.createdBy', 'order.warehouse', 'order.customer'])->get();
-
+                ->action(function (ReconciliationService $service) {
                     return Excel::download(
-                        new ReconciliationReportExport($rows), 
+                        new ReconciliationReportExport(
+                            $service->getExportRowsForQuery($this->getFilteredTableQuery())
+                        ),
                         'doi-soat-' . now()->format('YmdHis') . '.xlsx'
                     );
                 }),
@@ -286,13 +273,18 @@ class ListReconciliations extends ListRecords
         return [
             'all' => Tab::make(__('accounting.reconciliation_status.all')),
             strtolower(ReconciliationStatus::PENDING->name) => Tab::make(__('accounting.reconciliation_status.pending'))
-                ->modifyQueryUsing(fn(Builder $query) => $query->where('status', ReconciliationStatus::PENDING->value)),
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('status', ReconciliationStatus::PENDING->value)),
             strtolower(ReconciliationStatus::CONFIRMED->name) => Tab::make(__('accounting.reconciliation_status.confirmed'))
-                ->modifyQueryUsing(fn(Builder $query) => $query->where('status', ReconciliationStatus::CONFIRMED->value)),
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('status', ReconciliationStatus::CONFIRMED->value)),
             strtolower(ReconciliationStatus::CANCELLED->name) => Tab::make(__('accounting.reconciliation_status.cancelled'))
-                ->modifyQueryUsing(fn(Builder $query) => $query->where('status', ReconciliationStatus::CANCELLED->value)),
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('status', ReconciliationStatus::CANCELLED->value)),
             strtolower(ReconciliationStatus::PAID->name) => Tab::make(__('accounting.reconciliation_status.paid'))
-                ->modifyQueryUsing(fn(Builder $query) => $query->where('status', ReconciliationStatus::PAID->value)),
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('status', ReconciliationStatus::PAID->value)),
         ];
+    }
+
+    public function getDefaultActiveTab(): string | int | null
+    {
+        return 'all';
     }
 }

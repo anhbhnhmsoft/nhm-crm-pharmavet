@@ -3,12 +3,12 @@
 namespace App\Filament\Clusters\Accounting\Resources\Reconciliations;
 
 use App\Common\Constants\Accounting\ReconciliationStatus;
+use App\Common\Constants\GateKey;
 use App\Common\Constants\User\UserRole;
 use App\Filament\Clusters\Accounting\Resources\Reconciliations\Pages\ListReconciliations;
 use App\Filament\Clusters\Accounting\Resources\Reconciliations\Schemas\ReconciliationForm;
 use App\Filament\Clusters\Accounting\Resources\Reconciliations\Tables\ReconciliationsTable;
 use App\Models\Reconciliation;
-use App\Utils\Helper;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -16,6 +16,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
 
 class ReconciliationResource extends Resource
 {
@@ -47,11 +48,9 @@ class ReconciliationResource extends Resource
 
     public static function canAccess(): bool
     {
-        return Helper::checkPermission([
-            UserRole::SUPER_ADMIN->value,
-            UserRole::ADMIN->value,
-            UserRole::ACCOUNTING->value,
-        ], Auth::user()->role);
+        return Gate::allows(GateKey::IS_SUPER_ADMIN->name)
+            || Gate::allows(GateKey::IS_ADMIN->name)
+            || Gate::allows(GateKey::HAS_ROLE->name, UserRole::ACCOUNTING);
     }
 
     public static function form(Schema $schema): Schema
@@ -88,6 +87,43 @@ class ReconciliationResource extends Resource
         $organizationId = Auth::user()->organization_id;
         return $query
             ->where('organization_id', $organizationId)
-            ->with('exchangeRate');
+            ->with([
+                'organization:id,is_foreign',
+                'exchangeRate:id,from_currency,to_currency,rate,rate_date,source',
+                'order' => fn ($query) => $query->select([
+                    'id',
+                    'organization_id',
+                    'customer_id',
+                    'warehouse_id',
+                    'created_by',
+                    'care_by_id',
+                    'care_status',
+                    'code',
+                    'ghn_order_code',
+                    'provider_shipping',
+                    'shipping_method',
+                    'care_updated_at',
+                    'ghn_status',
+                    'ghn_posted_at',
+                    'created_at',
+                    'total_amount',
+                    'discount',
+                    'shipping_fee',
+                    'deposit',
+                    'amount_recived_from_customer',
+                    'amout_support_fee',
+                    'shipping_address',
+                    'note',
+                    'is_printed',
+                    'status',
+                ]),
+                'order.warehouse:id,name',
+                'order.customer:id,username,phone,assigned_staff_id',
+                'order.customer.assignedStaffPrimary:id,name',
+                'order.items:id,order_id,product_id,quantity,price',
+                'order.items.product:id,name',
+                'order.createdBy:id,name,username',
+                'order.careBy:id,name',
+            ]);
     }
 }

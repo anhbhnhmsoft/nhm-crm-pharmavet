@@ -95,6 +95,7 @@ class Order extends Model
         'is_printed',
         'care_updated_at',
         'care_by_id',
+        'care_status',
     ];
 
     protected $casts = [
@@ -114,6 +115,7 @@ class Order extends Model
         'updated_at' => 'datetime',
         'is_printed' => 'boolean',
         'care_updated_at' => 'datetime',
+        'care_status' => 'integer',
     ];
 
     public function organization(): BelongsTo

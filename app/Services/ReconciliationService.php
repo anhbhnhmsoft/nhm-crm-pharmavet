@@ -6,15 +6,22 @@ use App\Common\Constants\Accounting\ReconciliationStatus;
 use App\Common\Constants\Order\GhnOrderStatus;
 use App\Core\Logging;
 use App\Core\ServiceReturn;
-use App\Models\Organization;
 use App\Repositories\ExchangeRateRepository;
+use App\Repositories\OrganizationRepository;
 use App\Repositories\OrderRepository;
+use App\Repositories\ProductRepository;
 use App\Repositories\ReconciliationRepository;
 use App\Repositories\ShippingConfigRepository;
+use App\Repositories\TeamRepository;
+use App\Repositories\UserRepository;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
+use Maatwebsite\Excel\Facades\Excel;
 use Throwable;
 
 class ReconciliationService
@@ -24,6 +31,10 @@ class ReconciliationService
         protected OrderRepository $orderRepository,
         protected ExchangeRateRepository $exchangeRateRepository,
         protected ShippingConfigRepository $shippingConfigRepository,
+        protected ProductRepository $productRepository,
+        protected UserRepository $userRepository,
+        protected TeamRepository $teamRepository,
+        protected OrganizationRepository $organizationRepository,
         protected GHNService $ghnService,
     ) {
     }
@@ -52,6 +63,284 @@ class ReconciliationService
             'token' => $token,
             'shop_id' => $config->default_store_id,
         ];
+    }
+
+    public function getSyncGhnConfigState(int $organizationId): array
+    {
+        $config = $this->shippingConfigRepository->query()
+            ->where('organization_id', $organizationId)
+            ->first();
+
+        if (! $config) {
+            return [
+                'ready' => false,
+                'tooltip' => __('accounting.reconciliation.config_not_found'),
+            ];
+        }
+
+        if (! $config->hasDecryptableApiToken()) {
+            return [
+                'ready' => false,
+                'tooltip' => __('accounting.reconciliation.config_invalid_token'),
+            ];
+        }
+
+        if (! $config->hasCompleteGhnCredentials()) {
+            return [
+                'ready' => false,
+                'tooltip' => __('accounting.reconciliation.config_incomplete'),
+            ];
+        }
+
+        return [
+            'ready' => true,
+            'tooltip' => null,
+        ];
+    }
+
+    public function getProductFilterOptions(?int $organizationId): array
+    {
+        if (! $organizationId) {
+            return [];
+        }
+
+        return $this->productRepository
+            ->getNamesByOrganization($organizationId)
+            ->merge($this->reconciliationRepository->getUnlinkedGhnItemNamesByOrganization($organizationId))
+            ->unique(fn (string $name) => mb_strtolower($name))
+            ->sort(fn (string $a, string $b) => strnatcasecmp($a, $b))
+            ->values()
+            ->mapWithKeys(fn (string $name) => ['label:' . base64_encode($name) => $name])
+            ->all();
+    }
+
+    public function applyProductFilter(Builder $query, ?string $selectedProduct, ?int $organizationId): Builder
+    {
+        $selectedProduct = trim((string) $selectedProduct);
+
+        if ($selectedProduct === '') {
+            return $query;
+        }
+
+        if (str_starts_with($selectedProduct, 'label:')) {
+            $decodedProduct = base64_decode(substr($selectedProduct, strlen('label:')), true);
+
+            if ($decodedProduct !== false) {
+                $selectedProduct = $decodedProduct;
+            }
+        }
+
+        $normalizedProduct = mb_strtolower($selectedProduct);
+        $matchingProductIds = $this->productRepository->getIdsByOrganizationAndExactName($organizationId, $selectedProduct);
+
+        return $query->where(function (Builder $productQuery) use ($matchingProductIds, $normalizedProduct): void {
+            $ghnItemsCondition = fn (Builder $ghnQuery) => $ghnQuery->whereRaw(
+                "EXISTS (
+                    SELECT 1
+                    FROM json_array_elements(COALESCE(ghn_items, '[]'::json)) AS item
+                    WHERE LOWER(item->>'name') = ?
+                )",
+                [$normalizedProduct]
+            );
+
+            if ($matchingProductIds !== []) {
+                $productQuery
+                    ->whereHas('order.items', fn (Builder $itemQuery) => $itemQuery->whereIn('product_id', $matchingProductIds))
+                    ->orWhere(function (Builder $ghnFallbackQuery) use ($ghnItemsCondition): void {
+                        $ghnFallbackQuery->whereDoesntHave('order.items');
+                        $ghnItemsCondition($ghnFallbackQuery);
+                    });
+
+                return;
+            }
+
+            $productQuery->whereDoesntHave('order.items');
+            $ghnItemsCondition($productQuery);
+        });
+    }
+
+    public function getSaleLeaderFilterOptions(?int $organizationId): array
+    {
+        return $this->userRepository->getSaleLeaderOptionsByOrganization($organizationId);
+    }
+
+    public function getSaleLeaderTeamIds(?int $organizationId, int|string|null $leaderId): array
+    {
+        if (blank($leaderId)) {
+            return [];
+        }
+
+        return $this->userRepository
+            ->getDirectSaleLeaderTeamIds($organizationId, $leaderId)
+            ->merge($this->teamRepository->getSaleLeaderTeamIds($organizationId, $leaderId))
+            ->filter()
+            ->map(fn ($teamId) => (int) $teamId)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    public function getSaleTeamFilterOptions(?int $organizationId, int|string|null $leaderId = null): array
+    {
+        $teamIds = filled($leaderId) ? $this->getSaleLeaderTeamIds($organizationId, $leaderId) : [];
+
+        if (filled($leaderId) && $teamIds === []) {
+            return [];
+        }
+
+        return $this->teamRepository->getSaleTeamOptionsByOrganization($organizationId, $teamIds);
+    }
+
+    public function getSaleFilterOptions(?int $organizationId, int|string|null $leaderId = null, int|string|null $teamId = null): array
+    {
+        $teamIds = [];
+
+        if (filled($teamId)) {
+            $teamIds = [(int) $teamId];
+        } elseif (filled($leaderId)) {
+            $teamIds = $this->getSaleLeaderTeamIds($organizationId, $leaderId);
+
+            if ($teamIds === []) {
+                return [];
+            }
+        }
+
+        return $this->userRepository->getSaleOptionsByOrganization($organizationId, $teamIds);
+    }
+
+    public function sumDisplayedAmount(Builder $query): float
+    {
+        return $this->reconciliationRepository->sumDisplayedAmount($query);
+    }
+
+    public function getAllDisplayedAmount(?int $organizationId): float
+    {
+        if (! $organizationId) {
+            return 0.0;
+        }
+
+        return $this->sumDisplayedAmount(
+            $this->reconciliationRepository->query()->where('organization_id', $organizationId)
+        );
+    }
+
+    public function getExportRowsForQuery(Builder $query): Collection
+    {
+        return (clone $query)
+            ->with(['order.createdBy', 'order.warehouse', 'order.customer'])
+            ->get();
+    }
+
+    public function importBatchReconciliationFromUploadedFile(int $organizationId, string $disk, string $path): ServiceReturn
+    {
+        try {
+            if (! Storage::disk($disk)->exists($path)) {
+                return ServiceReturn::error(__('accounting.reconciliation.import.file_not_found'));
+            }
+
+            $filePath = Storage::disk($disk)->path($path);
+            $rows = Excel::toArray(new class {}, $filePath);
+            $sheet = $rows[0] ?? [];
+
+            if (empty($sheet)) {
+                return ServiceReturn::error(__('accounting.reconciliation.import.file_empty'));
+            }
+
+            $header = array_shift($sheet);
+            $normalizedHeader = array_map(fn ($headerCell) => trim(mb_strtolower((string) $headerCell)), $header);
+            $requiredHeaders = __('accounting.reconciliation.import.headers');
+            $colMapping = [];
+
+            foreach ($requiredHeaders as $key => $aliases) {
+                foreach ($aliases as $alias) {
+                    $index = array_search(trim(mb_strtolower($alias)), $normalizedHeader);
+
+                    if ($index !== false) {
+                        $colMapping[$key] = $index;
+                        break;
+                    }
+                }
+            }
+
+            $missing = [];
+
+            foreach ($requiredHeaders as $key => $aliases) {
+                if (! isset($colMapping[$key])) {
+                    $missing[] = '"' . ($aliases[0] ?? $key) . '"';
+                }
+            }
+
+            if ($missing !== []) {
+                return ServiceReturn::error(
+                    __('accounting.reconciliation.import.missing_columns', ['columns' => implode(', ', $missing)])
+                );
+            }
+
+            $items = [];
+            $statusKeywords = __('accounting.reconciliation.import.status_keywords');
+
+            foreach ($sheet as $row) {
+                $code = trim((string) ($row[$colMapping['ghn_code']] ?? ''));
+                $statusText = trim(mb_strtolower((string) ($row[$colMapping['status']] ?? '')));
+
+                if ($code === '') {
+                    continue;
+                }
+
+                $targetStatus = null;
+
+                foreach ($statusKeywords['confirmed'] as $keyword) {
+                    if (str_contains($statusText, mb_strtolower($keyword))) {
+                        $targetStatus = ReconciliationStatus::CONFIRMED->value;
+                        break;
+                    }
+                }
+
+                if (! $targetStatus) {
+                    foreach ($statusKeywords['paid'] as $keyword) {
+                        if (str_contains($statusText, mb_strtolower($keyword))) {
+                            $targetStatus = ReconciliationStatus::PAID->value;
+                            break;
+                        }
+                    }
+                }
+
+                if (! $targetStatus) {
+                    continue;
+                }
+
+                $items[] = [
+                    'ghn_order_code' => $code,
+                    'target_status' => $targetStatus,
+                    'cod_amount' => (float) str_replace([',', '.'], '', $row[$colMapping['cod']] ?? 0),
+                    'shipping_fee' => (float) str_replace([',', '.'], '', $row[$colMapping['shipping']] ?? 0),
+                    'total_fee' => (float) str_replace([',', '.'], '', $row[$colMapping['total']] ?? 0),
+                    'reconciliation_date' => trim((string) ($row[$colMapping['reconciliation_date']] ?? '')),
+                    'ghn_employee_note' => trim((string) ($row[$colMapping['note']] ?? '')),
+                    'ghn_to_name' => trim((string) ($row[$colMapping['name']] ?? '')),
+                    'ghn_to_phone' => trim((string) ($row[$colMapping['phone']] ?? '')),
+                    'ghn_to_address' => trim((string) ($row[$colMapping['address']] ?? '')),
+                ];
+            }
+
+            if ($items === []) {
+                return ServiceReturn::error(__('accounting.reconciliation.import.no_valid_data'));
+            }
+
+            return $this->processBatchReconciliation($organizationId, $items);
+        } catch (Throwable $e) {
+            Logging::error('Batch reconciliation import file error', [
+                'organization_id' => $organizationId,
+                'path' => $path,
+                'error' => $e->getMessage(),
+            ], $e);
+
+            return ServiceReturn::error(__('accounting.reconciliation.import.process_error'), $e);
+        } finally {
+            if (Storage::disk($disk)->exists($path)) {
+                Storage::disk($disk)->delete($path);
+            }
+        }
     }
 
     /**
@@ -779,8 +1068,6 @@ class ReconciliationService
 
     private function isForeignOrganization(int $organizationId): bool
     {
-        return (bool) Organization::query()
-            ->where('id', $organizationId)
-            ->value('is_foreign');
+        return $this->organizationRepository->isForeignById($organizationId);
     }
 }

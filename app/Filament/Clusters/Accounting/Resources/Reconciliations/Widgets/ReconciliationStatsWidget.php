@@ -3,11 +3,12 @@
 namespace App\Filament\Clusters\Accounting\Resources\Reconciliations\Widgets;
 
 use App\Filament\Clusters\Accounting\Resources\Reconciliations\Pages\ListReconciliations;
-use App\Models\Reconciliation;
+use App\Services\ReconciliationService;
 use Filament\Widgets\Concerns\InteractsWithPageTable;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Facades\Auth;
 
@@ -15,7 +16,11 @@ class ReconciliationStatsWidget extends BaseWidget
 {
     use InteractsWithPageTable;
 
-    protected static bool $isLazy = false;
+    protected const CACHE_VERSION = 'v2';
+
+    protected static bool $isLazy = true;
+
+    protected ?string $cachedStatsKey = null;
 
     protected int | string | array $columnSpan = 'full';
 
@@ -29,52 +34,86 @@ class ReconciliationStatsWidget extends BaseWidget
         return ListReconciliations::class;
     }
 
-    protected function resolveDisplayedAmount(Model $record): float
+    protected function resolveDisplayedAmountSum(Builder $query): float
     {
-        /** @var \App\Models\Reconciliation $record */
-        return (float) ($record->order?->total_amount ?? $record->cod_amount ?? 0);
+        return app(ReconciliationService::class)->sumDisplayedAmount($query);
+    }
+
+    protected function getStatsStateHash(): string
+    {
+        return md5(json_encode([
+            'active_tab' => $this->activeTab,
+            'filters' => $this->tableFilters,
+            'search' => $this->tableSearch,
+            'column_searches' => $this->tableColumnSearches,
+        ], JSON_UNESCAPED_UNICODE));
+    }
+
+    protected function getFilteredTotalCacheKey(): string
+    {
+        return sprintf(
+            'reconciliations.stats.%s.filtered.%s.%s',
+            static::CACHE_VERSION,
+            Auth::user()?->organization_id ?? 'guest',
+            $this->getStatsStateHash(),
+        );
+    }
+
+    protected function getAllTotalCacheKey(): string
+    {
+        return sprintf(
+            'reconciliations.stats.%s.all.%s',
+            static::CACHE_VERSION,
+            Auth::user()?->organization_id ?? 'guest',
+        );
     }
 
     protected function getCachedStats(): array
     {
-        return $this->getStats();
+        $cacheKey = $this->getStatsStateHash();
+
+        if (($this->cachedStats !== null) && ($this->cachedStatsKey === $cacheKey)) {
+            return $this->cachedStats;
+        }
+
+        $this->cachedStatsKey = $cacheKey;
+
+        return $this->cachedStats = $this->getStats();
     }
 
     protected function getStats(): array
     {
-        if (isset($this->tablePage)) {
-            unset($this->tablePage);
-        }
-
-        $filteredTotal = 0;
-        $allTotal = 0;
+        $filteredTotal = 0.0;
+        $allTotal = 0.0;
 
         try {
-            $filteredRecords = $this->getTablePageInstance()
-                ->getFilteredTableQuery()
-                ?->select('reconciliations.*')
-                ->with(['order:id,total_amount,deleted_at'])
-                ->lazy(200);
+            $filteredTotal = (float) Cache::remember(
+                $this->getFilteredTotalCacheKey(),
+                now()->addSeconds(20),
+                function (): float {
+                    if (isset($this->tablePage)) {
+                        unset($this->tablePage);
+                    }
 
-            if ($filteredRecords !== null) {
-                foreach ($filteredRecords as $record) {
-                    $filteredTotal += $this->resolveDisplayedAmount($record);
-                }
-            }
+                    $filteredQuery = $this->getTablePageInstance()->getFilteredTableQuery();
+
+                    if ($filteredQuery === null) {
+                        return 0.0;
+                    }
+
+                    return $this->resolveDisplayedAmountSum($filteredQuery);
+                },
+            );
         } catch (\Throwable $e) {
             report($e);
         }
 
         try {
-            $allRecords = Reconciliation::query()
-                ->where('organization_id', Auth::user()?->organization_id)
-                ->select('reconciliations.*')
-                ->with(['order:id,total_amount,deleted_at'])
-                ->lazy(200);
-
-            foreach ($allRecords as $record) {
-                $allTotal += $this->resolveDisplayedAmount($record);
-            }
+            $allTotal = (float) Cache::remember(
+                $this->getAllTotalCacheKey(),
+                now()->addMinutes(1),
+                fn (): float => app(ReconciliationService::class)->getAllDisplayedAmount(Auth::user()?->organization_id),
+            );
         } catch (\Throwable $e) {
             report($e);
         }
