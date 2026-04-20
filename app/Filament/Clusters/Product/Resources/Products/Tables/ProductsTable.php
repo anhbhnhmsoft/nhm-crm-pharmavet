@@ -5,6 +5,7 @@ namespace App\Filament\Clusters\Product\Resources\Products\Tables;
 use App\Common\Constants\Organization\ProductField;
 use App\Exports\ProductsExport;
 use App\Imports\ProductsImport;
+use App\Models\CategoryProduct;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
@@ -42,6 +43,10 @@ class ProductsTable
                 TextColumn::make('name')
                     ->label(__('common.table.name'))
                     ->searchable(),
+                TextColumn::make('categoryProduct.display_name')
+                    ->label(__('filament.product.category'))
+                    ->placeholder('-')
+                    ->toggleable(),
                 TextColumn::make('sku')
                     ->label('SKU')->wrap()
                     ->searchable(),
@@ -91,6 +96,15 @@ class ProductsTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                SelectFilter::make('category_product_id')
+                    ->label(__('filament.product.category'))
+                    ->options(fn() => CategoryProduct::query()
+                        ->orderBy('id')
+                        ->get()
+                        ->mapWithKeys(fn(CategoryProduct $category) => [
+                            $category->id => $category->display_name,
+                        ])
+                        ->all()),
                 SelectFilter::make('type')
                     ->label(__('filament.product.type'))
                     ->options(ProductField::toOptions()),
