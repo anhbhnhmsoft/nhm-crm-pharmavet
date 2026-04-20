@@ -109,12 +109,19 @@ class MarketingCancelReturnAnalysisPage extends Page implements HasForms
         $filters = $this->form->getState();
         $from = ($filters['from_date'] ?? now()->startOfMonth()->toDateString()) . ' 00:00:00';
         $to = ($filters['to_date'] ?? now()->toDateString()) . ' 23:59:59';
+        $unknownSource = __('marketing.honor_board.unknown_source');
+        $unknownEntity = __('marketing.honor_board.unknown_entity');
+        $shippingReasonExpression = $this->shippingReasonExpression();
+        $sourceNameExpression = $this->nullableTextExpression('customers.source');
+        $sourceDetailExpression = $this->nullableTextExpression('customers.source_detail');
+        $reasonExpression = $this->nullableTextExpression('orders.shipping_exception_reason_code');
+        $exceptionTypeExpression = $this->exceptionTypeExpression();
 
         $query = $this->orderRepository->query()
             ->join('customers', 'customers.id', '=', 'orders.customer_id')
             ->where('orders.organization_id', Auth::user()->organization_id)
             ->whereBetween('orders.created_at', [$from, $to])
-            ->where(function ($query) {
+            ->where(function ($query) use ($shippingReasonExpression) {
                 $query->where('orders.status', OrderStatus::CANCELLED->value)
                     ->orWhereIn('orders.ghn_status', [
                         GhnOrderStatus::WAITING_TO_RETURN->value,
@@ -125,18 +132,12 @@ class MarketingCancelReturnAnalysisPage extends Page implements HasForms
                         GhnOrderStatus::RETURN_FAIL->value,
                         GhnOrderStatus::RETURNED->value,
                     ])
-                    ->orWhereRaw('LOWER(COALESCE(orders.shipping_exception_reason_code, "")) LIKE ?', ['%return%'])
-                    ->orWhereRaw('LOWER(COALESCE(orders.shipping_exception_reason_code, "")) LIKE ?', ['%exchange%']);
+                    ->orWhereRaw("{$shippingReasonExpression} LIKE ?", ['%return%'])
+                    ->orWhereRaw("{$shippingReasonExpression} LIKE ?", ['%exchange%']);
             })
-            ->selectRaw('COALESCE(NULLIF(customers.source, ""), ?) as source_name', [__('marketing.honor_board.unknown_source')])
-            ->selectRaw('COALESCE(NULLIF(customers.source_detail, ""), ?) as source_detail_name', [__('marketing.honor_board.unknown_entity')])
-            ->selectRaw('
-                CASE
-                    WHEN LOWER(COALESCE(orders.shipping_exception_reason_code, "")) LIKE "%exchange%" THEN "exchange"
-                    WHEN orders.ghn_status IN (?, ?, ?, ?, ?, ?, ?) OR LOWER(COALESCE(orders.shipping_exception_reason_code, "")) LIKE "%return%" THEN "return"
-                    ELSE "cancel"
-                END as exception_type
-            ', [
+            ->selectRaw("{$sourceNameExpression} as source_name", [$unknownSource])
+            ->selectRaw("{$sourceDetailExpression} as source_detail_name", [$unknownEntity])
+            ->selectRaw("{$exceptionTypeExpression} as exception_type", [
                 GhnOrderStatus::WAITING_TO_RETURN->value,
                 GhnOrderStatus::RETURN->value,
                 GhnOrderStatus::RETURN_TRANSPORTING->value,
@@ -145,7 +146,7 @@ class MarketingCancelReturnAnalysisPage extends Page implements HasForms
                 GhnOrderStatus::RETURN_FAIL->value,
                 GhnOrderStatus::RETURNED->value,
             ])
-            ->selectRaw('COALESCE(NULLIF(orders.shipping_exception_reason_code, ""), ?) as reason', [__('marketing.honor_board.unknown_entity')])
+            ->selectRaw("{$reasonExpression} as reason", [$unknownEntity])
             ->selectRaw('COUNT(orders.id) as orders_count')
             ->groupBy('source_name', 'source_detail_name', 'reason', 'exception_type');
 
@@ -174,6 +175,8 @@ class MarketingCancelReturnAnalysisPage extends Page implements HasForms
 
     private function buildDashboardSlices(string $from, string $to, array $filters): void
     {
+        $shippingReasonExpression = $this->shippingReasonExpression();
+
         $base = $this->orderRepository->query()
             ->join('customers', 'customers.id', '=', 'orders.customer_id')
             ->where('orders.organization_id', Auth::user()->organization_id)
@@ -189,7 +192,7 @@ class MarketingCancelReturnAnalysisPage extends Page implements HasForms
         $totalOrders = (clone $base)->count('orders.id');
         $cancelOrders = (clone $base)->where('orders.status', OrderStatus::CANCELLED->value)->count('orders.id');
         $returnOrExchangeOrders = (clone $base)
-            ->where(function ($query) {
+            ->where(function ($query) use ($shippingReasonExpression) {
                 $query->whereIn('orders.ghn_status', [
                     GhnOrderStatus::WAITING_TO_RETURN->value,
                     GhnOrderStatus::RETURN->value,
@@ -199,8 +202,8 @@ class MarketingCancelReturnAnalysisPage extends Page implements HasForms
                     GhnOrderStatus::RETURN_FAIL->value,
                     GhnOrderStatus::RETURNED->value,
                 ])
-                    ->orWhereRaw('LOWER(COALESCE(orders.shipping_exception_reason_code, "")) LIKE ?', ['%return%'])
-                    ->orWhereRaw('LOWER(COALESCE(orders.shipping_exception_reason_code, "")) LIKE ?', ['%exchange%']);
+                    ->orWhereRaw("{$shippingReasonExpression} LIKE ?", ['%return%'])
+                    ->orWhereRaw("{$shippingReasonExpression} LIKE ?", ['%exchange%']);
             })
             ->count('orders.id');
 
@@ -215,7 +218,7 @@ class MarketingCancelReturnAnalysisPage extends Page implements HasForms
         ];
 
         $campaignRows = (clone $base)
-            ->selectRaw('COALESCE(NULLIF(customers.source_detail, ""), ?) as campaign', [__('marketing.honor_board.unknown_entity')])
+            ->selectRaw($this->nullableTextExpression('customers.source_detail') . ' as campaign', [__('marketing.honor_board.unknown_entity')])
             ->selectRaw('COUNT(orders.id) as total_orders')
             ->selectRaw('SUM(CASE WHEN orders.status = ? THEN 1 ELSE 0 END) as cancel_orders', [OrderStatus::CANCELLED->value])
             ->selectRaw('SUM(CASE WHEN orders.ghn_status IN (?, ?, ?, ?, ?, ?, ?) THEN 1 ELSE 0 END) as return_orders', [
@@ -247,5 +250,28 @@ class MarketingCancelReturnAnalysisPage extends Page implements HasForms
             ->take(10)
             ->values()
             ->all();
+    }
+
+    private function shippingReasonExpression(): string
+    {
+        return "LOWER(COALESCE(orders.shipping_exception_reason_code, ''))";
+    }
+
+    private function nullableTextExpression(string $column): string
+    {
+        return "COALESCE(NULLIF({$column}, ''), ?)";
+    }
+
+    private function exceptionTypeExpression(): string
+    {
+        $shippingReasonExpression = $this->shippingReasonExpression();
+
+        return "
+            CASE
+                WHEN {$shippingReasonExpression} LIKE '%exchange%' THEN 'exchange'
+                WHEN orders.ghn_status IN (?, ?, ?, ?, ?, ?, ?) OR {$shippingReasonExpression} LIKE '%return%' THEN 'return'
+                ELSE 'cancel'
+            END
+        ";
     }
 }

@@ -4,6 +4,7 @@ return [
     'accepted'        => ':attribute phải được chấp nhận.',
     'active_url'      => ':attribute không phải là một URL hợp lệ.',
     'after'           => ':attribute phải là một ngày sau ngày :date.',
+    'after_or_equal'  => ':attribute phải là một ngày sau hoặc bằng :date.',
     'alpha'           => ':attribute chỉ có thể chứa các chữ cái.',
     'alpha_dash'      => ':attribute chỉ có thể chứa chữ cái, số và dấu gạch ngang.',
     'alpha_num'       => ':attribute chỉ có thể chứa chữ cái và số.',
@@ -67,4 +68,13 @@ return [
     'timezone'        => ':attribute phải là một múi giờ hợp lệ.',
     'unique'          => ':attribute đã được sử dụng.',
     'url'             => 'Định dạng :attribute không hợp lệ.',
+
+    'attributes' => [
+        'from_date' => 'Từ ngày',
+        'to_date' => 'Đến ngày',
+        'from_month' => 'Từ tháng',
+        'to_month' => 'Đến tháng',
+        'from_year' => 'Từ năm',
+        'to_year' => 'Đến năm',
+    ],
 ];

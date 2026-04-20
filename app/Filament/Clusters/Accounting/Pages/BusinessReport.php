@@ -17,6 +17,7 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Actions\Action;
 use App\Models\AccountingPeriod;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\Auth;
 use BackedEnum;
 
@@ -30,7 +31,7 @@ class BusinessReport extends Page implements HasForms
 
     public static function getNavigationLabel(): string
     {
-        return __('accounting.report.navigation_label');
+        return __('accounting.report.navigation_business_label');
     }
 
     public function getTitle(): string
@@ -248,12 +249,30 @@ class BusinessReport extends Page implements HasForms
                         ->label(__('accounting.report.month'))
                         ->options(array_combine(range(1, 12), array_map(fn($m) => "Tháng " . str_pad($m, 2, '0', STR_PAD_LEFT), range(1, 12))))
                         ->default(now()->subMonth()->month)
-                        ->required(),
+                        ->required()
+                        ->extraInputAttributes(['required' => false])
+                        ->validationMessages([
+                            'required' => __('common.error.required'),
+                        ]),
                     TextInput::make('year')
                         ->label(__('accounting.report.year'))
                         ->numeric()
                         ->default(now()->year)
-                        ->required(),
+                        ->required()
+                        ->extraInputAttributes([
+                            'type' => 'text',
+                            'inputmode' => 'numeric',
+                            'required' => false,
+                            'min' => null,
+                            'max' => null,
+                            'step' => null,
+                        ])
+                        ->validationMessages([
+                            'required' => __('common.error.required'),
+                            'numeric' => __('common.error.numeric'),
+                            'min' => __('common.error.min_value', ['min' => 1800]),
+                            'max' => __('common.error.max_value', ['max' => now()->year]),
+                        ]),
                     Textarea::make('note')
                         ->label(__('accounting.report.note'))
                         ->placeholder(__('accounting.report.note_placeholder'))
@@ -273,15 +292,35 @@ class BusinessReport extends Page implements HasForms
                         return;
                     }
 
-                    // Perform closing
-                    AccountingPeriod::create([
-                        'organization_id' => $organizationId,
-                        'month' => $month,
-                        'year' => $year,
-                        'closed_at' => now(),
-                        'closed_by' => Auth::id(),
-                        'note' => $data['note'],
-                    ]);
+                    try {
+                        $period = AccountingPeriod::firstOrNew([
+                            'organization_id' => $organizationId,
+                            'month' => $month,
+                            'year' => $year,
+                        ]);
+
+                        if ($period->closed_at) {
+                            Notification::make()
+                                ->warning()
+                                ->title(__('accounting.report.period_locked'))
+                                ->send();
+                            return;
+                        }
+
+                        $period->fill([
+                            'closed_at' => now(),
+                            'closed_by' => Auth::id(),
+                            'note' => $data['note'],
+                        ]);
+
+                        $period->save();
+                    } catch (UniqueConstraintViolationException) {
+                        Notification::make()
+                            ->warning()
+                            ->title(__('accounting.report.period_locked'))
+                            ->send();
+                        return;
+                    }
 
                     Notification::make()
                         ->success()
@@ -309,4 +348,3 @@ class BusinessReport extends Page implements HasForms
         return __('filament.navigation.unit_accounting');
     }
 }
-

@@ -141,6 +141,14 @@ return [
         'basic_info' => 'Thông tin doanh thu',
         'created' => 'Tạo doanh thu thành công',
         'create_failed' => 'Tạo doanh thu thất bại',
+        'summary_widget' => [
+            'total_revenue_month' => 'Tổng doanh thu tháng này',
+            'total_revenue_month_desc' => 'Bao gồm đơn hàng và doanh thu khác',
+            'order_revenue' => 'Doanh thu từ đơn hàng',
+            'order_revenue_desc' => 'Chỉ tính các đơn hàng đã hoàn thành',
+            'other_revenue' => 'Doanh thu khác',
+            'other_revenue_desc' => 'Các nguồn thu nhập ngoài đơn hàng',
+        ],
     ],
     'accounting_period' => [
         'label' => 'Kỳ kế toán',
@@ -434,6 +442,7 @@ return [
     ],
     'report' => [
         'navigation_label' => 'Báo cáo',
+        'navigation_business_label' => 'Báo cáo kinh doanh',
         'title' => 'Báo cáo kinh doanh',
         'filter_section' => 'Lọc báo cáo',
         'from_date' => 'Từ ngày',
