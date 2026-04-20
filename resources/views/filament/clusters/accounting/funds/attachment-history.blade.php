@@ -76,12 +76,14 @@
                         @php
                             $extension = strtolower(pathinfo($item->file_path, PATHINFO_EXTENSION));
                             $isImage = in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg']);
+                            $viewUrl = route('fund-transaction-attachments.show', ['attachment' => $item->id]);
+                            $downloadUrl = route('fund-transaction-attachments.download', ['attachment' => $item->id]);
                         @endphp
 
                         @if($isImage)
                             <div class="relative w-full md:w-40 aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 group/img shadow-inner">
-                                <a href="{{ asset('storage/' . $item->file_path) }}" target="_blank" class="block w-full h-full">
-                                    <img src="{{ asset('storage/' . $item->file_path) }}" 
+                                <a href="{{ $viewUrl }}" target="_blank" class="block w-full h-full">
+                                    <img src="{{ $viewUrl }}" 
                                          alt="{{ $item->original_name }}" 
                                          class="w-full h-full object-cover transition-transform duration-700 group-hover/img:scale-110"
                                     >
@@ -112,7 +114,7 @@
                             </div>
 
                             <div class="flex gap-3 mt-4">
-                                 <a href="{{ asset('storage/' . $item->file_path) }}" 
+                                 <a href="{{ $viewUrl }}" 
                                    target="_blank" 
                                    class="inline-flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 text-xs font-bold rounded-xl shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-blue-300 transition-all active:scale-95"
                                 >
@@ -120,7 +122,7 @@
                                     {{ __('common.action.view') }}
                                 </a>
                                 
-                                <a href="{{ asset('storage/' . $item->file_path) }}" 
+                                <a href="{{ $downloadUrl }}" 
                                    download="{{ $item->original_name }}"
                                    class="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-xs font-bold rounded-xl shadow-md hover:bg-blue-700 hover:shadow-lg transition-all active:scale-95 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                                 >

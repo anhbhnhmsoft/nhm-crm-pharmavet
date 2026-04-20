@@ -26,7 +26,11 @@ class ExchangeRateForm
                         ->required()
                         ->default(now())
                         ->native(false)
-                        ->displayFormat('d/m/Y'),
+                        ->displayFormat('d/m/Y')
+                        ->extraInputAttributes(['required' => false])
+                        ->validationMessages([
+                            'required' => __('common.error.required'),
+                        ]),
 
                     Select::make('from_currency')
                         ->label(__('accounting.exchange_rate.from_currency'))
@@ -36,7 +40,12 @@ class ExchangeRateForm
                             CurrencyCode::GBP,
                         ]))
                         ->default(CurrencyCode::USD->value)
-                        ->required(),
+                        ->required()
+                        ->native(false)
+                        ->extraInputAttributes(['required' => false])
+                        ->validationMessages([
+                            'required' => __('common.error.required'),
+                        ]),
 
                     Select::make('to_currency')
                         ->label(__('accounting.exchange_rate.to_currency'))
@@ -51,19 +60,35 @@ class ExchangeRateForm
                             CurrencyCode::AUD,
                         ]))
                         ->default(CurrencyCode::VND->value)
-                        ->required(),
+                        ->required()
+                        ->native(false)
+                        ->extraInputAttributes(['required' => false])
+                        ->validationMessages([
+                            'required' => __('common.error.required'),
+                        ]),
 
                     TextInput::make('rate')
                         ->label(__('accounting.exchange_rate.rate'))
-                        ->numeric()
-                        ->minValue(0)
+                        ->rule('numeric')
+                        ->minValue(0.000001)
                         ->maxValue(self::MAX_RATE)
                         ->step(0.000001)
                         ->required()
+                        ->validationAttribute(__('accounting.exchange_rate.rate'))
+                        ->extraInputAttributes([
+                            'type' => 'text',
+                            'inputmode' => 'decimal',
+                            'required' => false,
+                            'min' => null,
+                            'max' => null,
+                            'step' => null,
+                        ])
                         ->helperText(__('accounting.exchange_rate.rate_help'))
                         ->validationMessages([
-                            'max_value' => __('accounting.exchange_rate.rate_max_error'),
+                            'required' => __('common.error.required'),
                             'numeric' => __('accounting.exchange_rate.rate_numeric_error'),
+                            'min' => __('common.error.min_value', ['min' => 0.000001]),
+                            'max' => __('accounting.exchange_rate.rate_max_error'),
                         ]),
                 ]),
 
@@ -76,7 +101,12 @@ class ExchangeRateForm
                             'api' => __('accounting.exchange_rate.source_api'),
                         ])
                         ->default('manual')
-                        ->required(),
+                        ->required()
+                        ->native(false)
+                        ->extraInputAttributes(['required' => false])
+                        ->validationMessages([
+                            'required' => __('common.error.required'),
+                        ]),
 
                     Textarea::make('note')
                         ->label(__('accounting.exchange_rate.note'))

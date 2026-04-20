@@ -82,9 +82,6 @@ class ListExchangeRates extends ListRecords
                         }),
                 ])
                 ->extraModalFooterActions(fn (Action $action): array => [
-                    $action->makeModalSubmitAction('keep_manual_rate', arguments: ['overwrite_manual' => false])
-                        ->label(__('accounting.exchange_rate.keep_manual'))
-                        ->color('gray'),
                     $action->makeModalSubmitAction('overwrite_manual_rate', arguments: ['overwrite_manual' => true])
                         ->label(__('accounting.exchange_rate.overwrite_manual'))
                         ->color('danger'),

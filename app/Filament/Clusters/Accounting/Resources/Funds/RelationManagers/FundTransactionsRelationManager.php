@@ -45,40 +45,91 @@ class FundTransactionsRelationManager extends RelationManager
                 DatePicker::make('transaction_date')
                     ->label(__('accounting.fund_transaction.transaction_date'))
                     ->default(now()->toDateString())
-                    ->required(),
+                    ->required()
+                    ->extraInputAttributes(['required' => false])
+                    ->native(false)
+                    ->displayFormat('d/m/Y')
+                    ->validationMessages([
+                        'required' => __('common.error.required'),
+                    ]),
                 Select::make('type')
                     ->label(__('accounting.fund_transaction.type'))
                     ->options([
                         FundTransactionType::DEPOSIT->value => __('accounting.fund_transaction.types.in'),
                         FundTransactionType::WITHDRAW->value => __('accounting.fund_transaction.types.out'),
                     ])
-                    ->required(),
+                    ->required()
+                    ->extraInputAttributes(['required' => false])
+                    ->validationMessages([
+                        'required' => __('common.error.required'),
+                    ]),
                 TextInput::make('counterparty_name')
                     ->label(__('accounting.fund_transaction.counterparty_name'))
-                    ->required(),
+                    ->required()
+                    ->extraInputAttributes(['required' => false])
+                    ->validationMessages([
+                        'required' => __('common.error.required'),
+                    ]),
                 TextInput::make('amount')
                     ->label(__('accounting.fund_transaction.amount'))
                     ->numeric()
                     ->required()
+                    ->extraInputAttributes([
+                        'type' => 'text',
+                        'inputmode' => 'decimal',
+                        'required' => false,
+                        'min' => null,
+                        'max' => null,
+                        'step' => null,
+                    ])
                     ->minValue(0.01)
                     ->maxValue(999999999999999.99)
-                    ->validationAttribute(__('accounting.fund_transaction.amount')),
+                    ->validationAttribute(__('accounting.fund_transaction.amount'))
+                    ->validationMessages([
+                        'required' => __('common.error.required'),
+                        'numeric' => __('common.error.numeric'),
+                        'min' => __('common.error.min_value', ['min' => 0.01]),
+                        'max' => __('common.error.max_value', ['max' => 999999999999999.99]),
+                    ]),
                 Select::make('currency')
                     ->label(__('accounting.fund_transaction.currency'))
                     ->options(fn () => \App\Models\Currency::query()->orderBy('code')->pluck('code', 'code')->toArray())
                     ->default('VND')
                     ->searchable()
-                    ->required(),
+                    ->required()
+                    ->extraInputAttributes(['required' => false])
+                    ->validationMessages([
+                        'required' => __('common.error.required'),
+                    ]),
                 TextInput::make('exchange_rate')
                     ->label(__('accounting.fund_transaction.exchange_rate'))
                     ->numeric()
+                    ->extraInputAttributes([
+                        'type' => 'text',
+                        'inputmode' => 'decimal',
+                        'required' => false,
+                        'min' => null,
+                        'max' => null,
+                        'step' => null,
+                    ])
+                    ->validationMessages([
+                        'numeric' => __('common.error.numeric'),
+                    ])
                     ->visible(fn ($get) => (string) $get('currency') !== 'VND'),
                 TextInput::make('purpose')
                     ->label(__('accounting.fund_transaction.purpose'))
-                    ->required(),
+                    ->required()
+                    ->extraInputAttributes(['required' => false])
+                    ->validationMessages([
+                        'required' => __('common.error.required'),
+                    ]),
                 TextInput::make('description')
                     ->label(__('accounting.fund_transaction.description'))
-                    ->required(),
+                    ->required()
+                    ->extraInputAttributes(['required' => false])
+                    ->validationMessages([
+                        'required' => __('common.error.required'),
+                    ]),
                 Textarea::make('note')
                     ->label(__('accounting.fund_transaction.note'))
                     ->rows(2),
@@ -145,48 +196,82 @@ class FundTransactionsRelationManager extends RelationManager
                 CreateAction::make()
                     ->label(__('accounting.fund_transaction.actions.create'))
                     ->modalHeading(__('accounting.fund_transaction.actions.create'))
-                    ->visible(fn () => !$this->getOwnerRecord()->is_locked)
-                    ->action(function (array $data, FundService $service) {
+                    ->visible(fn () => $this->canPerformFundAction(FundLockAction::ADD))
+                    ->action(function (CreateAction $action, array $data, FundService $service) {
                         $result = $service->createTransaction($this->getOwnerRecord(), $data, Auth::user());
 
                         if ($result->isError()) {
                             Notification::make()->title($result->getMessage())->danger()->send();
-                            return;
+                            $action->halt();
                         }
                     })
                     ->after(fn () => redirect(request()->header('Referer'))),
                 Action::make('configureLockRule')
                     ->label(__('accounting.fund_lock.configure'))
                     ->icon('heroicon-o-lock-closed')
+                    ->modalHeading(__('accounting.fund_lock.configure'))
+                    ->modalSubmitActionLabel(__('common.action.save'))
+                    ->modalCancelActionLabel(__('common.action.cancel'))
                     ->form([
-                        Select::make('action')
+                        Select::make('actions')
                             ->label(__('accounting.fund_lock.action'))
                             ->options(FundLockAction::options())
-                            ->required(),
+                            ->multiple()
+                            ->minItems(1)
+                            ->native(false)
+                            ->placeholder(__('accounting.fund_lock.placeholders.actions'))
+                            ->required()
+                            ->extraInputAttributes(['required' => false])
+                            ->validationMessages([
+                                'required' => __('common.error.required'),
+                                'min' => __('common.error.min_items', ['min' => 1]),
+                            ]),
                         Select::make('scope_type')
                             ->label(__('accounting.fund_lock.scope'))
                             ->options(FundLockScope::options())
+                            ->native(false)
+                            ->placeholder(__('accounting.fund_lock.placeholders.scope'))
                             ->live()
-                            ->required(),
+                            ->required()
+                            ->extraInputAttributes(['required' => false])
+                            ->validationMessages([
+                                'required' => __('common.error.required'),
+                            ]),
                         Select::make('user_ids')
                             ->label(__('accounting.fund_lock.users'))
                             ->multiple()
+                            ->minItems(1)
+                            ->native(false)
+                            ->placeholder(__('accounting.fund_lock.placeholders.users'))
                             ->options(fn () => User::query()
                                 ->where('organization_id', $this->getOwnerRecord()->organization_id)
                                 ->orderBy('name')
                                 ->pluck('name', 'id')
                                 ->toArray())
                             ->searchable()
+                            ->required(fn ($get) => $get('scope_type') === FundLockScope::USER->value)
+                            ->validationMessages([
+                                'required' => __('common.error.required'),
+                                'min' => __('common.error.min_items', ['min' => 1]),
+                            ])
                             ->visible(fn ($get) => $get('scope_type') === FundLockScope::USER->value),
                         Select::make('team_ids')
                             ->label(__('accounting.fund_lock.teams'))
                             ->multiple()
+                            ->minItems(1)
+                            ->native(false)
+                            ->placeholder(__('accounting.fund_lock.placeholders.teams'))
                             ->options(fn () => Team::query()
                                 ->where('organization_id', $this->getOwnerRecord()->organization_id)
                                 ->orderBy('name')
                                 ->pluck('name', 'id')
                                 ->toArray())
                             ->searchable()
+                            ->required(fn ($get) => $get('scope_type') === FundLockScope::TEAM->value)
+                            ->validationMessages([
+                                'required' => __('common.error.required'),
+                                'min' => __('common.error.min_items', ['min' => 1]),
+                            ])
                             ->visible(fn ($get) => $get('scope_type') === FundLockScope::TEAM->value),
                         Select::make('is_locked')
                             ->label(__('accounting.fund_lock.status'))
@@ -194,43 +279,51 @@ class FundTransactionsRelationManager extends RelationManager
                                 1 => __('accounting.fund_lock.locked'),
                                 0 => __('accounting.fund_lock.unlocked'),
                             ])
+                            ->native(false)
+                            ->placeholder(__('accounting.fund_lock.placeholders.status'))
                             ->default(1)
-                            ->required(),
+                            ->required()
+                            ->extraInputAttributes(['required' => false])
+                            ->validationMessages([
+                                'required' => __('common.error.required'),
+                            ]),
                     ])
-                    ->action(function (array $data, FundService $service) {
+                    ->action(function (Action $action, array $data, FundService $service) {
                         $result = $service->upsertLockRule($this->getOwnerRecord(), $data, Auth::user());
                         if ($result->isError()) {
                             Notification::make()->title($result->getMessage())->danger()->send();
-                            return;
+                            $action->halt();
                         }
                     }),
             ])
             ->actions([
                 EditAction::make()
-                    ->action(function (array $data, FundTransaction $record, FundService $service) {
+                    ->hidden(fn () => !$this->canPerformFundAction(FundLockAction::EDIT))
+                    ->action(function (EditAction $action, array $data, FundTransaction $record, FundService $service) {
                         if (!$service->canPerformAction($this->getOwnerRecord(), Auth::user(), FundLockAction::EDIT)) {
                             Notification::make()->title($service->getDeniedMessage(FundLockAction::EDIT))->danger()->send();
-                            return;
+                            $action->halt();
                         }
 
                         $result = $service->updateTransaction($record, $data, Auth::user());
 
                         if ($result->isError()) {
                             Notification::make()->title($result->getMessage())->danger()->send();
-                            return;
+                            $action->halt();
                         }
                     })
                     ->after(fn () => redirect(request()->header('Referer'))),
                 DeleteAction::make()
-                    ->action(function (FundTransaction $record, FundService $service) {
+                    ->hidden(fn () => !$this->canPerformFundAction(FundLockAction::DELETE))
+                    ->action(function (DeleteAction $action, FundTransaction $record, FundService $service) {
                         if (!$service->canPerformAction($this->getOwnerRecord(), Auth::user(), FundLockAction::DELETE)) {
                             Notification::make()->title($service->getDeniedMessage(FundLockAction::DELETE))->danger()->send();
-                            return;
+                            $action->halt();
                         }
                         $result = $service->deleteTransaction($record, Auth::user());
                         if ($result->isError()) {
                             Notification::make()->title($result->getMessage())->danger()->send();
-                            return;
+                            $action->halt();
                         }
                     })
                     ->after(fn () => redirect(request()->header('Referer'))),
@@ -250,5 +343,16 @@ class FundTransactionsRelationManager extends RelationManager
             ->emptyStateHeading(__('accounting.fund_transaction.notifications.empty_state_title'))
             ->emptyStateDescription(__('accounting.fund_transaction.notifications.empty_state_description'))
             ->defaultSort('transaction_date', 'desc');
+    }
+
+    protected function canPerformFundAction(FundLockAction $action): bool
+    {
+        $user = Auth::user();
+
+        if (!$user) {
+            return false;
+        }
+
+        return app(FundService::class)->canPerformAction($this->getOwnerRecord(), $user, $action);
     }
 }

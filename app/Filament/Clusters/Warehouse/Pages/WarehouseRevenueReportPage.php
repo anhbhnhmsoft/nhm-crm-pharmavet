@@ -3,8 +3,10 @@
 namespace App\Filament\Clusters\Warehouse\Pages;
 
 use App\Common\Constants\Order\OrderStatus;
+use App\Exports\SimpleArrayExport;
 use App\Models\Order;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -12,6 +14,7 @@ use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Auth;
+use Maatwebsite\Excel\Facades\Excel;
 
 class WarehouseRevenueReportPage extends Page implements HasForms
 {
@@ -63,8 +66,26 @@ class WarehouseRevenueReportPage extends Page implements HasForms
             ->schema([
                 Section::make(__('warehouse.reports.filters'))
                     ->schema([
-                        DatePicker::make('from_date')->label(__('warehouse.order.form.from_date'))->required(),
-                        DatePicker::make('to_date')->label(__('warehouse.order.form.to_date'))->required()->afterOrEqual('from_date'),
+                        DatePicker::make('from_date')
+                            ->label(__('warehouse.order.form.from_date'))
+                            ->required()
+                            ->native(false)
+                            ->displayFormat('d/m/Y')
+                            ->extraInputAttributes(['required' => false])
+                            ->validationMessages([
+                                'required' => __('common.error.required'),
+                            ]),
+                        DatePicker::make('to_date')
+                            ->label(__('warehouse.order.form.to_date'))
+                            ->required()
+                            ->native(false)
+                            ->displayFormat('d/m/Y')
+                            ->afterOrEqual('from_date')
+                            ->extraInputAttributes(['required' => false])
+                            ->validationMessages([
+                                'required' => __('common.error.required'),
+                                'after_or_equal' => __('common.error.date_after', ['date' => __('warehouse.order.form.from_date')]),
+                            ]),
                     ])
                     ->columns(2),
             ])
@@ -73,9 +94,9 @@ class WarehouseRevenueReportPage extends Page implements HasForms
 
     public function generateReport(): void
     {
-        $state = $this->form->getState();
-        $from = ($state['from_date'] ?? now()->startOfMonth()->toDateString()) . ' 00:00:00';
-        $to = ($state['to_date'] ?? now()->toDateString()) . ' 23:59:59';
+        $filters = $this->validateAndBuildFilters();
+        $from = $filters['from_date'] . ' 00:00:00';
+        $to = $filters['to_date'] . ' 23:59:59';
 
         $query = Order::query()
             ->join('warehouses', 'warehouses.id', '=', 'orders.warehouse_id')
@@ -93,5 +114,61 @@ class WarehouseRevenueReportPage extends Page implements HasForms
             'total_orders' => (int) $row->total_orders,
             'total_revenue' => (float) $row->total_revenue,
         ])->toArray();
+    }
+
+    public function exportExcel()
+    {
+        $this->generateReport();
+
+        return Excel::download(
+            new SimpleArrayExport(
+                [
+                    __('warehouse.form.name'),
+                    __('warehouse.reports.total_orders'),
+                    __('warehouse.reports.total_revenue'),
+                ],
+                collect($this->rows)->map(fn (array $row) => [
+                    $row['warehouse_name'] ?? '',
+                    (int) ($row['total_orders'] ?? 0),
+                    (float) ($row['total_revenue'] ?? 0),
+                ])->all()
+            ),
+            'warehouse-revenue-report-' . now()->format('YmdHis') . '.xlsx'
+        );
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('export_excel')
+                ->label(__('warehouse.reports.export_excel'))
+                ->icon('heroicon-o-arrow-down-tray')
+                ->action('exportExcel'),
+        ];
+    }
+
+    protected function validateAndBuildFilters(): array
+    {
+        $validated = validator(
+            $this->data,
+            [
+                'from_date' => ['bail', 'required', 'date'],
+                'to_date' => ['bail', 'required', 'date', 'after_or_equal:from_date'],
+            ],
+            [
+                'from_date.required' => __('common.error.required'),
+                'to_date.required' => __('common.error.required'),
+                'to_date.after_or_equal' => __('common.error.date_after', ['date' => __('warehouse.order.form.from_date')]),
+            ],
+            [
+                'from_date' => __('warehouse.order.form.from_date'),
+                'to_date' => __('warehouse.order.form.to_date'),
+            ]
+        )->validate();
+
+        return [
+            'from_date' => (string) $validated['from_date'],
+            'to_date' => (string) $validated['to_date'],
+        ];
     }
 }

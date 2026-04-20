@@ -19,7 +19,7 @@ class StoreExchangeRateRequest extends FormRequest
             'rate_date' => ['required', 'date'],
             'from_currency' => ['required', 'string', 'size:3'],
             'to_currency' => ['required', 'string', 'size:3'],
-            'rate' => ['required', 'numeric', 'min:0', 'lte:' . self::MAX_RATE],
+            'rate' => ['required', 'numeric', 'min:0.000001', 'lte:' . self::MAX_RATE],
             'source' => ['nullable', 'string', 'in:manual,api'],
             'note' => ['nullable', 'string'],
         ];
@@ -28,8 +28,10 @@ class StoreExchangeRateRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'rate.required' => __('common.error.required'),
             'rate.lte' => __('accounting.exchange_rate.rate_max_error'),
             'rate.numeric' => __('accounting.exchange_rate.rate_numeric_error'),
+            'rate.min' => __('common.error.min_value', ['min' => 0.000001]),
         ];
     }
 }

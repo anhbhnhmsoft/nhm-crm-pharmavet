@@ -4,6 +4,7 @@ namespace App\Filament\Clusters\Accounting\Resources\Expenses\Schemas;
 
 use App\Common\Constants\Accounting\ExpenseCategory;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\FileUpload;
 use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;

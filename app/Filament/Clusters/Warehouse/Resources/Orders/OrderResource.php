@@ -2,6 +2,8 @@
 
 namespace App\Filament\Clusters\Warehouse\Resources\Orders;
 
+use App\Filament\Clusters\Warehouse\Resources\Orders\Pages\ViewOrder;
+use App\Filament\Clusters\Warehouse\Resources\Orders\RelationManagers\OrderStatusLogsRelationManager;
 use App\Filament\Clusters\Warehouse\Resources\Orders\Pages\CreateOrder;
 use App\Filament\Clusters\Warehouse\Resources\Orders\Pages\EditOrder;
 use App\Filament\Clusters\Warehouse\Resources\Orders\Pages\ListOrders;
@@ -58,7 +60,7 @@ class OrderResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            OrderStatusLogsRelationManager::class,
         ];
     }
 
@@ -67,6 +69,7 @@ class OrderResource extends Resource
         return [
             'index' => ListOrders::route('/'),
             'create' => CreateOrder::route('/create'),
+            'view' => ViewOrder::route('/{record}'),
             'edit' => EditOrder::route('/{record}/edit'),
         ];
     }

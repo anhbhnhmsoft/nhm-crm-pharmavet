@@ -31,7 +31,7 @@ class Fund extends Model
         return $this->belongsTo(Organization::class);
     }
 
-    public function transactions()
+    public function transactions(): HasMany
     {
         return $this->hasMany(FundTransaction::class);
     }
@@ -48,6 +48,6 @@ class Fund extends Model
 
     public function hasTransactions(): bool
     {
-        return $this->transactions()->exists();
+        return $this->transactions()->withTrashed()->exists();
     }
 }

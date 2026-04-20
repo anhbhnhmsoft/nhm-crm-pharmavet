@@ -91,13 +91,15 @@ class FundsTable
                             ->send();
                     }),
                 DeleteAction::make()
-                    ->disabled(fn (Fund $record) => $record->hasTransactions())
-                    ->action(function (Fund $record, FundService $service) {
+                    ->hidden(fn (Fund $record) => $record->hasTransactions())
+                    ->action(function (DeleteAction $action, Fund $record, FundService $service) {
                         $result = $service->deleteFund($record);
+
                         if ($result->isError()) {
                             Notification::make()->title($result->getMessage())->danger()->send();
-                            return;
+                            $action->halt();
                         }
+
                         Notification::make()->title(__('common.notification.success'))->success()->send();
                     }),
             ]);

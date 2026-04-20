@@ -3,18 +3,22 @@
 namespace App\Filament\Clusters\Warehouse\Resources\InventoryTickets\Pages;
 
 use App\Common\Constants\Warehouse\StatusTicket;
+use App\Exports\SimpleArrayExport;
 use App\Filament\Clusters\Warehouse\Resources\InventoryTickets\InventoryTicketResource;
 use App\Services\Warehouse\InventoryMovementService;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\RestoreAction;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Services\Warehouse\InventoryTicketExcelService;
 
 class EditInventoryTicket extends EditRecord
 {
@@ -23,6 +27,85 @@ class EditInventoryTicket extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('download_detail_template')
+                ->label(__('warehouse.ticket.excel.download_template'))
+                ->icon('heroicon-o-document-arrow-down')
+                ->color('gray')
+                ->visible(fn() => $this->record->status === StatusTicket::DRAFT->value)
+                ->action(function (InventoryTicketExcelService $service) {
+                    return Excel::download(
+                        new SimpleArrayExport($service->templateHeadings(), $service->templateRows()),
+                        'inventory-ticket-lines-template.xlsx'
+                    );
+                }),
+            Action::make('export_detail_lines')
+                ->label(__('warehouse.ticket.excel.export'))
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('success')
+                ->action(function (InventoryTicketExcelService $service) {
+                    $state = $this->form->getState();
+                    $details = $state['details'] ?? [];
+
+                    if ($details === []) {
+                        Notification::make()
+                            ->warning()
+                            ->title(__('warehouse.ticket.excel.errors.no_details_to_export'))
+                            ->send();
+
+                        return null;
+                    }
+
+                    return Excel::download(
+                        new SimpleArrayExport($service->exportHeadings(), $service->buildExportRows($details)),
+                        'inventory-ticket-lines-' . now()->format('YmdHis') . '.xlsx'
+                    );
+                }),
+            Action::make('import_detail_lines')
+                ->label(__('warehouse.ticket.excel.import'))
+                ->icon('heroicon-o-arrow-up-tray')
+                ->color('info')
+                ->visible(fn() => $this->record->status === StatusTicket::DRAFT->value)
+                ->form([
+                    FileUpload::make('file')
+                        ->label(__('warehouse.ticket.excel.file'))
+                        ->required()
+                        ->acceptedFileTypes([
+                            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                            'application/vnd.ms-excel',
+                        ]),
+                ])
+                ->action(function (array $data, InventoryTicketExcelService $service) {
+                    try {
+                        if ((int) $this->record->status !== StatusTicket::DRAFT->value) {
+                            Notification::make()
+                                ->danger()
+                                ->title(__('warehouse.ticket.excel.errors.import_completed_ticket'))
+                                ->send();
+
+                            return;
+                        }
+
+                        $state = $this->form->getState();
+                        $state['details'] = $service->importRows(
+                            $data['file'],
+                            $state,
+                            (int) Auth::user()->organization_id,
+                        );
+
+                        $this->form->fill($state);
+
+                        Notification::make()
+                            ->success()
+                            ->title(__('warehouse.ticket.excel.import_success'))
+                            ->send();
+                    } catch (\Throwable $exception) {
+                        Notification::make()
+                            ->danger()
+                            ->title(__('warehouse.ticket.excel.import_failed'))
+                            ->body($exception->getMessage())
+                            ->send();
+                    }
+                }),
             Action::make('approve')
                 ->label(__('warehouse.ticket.action.approve'))
                 ->icon('heroicon-o-check-circle')
@@ -137,6 +220,16 @@ class EditInventoryTicket extends EditRecord
             return $record;
         }
 
+        $originalSnapshot = [
+            'type' => $record->type,
+            'status' => $record->status,
+            'warehouse_id' => $record->warehouse_id,
+            'source_warehouse_id' => $record->source_warehouse_id,
+            'target_warehouse_id' => $record->target_warehouse_id,
+            'note' => $record->note,
+            'details_count' => $record->details()->count(),
+        ];
+
         // Extract details data
         $details = $data['details'] ?? [];
         unset($data['details']);
@@ -161,6 +254,28 @@ class EditInventoryTicket extends EditRecord
                 ]);
             }
         }
+
+        $record->logs()->create([
+            'action' => 'update',
+            'note' => $record->note,
+            'old_status' => $originalSnapshot['status'],
+            'new_status' => $record->status,
+            'metadata_json' => [
+                'before' => $originalSnapshot,
+                'after' => [
+                    'type' => $record->type,
+                    'status' => $record->status,
+                    'warehouse_id' => $record->warehouse_id,
+                    'source_warehouse_id' => $record->source_warehouse_id,
+                    'target_warehouse_id' => $record->target_warehouse_id,
+                    'note' => $record->note,
+                    'details_count' => count($details),
+                ],
+            ],
+            'user_id' => Auth::id(),
+            'created_by' => Auth::id(),
+            'updated_by' => Auth::id(),
+        ]);
 
         return $record;
     }

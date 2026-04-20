@@ -4,6 +4,7 @@ use App\Http\Controllers\ActivityController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\FacebookWebhookController;
 use App\Http\Controllers\FacebookAuthController;
+use App\Http\Controllers\FundTransactionAttachmentController;
 use App\Http\Controllers\GHNWebhookController;
 use App\Http\Controllers\MarketingSpendAttachmentController;
 use App\Http\Controllers\OrderShippingController;
@@ -23,6 +24,12 @@ Route::middleware(['auth:web'])->group(function () {
 
     Route::get('/marketing/spend-attachments/{attachment}/download', [MarketingSpendAttachmentController::class, 'download'])
         ->name('marketing.spend-attachments.download');
+
+    Route::get('/fund-transaction-attachments/{attachment}', [FundTransactionAttachmentController::class, 'show'])
+        ->name('fund-transaction-attachments.show');
+
+    Route::get('/fund-transaction-attachments/{attachment}/download', [FundTransactionAttachmentController::class, 'download'])
+        ->name('fund-transaction-attachments.download');
 });
 
 Route::middleware(['web', 'auth:web'])->prefix('integration/facebook')->group(function () {
