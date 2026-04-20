@@ -2,6 +2,7 @@
 
 namespace App\Filament\Clusters\Product\Resources\Products\Schemas;
 
+use App\Models\CategoryProduct;
 use App\Models\User;
 use App\Models\Team;
 use App\Utils\Helper;
@@ -121,8 +122,8 @@ class ProductForm
                                 'max' => __('common.error.max_length', ['max' => 100]),
                             ]),
 
-                        TextInput::make('barcode')
-                            ->label(__('filament.product.barcode'))
+	                        TextInput::make('barcode')
+	                            ->label(__('filament.product.barcode'))
                             ->unique(ignoreRecord: true)
                             ->minLength(8)
                             ->maxLength(100)
@@ -138,12 +139,26 @@ class ProductForm
                                     })
                             )
                             ->helperText(__('filament.product.barcode_helper'))
-                            ->validationMessages([
-                                'unique' => __('common.error.unique'),
-                                'min' => __('common.error.min_length', ['min' => 8]),
-                                'max' => __('common.error.max_length', ['max' => 100]),
-                            ]),
-                    ]),
+	                            ->validationMessages([
+	                                'unique' => __('common.error.unique'),
+	                                'min' => __('common.error.min_length', ['min' => 8]),
+	                                'max' => __('common.error.max_length', ['max' => 100]),
+	                            ]),
+
+	                        Select::make('category_product_id')
+	                            ->label(__('filament.product.category'))
+	                            ->options(fn() => CategoryProduct::query()
+	                                ->orderBy('id')
+	                                ->get()
+	                                ->mapWithKeys(fn(CategoryProduct $category) => [
+	                                    $category->id => $category->display_name,
+	                                ])
+	                                ->all())
+	                            ->searchable()
+	                            ->preload()
+	                            ->native(false)
+	                            ->placeholder(__('filament.product.select_category_placeholder')),
+	                    ]),
 
                 Grid::make(3)
                     ->schema([

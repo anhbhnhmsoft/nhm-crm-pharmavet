@@ -6,6 +6,7 @@ use App\Common\Constants\Team\TeamType;
 use App\Core\GenerateId\GenerateIdSnowflake;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -15,6 +16,7 @@ class Product extends Model
 
     protected $fillable = [
         'organization_id',
+        'category_product_id',
         'name',
         'sku',
         'unit',
@@ -45,6 +47,11 @@ class Product extends Model
     public function organization()
     {
         return $this->belongsTo(Organization::class);
+    }
+
+    public function categoryProduct(): BelongsTo
+    {
+        return $this->belongsTo(CategoryProduct::class);
     }
 
     public function attributes()
