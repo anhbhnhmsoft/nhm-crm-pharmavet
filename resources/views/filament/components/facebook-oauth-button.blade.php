@@ -51,7 +51,6 @@ if ((int) $statusValue === IntegrationStatus::CONNECTED->value) {
     syncing: false,
     apiToken: @js($apiToken ?? null),
     facebookAppId: @js($facebookAppId ?? null),
-    oauthWindow: null,
     checkInterval: null,
 
     init() {
@@ -79,6 +78,16 @@ if ((int) $statusValue === IntegrationStatus::CONNECTED->value) {
         script.crossOrigin = 'anonymous';
         script.src = 'https://connect.facebook.net/vi_VN/sdk.js';
         document.head.appendChild(script);
+    },
+
+    getOauthWindow() {
+        return this.$el?._facebookOauthWindow ?? null;
+    },
+
+    setOauthWindow(popupWindow) {
+        if (this.$el) {
+            this.$el._facebookOauthWindow = popupWindow;
+        }
     },
 
     connectFacebook() {
@@ -143,21 +152,33 @@ if ((int) $statusValue === IntegrationStatus::CONNECTED->value) {
         const top = (screen.height / 2) - (height / 2);
         const url = `/integration/facebook/${this.recordId}/redirect?popup=1`;
 
-        this.oauthWindow = window.open(
+        const popupWindow = window.open(
             url,
             'FacebookOAuth',
             `width=${width},height=${height},left=${left},top=${top},toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes`
         );
 
-        if (!this.oauthWindow || this.oauthWindow.closed || typeof this.oauthWindow.closed === 'undefined') {
+        this.setOauthWindow(popupWindow);
+
+        if (!popupWindow || popupWindow.closed || typeof popupWindow.closed === 'undefined') {
             this.connecting = false;
             this.notify('danger', '{{ __('filament.integration.notifications.popup_blocked.title') }}', '{{ __('filament.integration.notifications.popup_blocked.body') }}');
             return;
         }
 
         this.checkInterval = setInterval(() => {
-            if (this.oauthWindow && this.oauthWindow.closed) {
-                this.handlePopupClosed();
+            const currentPopupWindow = this.getOauthWindow();
+
+            if (!currentPopupWindow) {
+                return;
+            }
+
+            try {
+                if (currentPopupWindow.closed) {
+                    this.handlePopupClosed();
+                }
+            } catch (error) {
+                // Cross-origin popup can temporarily throw while redirecting; wait for next poll.
             }
         }, 1000);
     },
@@ -211,7 +232,19 @@ if ((int) $statusValue === IntegrationStatus::CONNECTED->value) {
             this.checkInterval = null;
         }
 
-        this.oauthWindow = null;
+        const currentPopupWindow = this.getOauthWindow();
+
+        if (currentPopupWindow) {
+            try {
+                if (!currentPopupWindow.closed) {
+                    currentPopupWindow.close();
+                }
+            } catch (error) {
+                // Ignore cross-origin close issues.
+            }
+        }
+
+        this.setOauthWindow(null);
     },
 
     async syncPages() {
