@@ -36,7 +36,7 @@ if ((int) $statusValue === IntegrationStatus::CONNECTED->value) {
 }
 @endphp
 
-@vite(['resources/css/app.css'])
+@vite(['resources/css/app.css','resources/js/app.js'])
 
 <div
     wire:ignore
