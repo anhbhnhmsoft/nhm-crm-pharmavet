@@ -5,9 +5,11 @@ namespace App\Services;
 use App\Common\Constants\Accounting\ExpenseCategory;
 use App\Core\Logging;
 use App\Core\ServiceReturn;
+use App\Models\Expense;
 use App\Models\Order;
 use App\Repositories\ExpenseRepository;
 use App\Repositories\UserRepository;
+use App\Utils\AccountingPeriodGuard;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
@@ -237,6 +239,58 @@ class ExpenseService
             ], $e);
 
             return ServiceReturn::error(__('accounting.expense.auto_shipping_failed'));
+        }
+    }
+
+    public function updateExpense(Expense $expense, array $data): ServiceReturn
+    {
+        try {
+            $targetDate = $data['expense_date'] ?? $expense->expense_date;
+
+            if (AccountingPeriodGuard::isClosedForDate($expense->organization_id, $targetDate)) {
+                return ServiceReturn::error(__('accounting.accounting_period.period_closed'));
+            }
+
+            $updatedExpense = $this->expenseRepository->updateById($expense->id, $data);
+
+            if (! $updatedExpense) {
+                return ServiceReturn::error(__('common.error.data_not_found'));
+            }
+
+            return ServiceReturn::success($updatedExpense, __('common.success.update_success'));
+        } catch (Throwable $e) {
+            Logging::error('Update expense failed', [
+                'expense_id' => $expense->id,
+                'organization_id' => $expense->organization_id,
+                'error' => $e->getMessage(),
+            ], $e);
+
+            return ServiceReturn::error($e->getMessage(), $e);
+        }
+    }
+
+    public function deleteExpense(Expense $expense): ServiceReturn
+    {
+        try {
+            if (AccountingPeriodGuard::isClosedForRecord($expense, 'expense_date')) {
+                return ServiceReturn::error(__('accounting.accounting_period.period_closed'));
+            }
+
+            $deleted = $this->expenseRepository->delete($expense->id);
+
+            if (! $deleted) {
+                return ServiceReturn::error(__('common.error.data_not_found'));
+            }
+
+            return ServiceReturn::success(message: __('common.success.delete_success'));
+        } catch (Throwable $e) {
+            Logging::error('Delete expense failed', [
+                'expense_id' => $expense->id,
+                'organization_id' => $expense->organization_id,
+                'error' => $e->getMessage(),
+            ], $e);
+
+            return ServiceReturn::error($e->getMessage(), $e);
         }
     }
 

@@ -4,6 +4,7 @@ namespace App\Filament\Clusters\Warehouse\Resources\Warehouses\Schemas;
 
 use App\Common\Constants\User\UserRole;
 use App\Models\Product;
+use App\Models\Warehouse;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -13,6 +14,7 @@ use Filament\Resources\Pages\CreateRecord;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 
@@ -27,10 +29,18 @@ class WarehouseForm
                         TextInput::make('name')
                             ->label(__('warehouse.form.name'))
                             ->required()
+                            ->extraInputAttributes(['required' => false, 'maxlength' => null])
                             ->maxLength(255)
+                            ->scopedUnique(
+                                Warehouse::class,
+                                'name',
+                                ignoreRecord: true,
+                                modifyQueryUsing: fn (Builder $query) => $query->where('organization_id', Auth::user()->organization_id),
+                            )
                             ->validationMessages([
                                 'required' => __('common.error.required'),
-                                'max_length' => __('common.error.max_length', ['max' => 255]),
+                                'max' => __('common.error.max_length', ['max' => 255]),
+                                'unique' => __('common.error.unique'),
                             ])
                             ->live(debounce: 500)
                             ->afterStateUpdated(function ($state, callable $set) {
@@ -41,7 +51,7 @@ class WarehouseForm
                             }),
                         TextInput::make('code')
                             ->label(__('warehouse.form.code'))
-                            ->required()
+                            ->extraInputAttributes(['required' => false, 'maxlength' => null])
                             ->maxLength(255)
                             ->live(debounce: 500)
                             ->afterStateUpdated(function ($state, callable $set) {
@@ -50,10 +60,14 @@ class WarehouseForm
                                     $set('code', Str::upper($slug));
                                 }
                             })
-                            ->unique(ignoreRecord: true)
+                            ->scopedUnique(
+                                Warehouse::class,
+                                'code',
+                                ignoreRecord: true,
+                                modifyQueryUsing: fn (Builder $query) => $query->where('organization_id', Auth::user()->organization_id),
+                            )
                             ->validationMessages([
-                                'required' => __('common.error.required'),
-                                'max_length' => __('common.error.max_length', ['max' => 255]),
+                                'max' => __('common.error.max_length', ['max' => 255]),
                                 'unique' => __('common.error.unique'),
                             ])
                             ->readOnly(),
@@ -61,7 +75,12 @@ class WarehouseForm
                             ->label(__('warehouse.form.phone'))
                             ->tel()
                             ->required()
-                            ->maxLength(255),
+                            ->extraInputAttributes(['required' => false, 'maxlength' => null, 'type' => 'text', 'inputmode' => 'tel'])
+                            ->maxLength(255)
+                            ->validationMessages([
+                                'required' => __('common.error.required'),
+                                'max' => __('common.error.max_length', ['max' => 255]),
+                            ]),
                         Textarea::make('note')
                             ->label(__('warehouse.form.note'))
                             ->columnSpanFull(),
@@ -78,6 +97,7 @@ class WarehouseForm
                             ->relationship(name: 'province', titleAttribute: 'name')
                             ->searchable()
                             ->required()
+                            ->extraInputAttributes(['required' => false])
                             ->live()
                             ->afterStateUpdated(fn(Set $set) => $set('district_id', null))
                             ->native(false)
@@ -93,6 +113,7 @@ class WarehouseForm
                             })
                             ->searchable()
                             ->required()
+                            ->extraInputAttributes(['required' => false])
                             ->live()
                             ->afterStateUpdated(fn(Set $set) => $set('ward_id', null))
                             ->native(false)
@@ -108,6 +129,7 @@ class WarehouseForm
                             })
                             ->searchable()
                             ->required()
+                            ->extraInputAttributes(['required' => false])
                             ->live()
                             ->native(false)
                             ->preload()
@@ -118,11 +140,12 @@ class WarehouseForm
                         TextInput::make('address')
                             ->label(__('warehouse.form.address'))
                             ->required()
+                            ->extraInputAttributes(['required' => false, 'maxlength' => null])
                             ->maxLength(255)
                             ->columnSpanFull()
                             ->validationMessages([
                                 'required' => __('common.error.required'),
-                                'max_length' => __('common.error.max_length', ['max' => 255]),
+                                'max' => __('common.error.max_length', ['max' => 255]),
                             ]),
                     ])->columns(3),
 
@@ -134,9 +157,14 @@ class WarehouseForm
                                 'provinces.id',
                                 'provinces.name',
                             ]))
+                            ->required()
+                            ->extraInputAttributes(['required' => false])
                             ->multiple()
                             ->preload()
                             ->searchable()
+                            ->validationMessages([
+                                'required' => __('common.error.required'),
+                            ])
                             ->columnSpanFull(),
                     ]),
 
@@ -145,29 +173,39 @@ class WarehouseForm
                         Select::make('manager')
                             ->label(__('warehouse.navigation.manager'))
                             ->relationship(name: 'manager', titleAttribute: 'name', modifyQueryUsing: fn($query) => $query->where('organization_id', Auth::user()->organization_id)->where('role', UserRole::WAREHOUSE->value))
+                            ->required()
+                            ->extraInputAttributes(['required' => false])
                             ->searchable()
-                            ->preload(),
+                            ->preload()
+                            ->validationMessages([
+                                'required' => __('common.error.required'),
+                            ]),
                         TextInput::make('manager_phone')
                             ->label(__('warehouse.navigation.manager_phone'))
                             ->tel()
+                            ->required()
+                            ->extraInputAttributes(['required' => false, 'maxlength' => null, 'type' => 'text', 'inputmode' => 'tel'])
                             ->maxLength(255)
                             ->validationMessages([
                                 'required' => __('common.error.required'),
-                                'max_length' => __('common.error.max_length', ['max' => 255]),
+                                'max' => __('common.error.max_length', ['max' => 255]),
                             ]),
                         TextInput::make('sender_name')
                             ->label(__('warehouse.navigation.sender_name'))
+                            ->required()
+                            ->extraInputAttributes(['required' => false, 'maxlength' => null])
                             ->maxLength(255)
                             ->validationMessages([
                                 'required' => __('common.error.required'),
-                                'max_length' => __('common.error.max_length', ['max' => 255]),
+                                'max' => __('common.error.max_length', ['max' => 255]),
                             ]),
                         Textarea::make('sender_info')
                             ->label(__('warehouse.navigation.sender_info'))
+                            ->required()
+                            ->extraInputAttributes(['required' => false])
                             ->columnSpanFull()
                             ->validationMessages([
                                 'required' => __('common.error.required'),
-                                'max_length' => __('common.error.max_length', ['max' => 255]),
                             ]),
                     ])->columns(2),
                 Section::make()
@@ -179,38 +217,68 @@ class WarehouseForm
                                 modifyQueryUsing: fn($query) =>
                                 $query->whereHas('product', fn($q) => $q->where('organization_id', Auth::user()->organization_id))
                             )
+                            ->defaultItems(1)
                             ->schema([
 
                                 Select::make('product_id')
                                     ->label(__('warehouse.navigation.product_name'))
                                     ->required()
-                                    ->options(fn() => Product::where('organization_id', Auth::user()->organization_id)->where('is_business_product', true)->pluck('name', 'id'))
+                                    ->extraInputAttributes(['required' => false])
+                                    ->relationship(
+                                        name: 'product',
+                                        titleAttribute: 'name',
+                                        modifyQueryUsing: fn($query) => $query
+                                            ->where('organization_id', Auth::user()->organization_id)
+                                            ->where('is_business_product', true)
+                                            ->orderBy('name')
+                                    )
                                     ->native(false)
-                                    ->searchable()
+                                    ->searchable(['name', 'sku'])
                                     ->preload()
                                     ->distinct()
                                     ->disableOptionsWhenSelectedInSiblingRepeaterItems()
                                     ->columnSpanFull()
                                     ->validationMessages([
                                         'required' => __('common.error.required'),
+                                        'distinct' => __('common.error.distinct_product'),
                                     ]),
 
                                 TextInput::make('quantity')
                                     ->label(__('warehouse.navigation.product_quantity'))
                                     ->required()
-                                    ->numeric()
+                                    ->integer()
+                                    ->minValue(0)
+                                    ->extraInputAttributes([
+                                        'type' => 'text',
+                                        'inputmode' => 'numeric',
+                                        'required' => false,
+                                        'min' => null,
+                                        'max' => null,
+                                        'step' => null,
+                                    ])
                                     ->validationMessages([
                                         'required' => __('common.error.required'),
-                                        'numeric' => __('common.error.numeric'),
+                                        'integer' => __('common.error.integer'),
+                                        'min' => __('common.error.min_value', ['min' => 0]),
                                     ]),
 
                                 TextInput::make('pending_quantity')
                                     ->label(__('warehouse.navigation.product_pending_quantity'))
                                     ->required()
-                                    ->numeric()
+                                    ->integer()
+                                    ->minValue(0)
+                                    ->extraInputAttributes([
+                                        'type' => 'text',
+                                        'inputmode' => 'numeric',
+                                        'required' => false,
+                                        'min' => null,
+                                        'max' => null,
+                                        'step' => null,
+                                    ])
                                     ->validationMessages([
                                         'required' => __('common.error.required'),
-                                        'numeric' => __('common.error.numeric'),
+                                        'integer' => __('common.error.integer'),
+                                        'min' => __('common.error.min_value', ['min' => 0]),
                                     ]),
                             ])
                             ->columns(2)

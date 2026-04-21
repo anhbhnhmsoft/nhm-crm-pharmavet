@@ -9,7 +9,6 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -99,43 +98,20 @@ class CreateInventoryTicket extends CreateRecord
         return $data;
     }
 
-    protected function handleRecordCreation(array $data): Model
+    protected function afterCreate(): void
     {
-        // Extract details data
-        $details = $data['details'] ?? [];
-        unset($data['details']);
-
-        // Create the ticket
-        $record = static::getModel()::create($data);
-
-        // Create details
-        if (!empty($details)) {
-            foreach ($details as $detail) {
-                $record->details()->create([
-                    'product_id' => $detail['product_id'],
-                    'quantity' => $detail['quantity'],
-                    'unit_price' => $detail['unit_price'] ?? 0,
-                    'batch_no' => $detail['batch_no'] ?? null,
-                    'expired_at' => $detail['expired_at'] ?? null,
-                    'current_quantity' => $detail['current_quantity'] ?? 0,
-                ]);
-            }
-        }
-
-        $record->logs()->create([
+        $this->record->logs()->create([
             'action' => 'create',
-            'note' => $record->note,
-            'new_status' => $record->status,
+            'note' => $this->record->note,
+            'new_status' => $this->record->status,
             'metadata_json' => [
-                'type' => $record->type,
-                'details_count' => count($details),
+                'type' => $this->record->type,
+                'details_count' => $this->record->details()->count(),
             ],
             'user_id' => Auth::id(),
             'created_by' => Auth::id(),
             'updated_by' => Auth::id(),
         ]);
-
-        return $record;
     }
 
     protected function getRedirectUrl(): string

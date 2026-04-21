@@ -2,25 +2,25 @@
 
 namespace App\Filament\Clusters\Accounting\Resources;
 
-use App\Common\Constants\User\UserPosition;
+use App\Common\Constants\GateKey;
 use App\Common\Constants\User\UserRole;
-use App\Common\Constants\Warehouse\StatusTicket;
-use App\Common\Constants\Warehouse\TypeTicket;
 use App\Filament\Clusters\Accounting\AccountingCluster;
 use App\Filament\Clusters\Accounting\Resources\DiscrepancyReportResource\Pages\ListDiscrepancyReports;
-use App\Models\InventoryTicket;
+use App\Services\Accounting\DiscrepancyReportService;
 use App\Models\Order;
-use App\Utils\Helper;
 use Filament\Forms\Components\DatePicker;
 use Filament\Resources\Resource;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
 
 class DiscrepancyReportResource extends Resource
 {
     protected static ?string $model = Order::class;
+
+    protected static ?DiscrepancyReportService $discrepancyReportService = null;
 
     protected static ?string $cluster = AccountingCluster::class;
 
@@ -45,14 +45,9 @@ class DiscrepancyReportResource extends Resource
 
     public static function canAccess(): bool
     {
-        $user = Auth::user();
-        if (!$user) return false;
-
-        return Helper::checkPermission([
-            UserRole::SUPER_ADMIN->value,
-            UserRole::ADMIN->value,
-            UserRole::ACCOUNTING->value,
-        ], $user->role);
+        return Gate::allows(GateKey::IS_SUPER_ADMIN->name)
+            || Gate::allows(GateKey::IS_ADMIN->name)
+            || Gate::allows(GateKey::HAS_ROLE->name, [UserRole::ACCOUNTING]);
     }
 
     public static function table(Table $table): Table
@@ -60,7 +55,7 @@ class DiscrepancyReportResource extends Resource
         return $table
             ->modifyQueryUsing(fn (Builder $query) => $query
                 ->where('organization_id', Auth::user()->organization_id)
-                ->with(['items', 'reconciliation', 'createdBy'])
+                ->with(['items', 'reconciliation', 'createdBy', 'inventoryTickets.details'])
             )
             ->columns([
                 TextColumn::make('code')
@@ -89,91 +84,30 @@ class DiscrepancyReportResource extends Resource
 
                 TextColumn::make('warehouse_value')
                     ->label(__('accounting.report.discrepancy_warehouse'))
-                    ->getStateUsing(function (Order $record) {
-                        $orderItems = $record->items->keyBy('product_id');
-
-                        $tickets = InventoryTicket::where('order_id', $record->id)
-                            ->where('status', (int) StatusTicket::COMPLETED->value)
-                            ->where('type', (int) TypeTicket::EXPORT->value)
-                            ->with('details')
-                            ->get();
-
-                        $value = 0;
-                        foreach ($tickets as $ticket) {
-                            foreach ($ticket->details as $detail) {
-                                $orderItem = $orderItems->get($detail->product_id);
-                                $price = $orderItem ? (float) $orderItem->price : 0;
-                                $value += ($detail->quantity * $price);
-                            }
-                        }
-                        return $value;
-                    })
+                    ->getStateUsing(fn (Order $record): float => static::discrepancyReportService()->resolveWarehouseValue($record))
                     ->money('VND')
-                    ->color(fn ($state, Order $record) => (float)$state != (float)$record->total_amount ? 'danger' : 'success')
-                    ->weight(fn ($state, Order $record) => (float)$state != (float)$record->total_amount ? 'bold' : 'normal'),
+                    ->color(fn ($state, Order $record): string => static::discrepancyReportService()->valuesDifferent(
+                        (float) $state,
+                        static::discrepancyReportService()->resolveSystemValue($record),
+                    ) ? 'danger' : 'success')
+                    ->weight(fn ($state, Order $record): string => static::discrepancyReportService()->valuesDifferent(
+                        (float) $state,
+                        static::discrepancyReportService()->resolveSystemValue($record),
+                    ) ? 'bold' : 'normal'),
 
                 TextColumn::make('actual_payment')
                     ->label(__('accounting.report.discrepancy_actual'))
-                    ->getStateUsing(function (Order $record) {
-                        $reconciliationTotal = 0;
-                        foreach ($record->reconciliation as $recon) {
-                            $reconciliationTotal += (float) $recon->cod_amount;
-                        }
-                        return $reconciliationTotal + (float) $record->amount_recived_from_customer;
-                    })
+                    ->getStateUsing(fn (Order $record): float => static::discrepancyReportService()->resolveActualPayment($record))
                     ->money('VND')
-                    ->color(function ($state, Order $record) {
-                        $orderItems = $record->items->keyBy('product_id');
-
-                        $tickets = InventoryTicket::where('order_id', $record->id)
-                            ->where('status', (int) StatusTicket::COMPLETED->value)
-                            ->where('type', (int) TypeTicket::EXPORT->value)
-                            ->with('details')
-                            ->get();
-
-                        $warehouseValue = 0;
-                        foreach ($tickets as $ticket) {
-                            foreach ($ticket->details as $detail) {
-                                $orderItem = $orderItems->get($detail->product_id);
-                                $price = $orderItem ? (float) $orderItem->price : 0;
-                                $warehouseValue += ($detail->quantity * $price);
-                            }
-                        }
-                        return (float)$state != (float)$warehouseValue ? 'danger' : 'success';
-                    })
+                    ->color(fn ($state, Order $record): string => static::discrepancyReportService()->valuesDifferent(
+                        (float) $state,
+                        static::discrepancyReportService()->resolveWarehouseValue($record),
+                    ) ? 'danger' : 'success')
                     ->weight('bold'),
 
                 TextColumn::make('discrepancy_note')
                     ->label(__('accounting.report.discrepancy_note'))
-                    ->getStateUsing(function (Order $record) {
-                        $system = (float) $record->total_amount;
-                        $orderItems = $record->items->keyBy('product_id');
-
-                        $tickets = InventoryTicket::where('order_id', $record->id)
-                            ->where('status', (int) StatusTicket::COMPLETED->value)
-                            ->where('type', (int) TypeTicket::EXPORT->value)
-                            ->with('details')
-                            ->get();
-
-                        $warehouse = 0;
-                        foreach ($tickets as $ticket) {
-                            foreach ($ticket->details as $detail) {
-                                $orderItem = $orderItems->get($detail->product_id);
-                                $price = $orderItem ? (float) $orderItem->price : 0;
-                                $warehouse += ($detail->quantity * $price);
-                            }
-                        }
-
-                        $reconciliationTotal = 0;
-                        foreach ($record->reconciliation as $recon) {
-                            $reconciliationTotal += (float) $recon->cod_amount;
-                        }
-                        $payment = $reconciliationTotal + (float) $record->amount_recived_from_customer;
-
-                        if (abs($system - $warehouse) > 0.1) return __('accounting.report.discrepancy_system_warehouse_diff');
-                        if (abs($warehouse - $payment) > 0.1) return __('accounting.report.discrepancy_warehouse_payment_diff');
-                        return __('accounting.report.discrepancy_matched');
-                    })
+                    ->getStateUsing(fn (Order $record): string => static::discrepancyReportService()->resolveDiscrepancyNote($record))
                     ->color(function ($state): string {
                         $matched = __('accounting.report.discrepancy_matched');
                         return $state === $matched ? 'success' : 'danger';
@@ -201,5 +135,10 @@ class DiscrepancyReportResource extends Resource
         return [
             'index' => ListDiscrepancyReports::route('/'),
         ];
+    }
+
+    protected static function discrepancyReportService(): DiscrepancyReportService
+    {
+        return static::$discrepancyReportService ??= app(DiscrepancyReportService::class);
     }
 }

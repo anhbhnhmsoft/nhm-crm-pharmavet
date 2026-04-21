@@ -72,13 +72,22 @@ class FinancialStatement extends Page implements HasForms
                                 'day' => __('accounting.report.type_day'),
                                 'month' => __('accounting.report.type_month'),
                             ])
+                            ->native(false)
                             ->required()
+                            ->extraInputAttributes(['required' => false])
+                            ->validationMessages([
+                                'required' => __('common.error.required'),
+                            ])
                             ->default('month')
                             ->live(),
 
                         DatePicker::make('from_date')
                             ->label(__('accounting.report.from_date'))
                             ->required()
+                            ->extraInputAttributes(['required' => false])
+                            ->validationMessages([
+                                'required' => __('common.error.required'),
+                            ])
                             ->native(false)
                             ->displayFormat('d/m/Y')
                             ->visible(fn(Get $get) => $get('type') === 'day'),
@@ -86,6 +95,10 @@ class FinancialStatement extends Page implements HasForms
                         DatePicker::make('to_date')
                             ->label(__('accounting.report.to_date'))
                             ->required()
+                            ->extraInputAttributes(['required' => false])
+                            ->validationMessages([
+                                'required' => __('common.error.required'),
+                            ])
                             ->native(false)
                             ->displayFormat('d/m/Y')
                             ->afterOrEqual('from_date')
@@ -97,11 +110,19 @@ class FinancialStatement extends Page implements HasForms
                                     ->label(__('accounting.report.from_month'))
                                     ->options(array_combine(range(1, 12), array_map(fn($m) => str_pad($m, 2, '0', STR_PAD_LEFT), range(1, 12))))
                                     ->required()
+                                    ->extraInputAttributes(['required' => false])
+                                    ->validationMessages([
+                                        'required' => __('common.error.required'),
+                                    ])
                                     ->columns(1),
                                 TextInput::make('from_year')
                                     ->label(__('accounting.report.from_year'))
                                     ->numeric()
                                     ->required()
+                                    ->extraInputAttributes(['required' => false])
+                                    ->validationMessages([
+                                        'required' => __('common.error.required'),
+                                    ])
                                     ->columns(1),
                             ])
                             ->columns(2)
@@ -114,11 +135,19 @@ class FinancialStatement extends Page implements HasForms
                                     ->label(__('accounting.report.to_month'))
                                     ->options(array_combine(range(1, 12), array_map(fn($m) => str_pad($m, 2, '0', STR_PAD_LEFT), range(1, 12))))
                                     ->required()
+                                    ->extraInputAttributes(['required' => false])
+                                    ->validationMessages([
+                                        'required' => __('common.error.required'),
+                                    ])
                                     ->columns(1),
                                 TextInput::make('to_year')
                                     ->label(__('accounting.report.to_year'))
                                     ->numeric()
                                     ->required()
+                                    ->extraInputAttributes(['required' => false])
+                                    ->validationMessages([
+                                        'required' => __('common.error.required'),
+                                    ])
                                     ->columns(1),
                             ])
                             ->columns(2)

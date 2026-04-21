@@ -4,7 +4,11 @@ namespace App\Filament\Clusters\Accounting\Resources\Expenses\Tables;
 
 use App\Common\Constants\Accounting\ExpenseCategory;
 use App\Filament\Clusters\Accounting\Resources\Expenses\Schemas\ExpenseForm;
+use App\Models\Expense;
+use App\Services\ExpenseService;
+use App\Utils\AccountingPeriodGuard;
 use Filament\Actions\RestoreBulkAction;
+use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
@@ -147,8 +151,46 @@ class ExpensesTable
             ])
             ->actions([
                 EditAction::make()
-                    ->mutateFormDataUsing(fn(array $data): array => ExpenseForm::normalizeExpenseData($data)),
-                DeleteAction::make(),
+                    ->successNotificationTitle(__('common.success.update_success'))
+                    ->using(function (EditAction $action, Expense $record, array $data): void {
+                        $result = app(ExpenseService::class)->updateExpense(
+                            $record,
+                            ExpenseForm::normalizeExpenseData($data),
+                        );
+
+                        if ($result->isError()) {
+                            Notification::make()
+                                ->danger()
+                                ->title(__('common.error.update_error'))
+                                ->body($result->getMessage())
+                                ->send();
+
+                            $action->halt();
+                        }
+                    })
+                    ->disabled(fn(Expense $record): bool => AccountingPeriodGuard::isClosedForRecord($record, 'expense_date'))
+                    ->tooltip(fn(Expense $record): ?string => AccountingPeriodGuard::isClosedForRecord($record, 'expense_date') ? __('accounting.accounting_period.period_closed') : null),
+                DeleteAction::make()
+                    ->successNotificationTitle(__('common.success.delete_success'))
+                    ->using(function (DeleteAction $action, Expense $record): ?bool {
+                        $result = app(ExpenseService::class)->deleteExpense($record);
+
+                        if ($result->isError()) {
+                            Notification::make()
+                                ->danger()
+                                ->title(__('common.error.update_error'))
+                                ->body($result->getMessage())
+                                ->send();
+
+                            $action->halt();
+
+                            return false;
+                        }
+
+                        return true;
+                    })
+                    ->disabled(fn(Expense $record): bool => AccountingPeriodGuard::isClosedForRecord($record, 'expense_date'))
+                    ->tooltip(fn(Expense $record): ?string => AccountingPeriodGuard::isClosedForRecord($record, 'expense_date') ? __('accounting.accounting_period.period_closed') : null),
             ])
             ->bulkActions([
                 BulkActionGroup::make([

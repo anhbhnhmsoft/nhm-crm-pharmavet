@@ -122,8 +122,13 @@ class ExpenseForm
                             ->label(__('accounting.expense.attachments_upload_label'))
                             ->multiple()
                             ->disk('public')
+                            ->visibility('public')
                             ->directory('expense_attachments')
                             ->acceptedFileTypes(['application/pdf', 'image/*'])
+                            ->previewable(true)
+                            ->openable()
+                            ->downloadable()
+                            ->imagePreviewHeight('200')
                             ->required()
                             ->extraInputAttributes(['required' => false])
                             ->helperText(__('accounting.expense.attachments_upload_help'))
@@ -141,6 +146,17 @@ class ExpenseForm
             ]);
     }
 
+    public static function normalizeExpenseData(array $data): array
+    {
+        $data['attachments'] = self::normalizeAttachments($data['attachments'] ?? []);
+
+        if (array_key_exists('unit_price', $data) || array_key_exists('quantity', $data)) {
+            $data['amount'] = self::calculateAmountFromArray($data);
+        }
+
+        return $data;
+    }
+
     protected static function calculateTotal($set, $get): void
     {
         $set('amount', self::calculateAmount($get));
@@ -152,5 +168,40 @@ class ExpenseForm
         $quantity = (float) ($get('quantity') ?? 0);
 
         return $unitPrice * $quantity;
+    }
+
+    protected static function calculateAmountFromArray(array $data): float
+    {
+        $unitPrice = (float) ($data['unit_price'] ?? 0);
+        $quantity = (float) ($data['quantity'] ?? 0);
+
+        return $unitPrice * $quantity;
+    }
+
+    protected static function normalizeAttachments(mixed $attachments): array
+    {
+        if (blank($attachments)) {
+            return [];
+        }
+
+        if (is_string($attachments)) {
+            $decoded = json_decode($attachments, true);
+
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                return array_values(array_filter($decoded));
+            }
+
+            return [$attachments];
+        }
+
+        if (is_array($attachments)) {
+            return array_values(array_filter($attachments));
+        }
+
+        if ($attachments instanceof \Traversable) {
+            return array_values(array_filter(iterator_to_array($attachments)));
+        }
+
+        return [];
     }
 }

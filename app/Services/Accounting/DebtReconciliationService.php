@@ -12,6 +12,7 @@ use App\Repositories\OrderRepository;
 use App\Repositories\ReconciliationRepository;
 use App\Repositories\CustomerRepository;
 use App\Repositories\OrganizationRepository;
+use Carbon\Carbon;
 use Throwable;
 
 class DebtReconciliationService
@@ -22,6 +23,21 @@ class DebtReconciliationService
         protected CustomerRepository $customerRepository,
         protected OrganizationRepository $organizationRepository,
     ) {
+    }
+
+    protected function normalizeDate(string $date): string
+    {
+        return Carbon::parse($date)->toDateString();
+    }
+
+    protected function normalizeStartOfDay(string $date): string
+    {
+        return Carbon::parse($date)->startOfDay()->toDateTimeString();
+    }
+
+    protected function normalizeEndOfDay(string $date): string
+    {
+        return Carbon::parse($date)->endOfDay()->toDateTimeString();
     }
 
     /**
@@ -47,13 +63,18 @@ class DebtReconciliationService
     public function getCustomerReconciliation(int $customerId, string $fromDate, string $toDate): ServiceReturn
     {
         try {
+            $normalizedFromDate = $this->normalizeDate($fromDate);
+            $normalizedToDate = $this->normalizeDate($toDate);
+            $fromDateTime = $this->normalizeStartOfDay($fromDate);
+            $toDateTime = $this->normalizeEndOfDay($toDate);
+
             $customer = $this->customerRepository->find($customerId);
             if (!$customer) {
                 return ServiceReturn::error(__('accounting.customer.not_found'));
             }
 
-            $openingBalance = $this->orderRepository->getCustomerBalanceBefore($customerId, $fromDate . ' 00:00:00');
-            $orders = $this->orderRepository->getCustomerReconciliationOrders($customerId, $fromDate . ' 00:00:00', $toDate . ' 23:59:59');
+            $openingBalance = $this->orderRepository->getCustomerBalanceBefore($customerId, $fromDateTime);
+            $orders = $this->orderRepository->getCustomerReconciliationOrders($customerId, $fromDateTime, $toDateTime);
 
             $transactions = [];
             $currentBalance = $openingBalance;
@@ -82,8 +103,8 @@ class DebtReconciliationService
                     'address' => $customer->address,
                 ],
                 'period' => [
-                    'from' => $fromDate,
-                    'to' => $toDate,
+                    'from' => $normalizedFromDate,
+                    'to' => $normalizedToDate,
                 ],
                 'opening_balance' => (float) $openingBalance,
                 'transactions' => $transactions,
@@ -104,8 +125,12 @@ class DebtReconciliationService
     {
         try {
             // Tính số dư đầu kỳ
-            $debitBefore = $this->orderRepository->getLogisticBalanceBefore($organizationId, $fromDate . ' 00:00:00');
-            $creditBefore = $this->reconciliationRepository->getPaidCodBefore($organizationId, $fromDate);
+            $normalizedFromDate = $this->normalizeDate($fromDate);
+            $normalizedToDate = $this->normalizeDate($toDate);
+            $fromDateTime = $this->normalizeStartOfDay($fromDate);
+            $toDateTime = $this->normalizeEndOfDay($toDate);
+            $debitBefore = $this->orderRepository->getLogisticBalanceBefore($organizationId, $fromDateTime);
+            $creditBefore = $this->reconciliationRepository->getPaidCodBefore($organizationId, $normalizedFromDate);
             $openingBalance = $debitBefore - $creditBefore;
 
             // Lấy phát sinh trong kỳ
@@ -113,12 +138,12 @@ class DebtReconciliationService
             $orders = $this->orderRepository->query()
                 ->where('organization_id', $organizationId)
                 ->where('status', OrderStatus::COMPLETED->value)
-                ->whereBetween('created_at', [$fromDate . ' 00:00:00', $toDate . ' 23:59:59'])
+                ->whereBetween('created_at', [$fromDateTime, $toDateTime])
                 ->whereNotNull('ghn_order_code')
                 ->get();
 
             // Giảm nợ: Các bản đối soát đã thanh toán trong kỳ
-            $reconciliations = $this->reconciliationRepository->getReconciliationsByDateRange($organizationId, $fromDate, $toDate);
+            $reconciliations = $this->reconciliationRepository->getReconciliationsByDateRange($organizationId, $normalizedFromDate, $normalizedToDate);
 
             $transactions = [];
             
@@ -170,8 +195,8 @@ class DebtReconciliationService
                     'code' => 'GHN',
                 ],
                 'period' => [
-                    'from' => $fromDate,
-                    'to' => $toDate,
+                    'from' => $normalizedFromDate,
+                    'to' => $normalizedToDate,
                 ],
                 'opening_balance' => (float) $openingBalance,
                 'transactions' => $processedTransactions,
@@ -189,6 +214,7 @@ class DebtReconciliationService
      */
     public function getDebtSummaryList(int $organizationId, string $fromDate, string $toDate): array
     {
+        $normalizedToDateTime = $this->normalizeEndOfDay($toDate);
         $logisticsData = $this->getLogisticsReconciliation($organizationId, $fromDate, $toDate)->getData();
         $summary = [
             [
@@ -205,8 +231,8 @@ class DebtReconciliationService
         // Tất cả khách hàng từng có phát sinh (để tính số dư đầu kỳ và nợ tồn)
         $customers = $this->customerRepository->query()
             ->where('organization_id', $organizationId)
-            ->whereHas('orders', function($query) use ($toDate) {
-                $query->where('created_at', '<=', $toDate . ' 23:59:59');
+            ->whereHas('orders', function($query) use ($normalizedToDateTime) {
+                $query->where('created_at', '<=', $normalizedToDateTime);
             })
             ->select('id', 'username as name')
             ->get();

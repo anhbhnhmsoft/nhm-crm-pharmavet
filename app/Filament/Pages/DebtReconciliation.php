@@ -65,12 +65,62 @@ class DebtReconciliation extends Page implements HasForms
 
     public function loadSummaryData(DebtReconciliationService $service): void
     {
-        $formData = $this->form->getState();
+        $formData = $this->getValidatedDateRangeData();
         $this->summaryData = $service->getDebtSummaryList(
             Auth::user()->organization_id,
             $formData['from_date'],
             $formData['to_date']
         );
+    }
+
+    protected function getValidationAttributes(): array
+    {
+        return [
+            'data.partner_type' => __('accounting.debt_reconciliation.partner_type'),
+            'data.customer_id' => __('accounting.debt_reconciliation.select_customer'),
+            'data.from_date' => __('accounting.debt_reconciliation.from_date'),
+            'data.to_date' => __('accounting.debt_reconciliation.to_date'),
+        ];
+    }
+
+    protected function getValidatedFilterData(): array
+    {
+        $validated = $this->validate(
+            [
+                'data.partner_type' => ['required'],
+                'data.customer_id' => ['nullable', 'required_if:data.partner_type,' . DebtPartnerType::CUSTOMER->value],
+                'data.from_date' => ['required', 'date'],
+                'data.to_date' => ['required', 'date', 'after_or_equal:data.from_date'],
+            ],
+            [
+                'data.to_date.after_or_equal' => __('validation.after_or_equal', [
+                    'attribute' => __('accounting.debt_reconciliation.to_date'),
+                    'date' => __('accounting.debt_reconciliation.from_date'),
+                ]),
+            ],
+            $this->getValidationAttributes(),
+        );
+
+        return $validated['data'];
+    }
+
+    protected function getValidatedDateRangeData(): array
+    {
+        $validated = $this->validate(
+            [
+                'data.from_date' => ['required', 'date'],
+                'data.to_date' => ['required', 'date', 'after_or_equal:data.from_date'],
+            ],
+            [
+                'data.to_date.after_or_equal' => __('validation.after_or_equal', [
+                    'attribute' => __('accounting.debt_reconciliation.to_date'),
+                    'date' => __('accounting.debt_reconciliation.from_date'),
+                ]),
+            ],
+            $this->getValidationAttributes(),
+        );
+
+        return $validated['data'];
     }
 
     public function form(Schema $schema): Schema
@@ -83,6 +133,12 @@ class DebtReconciliation extends Page implements HasForms
                             ->label(__('accounting.debt_reconciliation.partner_type'))
                             ->options(DebtPartnerType::getOptions())
                             ->required()
+                            ->extraInputAttributes(['required' => false])
+                            ->validationMessages([
+                                'required' => __('validation.required', [
+                                    'attribute' => __('accounting.debt_reconciliation.partner_type'),
+                                ]),
+                            ])
                             ->live(),
                         Select::make('customer_id')
                             ->label(__('accounting.debt_reconciliation.select_customer'))
@@ -95,17 +151,40 @@ class DebtReconciliation extends Page implements HasForms
                             })
                             ->getOptionLabelUsing(fn ($value, DebtReconciliationService $service) => $service->getCustomerNameById($value))
                             ->visible(fn ($get) => (int)$get('partner_type') === DebtPartnerType::CUSTOMER->value)
-                            ->required(fn ($get) => (int)$get('partner_type') === DebtPartnerType::CUSTOMER->value),
+                            ->required(fn ($get) => (int)$get('partner_type') === DebtPartnerType::CUSTOMER->value)
+                            ->extraInputAttributes(['required' => false])
+                            ->validationMessages([
+                                'required' => __('validation.required', [
+                                    'attribute' => __('accounting.debt_reconciliation.select_customer'),
+                                ]),
+                            ]),
                         DatePicker::make('from_date')
                             ->label(__('accounting.debt_reconciliation.from_date'))
                             ->displayFormat('d/m/Y')
                             ->native(false)
-                            ->required(),
+                            ->required()
+                            ->extraInputAttributes(['required' => false])
+                            ->validationMessages([
+                                'required' => __('validation.required', [
+                                    'attribute' => __('accounting.debt_reconciliation.from_date'),
+                                ]),
+                            ]),
                         DatePicker::make('to_date')
                             ->label(__('accounting.debt_reconciliation.to_date'))
                             ->displayFormat('d/m/Y')
                             ->native(false)
-                            ->required(),
+                            ->required()
+                            ->extraInputAttributes(['required' => false])
+                            ->afterOrEqual('from_date')
+                            ->validationMessages([
+                                'required' => __('validation.required', [
+                                    'attribute' => __('accounting.debt_reconciliation.to_date'),
+                                ]),
+                                'after_or_equal' => __('validation.after_or_equal', [
+                                    'attribute' => __('accounting.debt_reconciliation.to_date'),
+                                    'date' => __('accounting.debt_reconciliation.from_date'),
+                                ]),
+                            ]),
                     ])
                     ->columns(4)
             ])
@@ -114,7 +193,10 @@ class DebtReconciliation extends Page implements HasForms
 
     public function generateReport(DebtReconciliationService $service): void
     {
-        $formData = $this->form->getState();
+        $this->reportData = null;
+        $this->showDetail = false;
+
+        $formData = $this->getValidatedFilterData();
         $organizationId = Auth::user()->organization_id;
 
         if ((int)$formData['partner_type'] === DebtPartnerType::CUSTOMER->value) {
@@ -137,8 +219,6 @@ class DebtReconciliation extends Page implements HasForms
                 ->title(__('accounting.report.error_title'))
                 ->body($result->getMessage())
                 ->send();
-            $this->reportData = null;
-            $this->showDetail = false;
         } else {
             $this->reportData = $result->getData();
             $this->showDetail = true;
@@ -161,14 +241,20 @@ class DebtReconciliation extends Page implements HasForms
 
     public function exportPartner(int $partnerType, ?int $partnerId, DebtReconciliationService $service, ExportService $exportService)
     {
+        $filters = $this->getValidatedDateRangeData();
+
         if ($partnerType === DebtPartnerType::CUSTOMER->value) {
-            $result = $service->getCustomerReconciliation($partnerId, $this->data['from_date'], $this->data['to_date']);
+            $result = $service->getCustomerReconciliation($partnerId, $filters['from_date'], $filters['to_date']);
         } else {
-            $result = $service->getLogisticsReconciliation(Auth::user()->organization_id, $this->data['from_date'], $this->data['to_date']);
+            $result = $service->getLogisticsReconciliation(Auth::user()->organization_id, $filters['from_date'], $filters['to_date']);
         }
 
         if ($result->isError()) {
-            return Notification::make()->danger()->title('Lỗi')->body($result->getMessage())->send();
+            return Notification::make()
+                ->danger()
+                ->title(__('accounting.report.error_title'))
+                ->body($result->getMessage())
+                ->send();
         }
 
         $report = $result->getData();
@@ -194,6 +280,8 @@ class DebtReconciliation extends Page implements HasForms
 
     public function export(ExportService $exportService)
     {
+        $this->getValidatedDateRangeData();
+
         if (!$this->reportData) {
             return Notification::make()
                 ->warning()

@@ -17,7 +17,7 @@ class InventoryTicket extends Model
 
         static::saving(function ($model) {
             $date = $model->approved_at ?: $model->created_at ?: now();
-            if (AccountingPeriod::isClosed($model->organization_id, $date->month, $date->year)) {
+            if (AccountingPeriod::isDateClosed($model->organization_id, $date)) {
                 // Chỉ khóa nếu là phiếu Nhập hoàn (ảnh hưởng doanh thu) hoặc nếu user muốn khóa toàn bộ kho
                 throw new \Exception(__('accounting.accounting_period.period_closed'));
             }
@@ -25,7 +25,14 @@ class InventoryTicket extends Model
 
         static::deleting(function ($model) {
             $date = $model->approved_at ?: $model->created_at ?: now();
-            if (AccountingPeriod::isClosed($model->organization_id, $date->month, $date->year)) {
+            if (AccountingPeriod::isDateClosed($model->organization_id, $date)) {
+                throw new \Exception(__('accounting.accounting_period.period_closed'));
+            }
+        });
+
+        static::restoring(function ($model) {
+            $date = $model->approved_at ?: $model->created_at ?: now();
+            if (AccountingPeriod::isDateClosed($model->organization_id, $date)) {
                 throw new \Exception(__('accounting.accounting_period.period_closed'));
             }
         });

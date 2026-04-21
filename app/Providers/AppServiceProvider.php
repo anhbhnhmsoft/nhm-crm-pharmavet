@@ -97,6 +97,7 @@ use App\Services\Telesale\TelesaleKpiService;
 use App\Services\Telesale\TelesaleReportExportService;
 use App\Services\Telesale\TelesaleReportScopeService;
 use App\Services\Warehouse\InventoryMovementService;
+use App\Services\Warehouse\OrderExportTicketPrintService;
 use App\Services\Warehouse\WarehouseExportService;
 use App\Services\Warehouse\WarehouseReportService;
 use App\Services\Warehouse\ShippingStatusSyncService;
@@ -234,6 +235,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(TelesaleReportExportService::class);
         $this->app->bind(TelesaleReportScopeService::class);
         $this->app->bind(InventoryMovementService::class);
+        $this->app->bind(OrderExportTicketPrintService::class);
         $this->app->bind(ShippingStatusSyncService::class);
         $this->app->bind(WarehouseReportService::class);
         $this->app->bind(WarehouseExportService::class);

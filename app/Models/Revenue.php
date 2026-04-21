@@ -17,14 +17,21 @@ class Revenue extends Model
 
         static::saving(function ($model) {
             $date = $model->revenue_date ?: now();
-            if (AccountingPeriod::isClosed($model->organization_id, $date->month, $date->year)) {
+            if (AccountingPeriod::isDateClosed($model->organization_id, $date)) {
                 throw new \Exception(__('accounting.accounting_period.period_closed'));
             }
         });
 
         static::deleting(function ($model) {
             $date = $model->revenue_date ?: now();
-            if (AccountingPeriod::isClosed($model->organization_id, $date->month, $date->year)) {
+            if (AccountingPeriod::isDateClosed($model->organization_id, $date)) {
+                throw new \Exception(__('accounting.accounting_period.period_closed'));
+            }
+        });
+
+        static::restoring(function ($model) {
+            $date = $model->revenue_date ?: now();
+            if (AccountingPeriod::isDateClosed($model->organization_id, $date)) {
                 throw new \Exception(__('accounting.accounting_period.period_closed'));
             }
         });

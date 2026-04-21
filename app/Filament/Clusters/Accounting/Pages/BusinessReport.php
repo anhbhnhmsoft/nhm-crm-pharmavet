@@ -68,7 +68,12 @@ class BusinessReport extends Page implements HasForms
                                 'day' => __('accounting.report.type_day'),
                                 'month' => __('accounting.report.type_month'),
                             ])
+                            ->native(false)
                             ->required()
+                            ->extraInputAttributes(['required' => false])
+                            ->validationMessages([
+                                'required' => __('common.error.required'),
+                            ])
                             ->default('day')
                             ->live(),
 
@@ -76,6 +81,10 @@ class BusinessReport extends Page implements HasForms
                         DatePicker::make('from_date')
                             ->label(__('accounting.report.from_date'))
                             ->required()
+                            ->extraInputAttributes(['required' => false])
+                            ->validationMessages([
+                                'required' => __('common.error.required'),
+                            ])
                             ->native(false)
                             ->displayFormat('d/m/Y')
                             ->minDate(now()->setYear(1800)->startOfYear())
@@ -85,6 +94,10 @@ class BusinessReport extends Page implements HasForms
                         DatePicker::make('to_date')
                             ->label(__('accounting.report.to_date'))
                             ->required()
+                            ->extraInputAttributes(['required' => false])
+                            ->validationMessages([
+                                'required' => __('common.error.required'),
+                            ])
                             ->native(false)
                             ->displayFormat('d/m/Y')
                             ->minDate(now()->setYear(1800)->startOfYear())
@@ -99,11 +112,19 @@ class BusinessReport extends Page implements HasForms
                                     ->label(__('accounting.report.from_month'))
                                     ->options(array_combine(range(1, 12), array_map(fn($m) => str_pad($m, 2, '0', STR_PAD_LEFT), range(1, 12))))
                                     ->required()
+                                    ->extraInputAttributes(['required' => false])
+                                    ->validationMessages([
+                                        'required' => __('common.error.required'),
+                                    ])
                                     ->columns(1),
                                 TextInput::make('from_year')
                                     ->label(__('accounting.report.from_year'))
                                     ->numeric()
                                     ->required()
+                                    ->extraInputAttributes(['required' => false])
+                                    ->validationMessages([
+                                        'required' => __('common.error.required'),
+                                    ])
                                     ->minValue(1800)
                                     ->maxValue(now()->year)
                                     ->columns(1),
@@ -118,11 +139,19 @@ class BusinessReport extends Page implements HasForms
                                     ->label(__('accounting.report.to_month'))
                                     ->options(array_combine(range(1, 12), array_map(fn($m) => str_pad($m, 2, '0', STR_PAD_LEFT), range(1, 12))))
                                     ->required()
+                                    ->extraInputAttributes(['required' => false])
+                                    ->validationMessages([
+                                        'required' => __('common.error.required'),
+                                    ])
                                     ->columns(1),
                                 TextInput::make('to_year')
                                     ->label(__('accounting.report.to_year'))
                                     ->numeric()
                                     ->required()
+                                    ->extraInputAttributes(['required' => false])
+                                    ->validationMessages([
+                                        'required' => __('common.error.required'),
+                                    ])
                                     ->minValue(1800)
                                     ->maxValue(now()->year)
                                     ->columns(1),

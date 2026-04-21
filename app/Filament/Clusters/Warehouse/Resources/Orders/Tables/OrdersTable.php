@@ -10,6 +10,7 @@ use App\Common\Constants\Order\ServiceType;
 use App\Common\Constants\Shipping\RequiredNote;
 use App\Models\Order;
 use App\Services\OrderService;
+use App\Utils\AccountingPeriodGuard;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
@@ -181,6 +182,10 @@ class OrdersTable
                     ->multiple(),
             ])
             ->recordActions([
+                self::makePostOrderAction(),
+                self::makeCancelPostAction(),
+                self::makeRequestRedeliveryAction(),
+                self::makePrintExportTicketAction(),
                 ActionGroup::make([
                     ViewAction::make(),
 
@@ -188,227 +193,10 @@ class OrdersTable
                         ->visible(fn(Order $record) => in_array($record->status, [
                             OrderStatus::PENDING->value,
                             OrderStatus::CONFIRMED->value
-                        ])),
-
-                    Action::make('post_order')
-                        ->label(__('order.action.post_order'))
-                        ->icon('heroicon-o-paper-airplane')
-                        ->color('primary')
-                        ->visible(fn(Order $record) => $record->status == OrderStatus::CONFIRMED->value)
-                        ->schema([
-                            Grid::make(2)
-                                ->schema([
-                                    TextInput::make('shipping_fee')
-                                        ->label(__('order.form.shipping_fee'))
-                                        ->numeric()
-                                        ->required()
-                                        ->default(fn(Order $record) => $record->shipping_fee)
-                                        ->prefix('VND')
-                                        ->minValue(1000)
-                                        ->validationMessages([
-                                            'required' => __('common.error.required'),
-                                            'numeric' => __('common.error.numeric'),
-                                            'min' => __('common.error.min_value', ['min' => 1000]),
-                                        ])
-                                        ->suffixAction(
-                                            Action::make('calculate_fee')
-                                                ->icon('heroicon-o-calculator')
-                                                ->tooltip(__('order.action.calculate_fee'))
-                                                ->action(function ($set, $get, Order $record) {
-                                                    $data = [
-                                                        'weight' => $get('weight'),
-                                                        'ghn_service_type_id' => $get('ghn_service_type_id'),
-                                                        'insurance_value' => $get('insurance_value'),
-                                                        'length' => $get('length'),
-                                                        'width' => $get('width'),
-                                                        'height' => $get('height'),
-                                                    ];
-
-                                                    $orderService = app(OrderService::class);
-                                                    $result = $orderService->calculateShippingFee($record, $data);
-
-                                                    if ($result->isSuccess()) {
-                                                        $feeData = $result->getData();
-                                                        $set('shipping_fee', $feeData['total'] ?? 0);
-
-                                                        Notification::make()
-                                                            ->title(__('order.notification.fee_calculated'))
-                                                            ->success()
-                                                            ->send();
-                                                    } else {
-                                                        Notification::make()
-                                                            ->title(__('order.notification.calculate_fee_failed'))
-                                                            ->body($result->getMessage())
-                                                            ->danger()
-                                                            ->send();
-                                                    }
-                                                })
-                                        ),
-
-                                    TextInput::make('weight')
-                                        ->label(__('order.form.weight'))
-                                        ->numeric()
-                                        ->default(fn(Order $record) => $record->weight ?? 200)
-                                        ->suffix('gram')
-                                        ->validationMessages([
-                                            'required' => __('common.error.required'),
-                                            'numeric' => __('common.error.numeric'),
-                                        ]),
-
-                                    Select::make('ghn_service_type_id')
-                                        ->label(__('order.form.ghn_service_type'))
-                                        ->options(ServiceType::toOptions())
-                                        ->default(fn(Order $record) => $record->ghn_service_type_id ?? 2)
-                                        ->required()
-                                        ->validationMessages([
-                                            'required' => __('common.error.required'),
-                                        ]),
-
-                                    Select::make('ghn_payment_type_id')
-                                        ->label(__('order.form.ghn_payment_type'))
-                                        ->options(PaymentType::toOptions())
-                                        ->default(fn(Order $record) => $record->ghn_payment_type_id ?? 2)
-                                        ->required()
-                                        ->validationMessages([
-                                            'required' => __('common.error.required'),
-                                        ]),
-
-                                    Select::make('required_note')
-                                        ->label(__('order.form.required_note'))
-                                        ->options(RequiredNote::getOptions())
-                                        ->default(fn(Order $record) => $record->required_note ?? RequiredNote::ALLOW_VIEWING_NOT_TRIAL->value)
-                                        ->required()
-                                        ->validationMessages([
-                                            'required' => __('common.error.required'),
-                                        ]),
-
-                                    TextInput::make('insurance_value')
-                                        ->label(__('order.form.insurance_value'))
-                                        ->numeric()
-                                        ->default(fn(Order $record) => $record->insurance_value)
-                                        ->prefix('VND')
-                                        ->validationMessages([
-                                            'required' => __('common.error.required'),
-                                            'numeric' => __('common.error.numeric'),
-                                        ]),
-                                ]),
-                        ])
-                        ->action(function (Order $record, array $data) {
-                            $orderService = app(OrderService::class);
-                            $result = $orderService->postOrder($record, $data);
-
-                            if ($result->isSuccess()) {
-                                Notification::make()
-                                    ->title(__('order.notification.post_order_queued'))
-                                    ->success()
-                                    ->send();
-                            } else {
-                                Notification::make()
-                                    ->title(__('order.notification.post_order_failed'))
-                                    ->body($result->getMessage())
-                                    ->danger()
-                                    ->send();
-                            }
-                        }),
-
-                    Action::make('cancel_post')
-                        ->label(__('order.action.cancel_post'))
-                        ->icon('heroicon-o-x-circle')
-                        ->color('danger')
-                        ->visible(fn(Order $record) => $record->status == OrderStatus::SHIPPING->value)
-                        ->requiresConfirmation()
-                        ->modalHeading(__('order.modal.cancel_post_title'))
-                        ->modalDescription(__('order.modal.cancel_post_description'))
-                        ->modalSubmitActionLabel(__('order.action.confirm_cancel'))
-                        ->action(function (Order $record) {
-                            $orderService = app(OrderService::class);
-                            $result = $orderService->cancelOrder($record);
-
-                            if ($result->isSuccess()) {
-                                Notification::make()
-                                    ->title(__('order.notification.cancel_order_queued'))
-                                    ->success()
-                                    ->send();
-                            } else {
-                                Notification::make()
-                                    ->title(__('order.notification.cancel_order_failed'))
-                                    ->body($result->getMessage())
-                                    ->danger()
-                                    ->send();
-                            }
-                        }),
-                    Action::make('request_redelivery')
-                        ->label(__('warehouse.order.action.redelivery'))
-                        ->icon('heroicon-o-arrow-uturn-left')
-                        ->color('warning')
-                        ->visible(fn(Order $record) => in_array((string) $record->ghn_status, [
-                            GhnOrderStatus::DELIVERY_FAIL->value,
-                            GhnOrderStatus::WAITING_TO_RETURN->value,
-                            GhnOrderStatus::RETURN->value,
-                            GhnOrderStatus::RETURNING->value,
-                        ], true))
-                        ->schema([
-                            Select::make('reason_code')
-                                ->label(__('warehouse.order.form.reason_code'))
-                                ->options(__('warehouse.shipping_exception'))
-                                ->required()
-                                ->native(false),
-                            Textarea::make('reason_note')
-                                ->label(__('warehouse.order.form.reason_note'))
-                                ->required()
-                                ->rows(3),
-                            DateTimePicker::make('redelivery_schedule_at')
-                                ->label(__('warehouse.order.form.redelivery_schedule_at'))
-                                ->seconds(false)
-                                ->required()
-                                ->default(now()->addHours(2)),
-                        ])
-                        ->action(function (Order $record, array $data) {
-                            $orderService = app(OrderService::class);
-                            $result = $orderService->requestRedelivery($record, $data);
-
-                            if ($result->isSuccess()) {
-                                Notification::make()
-                                    ->title(__('warehouse.order.action.redelivery'))
-                                    ->success()
-                                    ->send();
-                            } else {
-                                Notification::make()
-                                    ->title(__('warehouse.order.action.redelivery'))
-                                    ->body($result->getMessage())
-                                    ->danger()
-                                    ->send();
-                            }
-                        }),
-                    Action::make('update_invoice')
-                        ->label(__('order.invoice_action.update_invoice'))
-                        ->icon('heroicon-o-document-text')
-                        ->color('info')
-                        ->visible(fn(Order $record) => in_array(Auth::user()->role, [UserRole::SUPER_ADMIN->value, UserRole::ADMIN->value, UserRole::ACCOUNTING->value]) && $record->status == OrderStatus::COMPLETED->value)
-                        ->form([
-                            Select::make('invoice_status')
-                                ->label(__('order.invoice_status'))
-                                ->options(InvoiceStatus::toArray())
-                                ->required()
-                                ->default(fn(Order $record) => $record->invoice_status),
-                            TextInput::make('invoice_code')
-                                ->label(__('order.invoice_code'))
-                                ->default(fn(Order $record) => $record->invoice_code),
-                            TextInput::make('invoice_url')
-                                ->label(__('order.invoice_url'))
-                                ->url()
-                                ->default(fn(Order $record) => $record->invoice_url),
-                            DateTimePicker::make('invoice_at')
-                                ->label(__('order.invoice_at'))
-                                ->default(fn(Order $record) => $record->invoice_at ?? now()),
-                        ])
-                        ->action(function (Order $record, array $data) {
-                            $record->update($data);
-                            Notification::make()
-                                ->title(__('order.invoice_action.success'))
-                                ->success()
-                                ->send();
-                        }),
+                        ]))
+                        ->disabled(fn(Order $record): bool => AccountingPeriodGuard::isClosedForRecord($record, 'created_at'))
+                        ->tooltip(fn(Order $record): ?string => AccountingPeriodGuard::isClosedForRecord($record, 'created_at') ? __('accounting.accounting_period.period_closed') : null),
+                    self::makeUpdateInvoiceAction(),
                 ])
             ], position: RecordActionsPosition::BeforeColumns)
             ->toolbarActions([
@@ -437,5 +225,282 @@ class OrdersTable
             ->striped()
             ->persistFiltersInSession()
             ->poll('30s');
+    }
+
+    protected static function makePostOrderAction(): Action
+    {
+        return Action::make('post_order')
+            ->label(__('warehouse.order.action.post_order_handover'))
+            ->icon('heroicon-o-paper-airplane')
+            ->color('primary')
+            ->button()
+            ->visible(fn(Order $record) => $record->status == OrderStatus::CONFIRMED->value)
+            ->disabled(fn(Order $record): bool => AccountingPeriodGuard::isClosedForRecord($record, 'created_at'))
+            ->tooltip(fn(Order $record): ?string => AccountingPeriodGuard::isClosedForRecord($record, 'created_at') ? __('accounting.accounting_period.period_closed') : null)
+            ->schema([
+                Grid::make(2)
+                    ->schema([
+                        TextInput::make('shipping_fee')
+                            ->label(__('order.form.shipping_fee'))
+                            ->numeric()
+                            ->required()
+                            ->default(fn(Order $record) => $record->shipping_fee)
+                            ->prefix('VND')
+                            ->minValue(1000)
+                            ->validationMessages([
+                                'required' => __('common.error.required'),
+                                'numeric' => __('common.error.numeric'),
+                                'min' => __('common.error.min_value', ['min' => 1000]),
+                            ])
+                            ->suffixAction(
+                                Action::make('calculate_fee')
+                                    ->icon('heroicon-o-calculator')
+                                    ->tooltip(__('order.action.calculate_fee'))
+                                    ->action(function ($set, $get, Order $record) {
+                                        $data = [
+                                            'weight' => $get('weight'),
+                                            'ghn_service_type_id' => $get('ghn_service_type_id'),
+                                            'insurance_value' => $get('insurance_value'),
+                                            'length' => $get('length'),
+                                            'width' => $get('width'),
+                                            'height' => $get('height'),
+                                        ];
+
+                                        $orderService = app(OrderService::class);
+                                        $result = $orderService->calculateShippingFee($record, $data);
+
+                                        if ($result->isSuccess()) {
+                                            $feeData = $result->getData();
+                                            $set('shipping_fee', $feeData['total'] ?? 0);
+
+                                            Notification::make()
+                                                ->title(__('order.notification.fee_calculated'))
+                                                ->success()
+                                                ->send();
+                                        } else {
+                                            Notification::make()
+                                                ->title(__('order.notification.calculate_fee_failed'))
+                                                ->body($result->getMessage())
+                                                ->danger()
+                                                ->send();
+                                        }
+                                    })
+                            ),
+
+                        TextInput::make('weight')
+                            ->label(__('order.form.weight'))
+                            ->numeric()
+                            ->default(fn(Order $record) => $record->weight ?? 200)
+                            ->suffix('gram')
+                            ->validationMessages([
+                                'required' => __('common.error.required'),
+                                'numeric' => __('common.error.numeric'),
+                            ]),
+
+                        Select::make('ghn_service_type_id')
+                            ->label(__('order.form.ghn_service_type'))
+                            ->options(ServiceType::toOptions())
+                            ->default(fn(Order $record) => $record->ghn_service_type_id ?? 2)
+                            ->required()
+                            ->validationMessages([
+                                'required' => __('common.error.required'),
+                            ]),
+
+                        Select::make('ghn_payment_type_id')
+                            ->label(__('order.form.ghn_payment_type'))
+                            ->options(PaymentType::toOptions())
+                            ->default(fn(Order $record) => $record->ghn_payment_type_id ?? 2)
+                            ->required()
+                            ->validationMessages([
+                                'required' => __('common.error.required'),
+                            ]),
+
+                        Select::make('required_note')
+                            ->label(__('order.form.required_note'))
+                            ->options(RequiredNote::getOptions())
+                            ->default(fn(Order $record) => $record->required_note ?? RequiredNote::ALLOW_VIEWING_NOT_TRIAL->value)
+                            ->required()
+                            ->validationMessages([
+                                'required' => __('common.error.required'),
+                            ]),
+
+                        TextInput::make('insurance_value')
+                            ->label(__('order.form.insurance_value'))
+                            ->numeric()
+                            ->default(fn(Order $record) => $record->insurance_value)
+                            ->prefix('VND')
+                            ->validationMessages([
+                                'required' => __('common.error.required'),
+                                'numeric' => __('common.error.numeric'),
+                            ]),
+                    ]),
+            ])
+            ->action(function (Order $record, array $data) {
+                $orderService = app(OrderService::class);
+                $result = $orderService->postOrder($record, $data);
+
+                if ($result->isSuccess()) {
+                    Notification::make()
+                        ->title(__('order.notification.post_order_queued'))
+                        ->success()
+                        ->send();
+                } else {
+                    Notification::make()
+                        ->title(__('order.notification.post_order_failed'))
+                        ->body($result->getMessage())
+                        ->danger()
+                        ->send();
+                }
+            });
+    }
+
+    protected static function makeCancelPostAction(): Action
+    {
+        return Action::make('cancel_post')
+            ->label(__('order.action.cancel_post'))
+            ->icon('heroicon-o-x-circle')
+            ->color('danger')
+            ->button()
+            ->visible(fn(Order $record) => $record->status == OrderStatus::SHIPPING->value)
+            ->disabled(fn(Order $record): bool => AccountingPeriodGuard::isClosedForRecord($record, 'created_at'))
+            ->tooltip(fn(Order $record): ?string => AccountingPeriodGuard::isClosedForRecord($record, 'created_at') ? __('accounting.accounting_period.period_closed') : null)
+            ->requiresConfirmation()
+            ->modalHeading(__('order.modal.cancel_post_title'))
+            ->modalDescription(__('order.modal.cancel_post_description'))
+            ->modalSubmitActionLabel(__('order.action.confirm_cancel'))
+            ->action(function (Order $record) {
+                $orderService = app(OrderService::class);
+                $result = $orderService->cancelOrder($record);
+
+                if ($result->isSuccess()) {
+                    Notification::make()
+                        ->title(__('order.notification.cancel_order_queued'))
+                        ->success()
+                        ->send();
+                } else {
+                    Notification::make()
+                        ->title(__('order.notification.cancel_order_failed'))
+                        ->body($result->getMessage())
+                        ->danger()
+                        ->send();
+                }
+            });
+    }
+
+    protected static function makeRequestRedeliveryAction(): Action
+    {
+        return Action::make('request_redelivery')
+            ->label(__('warehouse.order.action.redelivery'))
+            ->icon('heroicon-o-arrow-uturn-left')
+            ->color('warning')
+            ->button()
+            ->visible(fn(Order $record) => in_array((string) $record->ghn_status, [
+                GhnOrderStatus::DELIVERY_FAIL->value,
+                GhnOrderStatus::WAITING_TO_RETURN->value,
+                GhnOrderStatus::RETURN->value,
+                GhnOrderStatus::RETURNING->value,
+            ], true))
+            ->disabled(fn(Order $record): bool => AccountingPeriodGuard::isClosedForRecord($record, 'created_at'))
+            ->tooltip(fn(Order $record): ?string => AccountingPeriodGuard::isClosedForRecord($record, 'created_at') ? __('accounting.accounting_period.period_closed') : null)
+            ->schema([
+                Select::make('reason_code')
+                    ->label(__('warehouse.order.form.reason_code'))
+                    ->options(__('warehouse.shipping_exception'))
+                    ->required()
+                    ->native(false),
+                Textarea::make('reason_note')
+                    ->label(__('warehouse.order.form.reason_note'))
+                    ->required()
+                    ->rows(3),
+                DateTimePicker::make('redelivery_schedule_at')
+                    ->label(__('warehouse.order.form.redelivery_schedule_at'))
+                    ->seconds(false)
+                    ->required()
+                    ->default(now()->addHours(2)),
+            ])
+            ->action(function (Order $record, array $data) {
+                $orderService = app(OrderService::class);
+                $result = $orderService->requestRedelivery($record, $data);
+
+                if ($result->isSuccess()) {
+                    Notification::make()
+                        ->title(__('warehouse.order.action.redelivery'))
+                        ->success()
+                        ->send();
+                } else {
+                    Notification::make()
+                        ->title(__('warehouse.order.action.redelivery'))
+                        ->body($result->getMessage())
+                        ->danger()
+                        ->send();
+                }
+            });
+    }
+
+    protected static function makePrintExportTicketAction(): Action
+    {
+        return Action::make('print_export_ticket')
+            ->label(__('warehouse.order.action.print_export_ticket'))
+            ->icon('heroicon-o-printer')
+            ->color('gray')
+            ->button()
+            ->url(fn(Order $record): string => route('orders.export-ticket.print', ['order' => $record->id]))
+            ->openUrlInNewTab()
+            ->visible(fn(Order $record): bool => in_array((int) $record->status, [
+                OrderStatus::CONFIRMED->value,
+                OrderStatus::SHIPPING->value,
+                OrderStatus::COMPLETED->value,
+            ], true));
+    }
+
+    protected static function makeUpdateInvoiceAction(): Action
+    {
+        return Action::make('update_invoice')
+            ->label(__('order.invoice_action.update_invoice'))
+            ->icon('heroicon-o-document-text')
+            ->color('info')
+            ->visible(fn(Order $record) => in_array(Auth::user()->role, [UserRole::SUPER_ADMIN->value, UserRole::ADMIN->value, UserRole::ACCOUNTING->value]) && $record->status == OrderStatus::COMPLETED->value)
+            ->disabled(fn(Order $record): bool => AccountingPeriodGuard::isClosedForRecord($record, 'created_at'))
+            ->tooltip(fn(Order $record): ?string => AccountingPeriodGuard::isClosedForRecord($record, 'created_at') ? __('accounting.accounting_period.period_closed') : null)
+            ->form([
+                Select::make('invoice_status')
+                    ->label(__('order.invoice_status'))
+                    ->options(InvoiceStatus::toArray())
+                    ->native(false)
+                    ->required()
+                    ->extraInputAttributes(['required' => false])
+                    ->validationMessages([
+                        'required' => __('common.error.required'),
+                    ])
+                    ->default(fn(Order $record) => $record->invoice_status),
+                TextInput::make('invoice_code')
+                    ->label(__('order.invoice_code'))
+                    ->default(fn(Order $record) => $record->invoice_code),
+                TextInput::make('invoice_url')
+                    ->label(__('order.invoice_url'))
+                    ->url()
+                    ->default(fn(Order $record) => $record->invoice_url),
+                DateTimePicker::make('invoice_at')
+                    ->label(__('order.invoice_at'))
+                    ->default(fn(Order $record) => $record->invoice_at ?? now()),
+            ])
+            ->action(function (Order $record, array $data) {
+                $result = app(OrderService::class)->updateInvoice($record, $data);
+
+                if ($result->isError()) {
+                    Notification::make()
+                        ->title(__('common.error.update_error'))
+                        ->body($result->getMessage())
+                        ->danger()
+                        ->send();
+
+                    return;
+                }
+
+                Notification::make()
+                    ->title($result->getMessage())
+                    ->success()
+                    ->send();
+            });
     }
 }

@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 
 class AccountingPeriod extends Model
 {
@@ -35,5 +37,16 @@ class AccountingPeriod extends Model
             ->where('year', $year)
             ->whereNotNull('closed_at')
             ->exists();
+    }
+
+    public static function isDateClosed(int $organizationId, CarbonInterface|string|null $date): bool
+    {
+        if (blank($date)) {
+            return false;
+        }
+
+        $resolvedDate = $date instanceof CarbonInterface ? $date : Carbon::parse($date);
+
+        return self::isClosed($organizationId, $resolvedDate->month, $resolvedDate->year);
     }
 }

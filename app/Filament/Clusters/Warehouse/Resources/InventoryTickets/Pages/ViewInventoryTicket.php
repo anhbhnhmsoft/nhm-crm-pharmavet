@@ -26,18 +26,29 @@ class ViewInventoryTicket extends ViewRecord
                 ->icon('heroicon-o-check-circle')
                 ->color('success')
                 ->requiresConfirmation()
+                ->modalSubmitAction(fn (Action $action) => $action->extraAttributes(['formnovalidate' => true]))
                 ->modalHeading(__('warehouse.ticket.action.approve'))
                 ->modalDescription(__('warehouse.ticket.action.approve_description'))
                 ->form([
                     Select::make('reason_code')
                         ->label(__('warehouse.order.form.reason_code'))
                         ->options(__('warehouse.ticket.reason_codes'))
-                        ->required()
-                        ->native(false),
+                        ->markAsRequired()
+                        ->rule('required')
+                        ->extraInputAttributes(['required' => false])
+                        ->native(false)
+                        ->validationMessages([
+                            'required' => __('common.error.required'),
+                        ]),
                     Textarea::make('reason_note')
                         ->label(__('warehouse.order.form.reason_note'))
-                        ->required()
-                        ->rows(2),
+                        ->markAsRequired()
+                        ->rule('required')
+                        ->extraInputAttributes(['required' => false])
+                        ->rows(2)
+                        ->validationMessages([
+                            'required' => __('common.error.required'),
+                        ]),
                 ])
                 ->visible(fn() => $this->record->status === StatusTicket::DRAFT->value)
                 ->action(function (array $data) {
@@ -61,8 +72,7 @@ class ViewInventoryTicket extends ViewRecord
 
                     Notification::make()
                         ->success()
-                        ->title(__('warehouse.ticket.action.approve'))
-                        ->body(__('warehouse.ticket.action.approve_description'))
+                        ->title(__('warehouse.ticket.action.approved'))
                         ->send();
 
                     return redirect($this->getResource()::getUrl('view', ['record' => $this->record]));
@@ -73,18 +83,29 @@ class ViewInventoryTicket extends ViewRecord
                 ->icon('heroicon-o-x-circle')
                 ->color('danger')
                 ->requiresConfirmation()
+                ->modalSubmitAction(fn (Action $action) => $action->extraAttributes(['formnovalidate' => true]))
                 ->modalHeading(__('warehouse.ticket.action.cancel'))
                 ->modalDescription(__('warehouse.ticket.action.cancel_description'))
                 ->form([
                     Select::make('reason_code')
                         ->label(__('warehouse.order.form.reason_code'))
                         ->options(__('warehouse.ticket.reason_codes'))
-                        ->required()
-                        ->native(false),
+                        ->markAsRequired()
+                        ->rule('required')
+                        ->extraInputAttributes(['required' => false])
+                        ->native(false)
+                        ->validationMessages([
+                            'required' => __('common.error.required'),
+                        ]),
                     Textarea::make('reason_note')
                         ->label(__('warehouse.order.form.reason_note'))
-                        ->required()
-                        ->rows(2),
+                        ->markAsRequired()
+                        ->rule('required')
+                        ->extraInputAttributes(['required' => false])
+                        ->rows(2)
+                        ->validationMessages([
+                            'required' => __('common.error.required'),
+                        ]),
                 ])
                 ->visible(fn() => $this->record->status === StatusTicket::COMPLETED->value)
                 ->action(function (array $data) {
@@ -108,8 +129,7 @@ class ViewInventoryTicket extends ViewRecord
 
                     Notification::make()
                         ->success()
-                        ->title(__('warehouse.ticket.action.cancel'))
-                        ->body(__('warehouse.ticket.action.cancel_description'))
+                        ->title(__('warehouse.ticket.action.cancelled'))
                         ->send();
 
                     return redirect($this->getResource()::getUrl('view', ['record' => $this->record]));
