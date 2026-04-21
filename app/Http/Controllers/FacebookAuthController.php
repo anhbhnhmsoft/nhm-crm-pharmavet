@@ -13,6 +13,7 @@ use App\Services\Integrations\MetaBusinessService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
@@ -28,7 +29,7 @@ class FacebookAuthController extends Controller
     ) {
     }
 
-    public function redirect(Request $request, string $integration): RedirectResponse|View
+    public function redirect(Request $request, string $integration): RedirectResponse|View|Response
     {
         $user = Auth::user();
         $isPopup = $this->isPopupRequest($request);
@@ -61,7 +62,7 @@ class FacebookAuthController extends Controller
         return redirect($this->metaService->getRedirectUrl($state));
     }
 
-    public function callback(Request $request): RedirectResponse|View
+    public function callback(Request $request): RedirectResponse|View|Response
     {
         $context = $this->getOAuthContext();
         $isPopup = (bool) ($context['is_popup'] ?? false);
@@ -136,7 +137,7 @@ class FacebookAuthController extends Controller
             ->with('success', __('messages.meta_business.success.pending_approval', ['count' => $pagesCount]));
     }
 
-    protected function handleTempIntegration(bool $isPopup): RedirectResponse|View
+    protected function handleTempIntegration(bool $isPopup): RedirectResponse|View|Response
     {
         $result = $this->integrationService->initIntegration([
             'organization_id' => Auth::user()->organization_id,
@@ -184,7 +185,7 @@ class FacebookAuthController extends Controller
         bool $isPopup,
         ?Integration $integration = null,
         int $statusCode = 400
-    ): RedirectResponse|View {
+    ): RedirectResponse|View|Response {
         if ($isPopup) {
             return response()->view('filament.oauth.callback-error', [
                 'error' => $message,
