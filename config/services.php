@@ -38,6 +38,7 @@ return [
         'client_id' => env('META_CLIENT_ID'),
         'client_secret' => env('META_CLIENT_SECRET'),
         'redirect' => env('META_REDIRECT'),
+        'login_config_id' => env('META_LOGIN_CONFIG_ID'),
         'app_id' => env('META_APP_ID'),
         'app_secret' => env('META_APP_SECRET'),
         'access_token' => env('META_ACCESS_TOKEN'),

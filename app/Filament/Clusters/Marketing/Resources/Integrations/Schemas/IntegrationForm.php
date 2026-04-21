@@ -134,16 +134,6 @@ class IntegrationForm
 
                         View::make('filament.components.facebook-oauth-button')
                             ->viewData(function (?Integration $record) {
-                                $apiToken = null;
-
-                                if (Auth::user() && config('jwt.secret')) {
-                                    try {
-                                        $apiToken = \PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth::fromUser(Auth::user());
-                                    } catch (\Throwable) {
-                                        $apiToken = null;
-                                    }
-                                }
-
                                 return [
                                     'record' => $record ?? 'temp',
                                     'isConnected' => (bool) ($record && $record->status === IntegrationStatus::CONNECTED->value),
@@ -152,8 +142,6 @@ class IntegrationForm
                                     'lastSync' => $record ? ($record->last_sync_at ? $record->last_sync_at->diffForHumans() : now()) : now(),
                                     'status' => $record?->status,
                                     'statusMessage' => $record?->status_message,
-                                    'apiToken' => $apiToken,
-                                    'facebookAppId' => (string) config('services.facebook.app_id', ''),
                                 ];
                             })
                             ->columnSpanFull(),

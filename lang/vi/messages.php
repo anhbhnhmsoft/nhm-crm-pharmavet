@@ -21,6 +21,8 @@ return [
         'rejected' => 'Kết nối Facebook đã bị từ chối.',
         'error' => [
             'connect_failed' => 'Kết nối Facebook thất bại',
+            'login_configuration_missing' => 'Thiếu cấu hình Facebook Login for Business. Vui lòng khai báo META_LOGIN_CONFIG_ID, META_REDIRECT và META_APP_ID.',
+            'exchange_code_failed' => 'Không thể đổi mã xác thực Facebook Login for Business',
             'exchange_token_failed' => 'Không thể đổi token dài hạn',
             'callback_failed' => 'Callback thất bại',
             'no_user_token' => 'Không tìm thấy user token hợp lệ',

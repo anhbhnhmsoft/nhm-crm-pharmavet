@@ -49,35 +49,10 @@ if ((int) $statusValue === IntegrationStatus::CONNECTED->value) {
     statusMessage: @js($statusMessage ?? null),
     connecting: false,
     syncing: false,
-    apiToken: @js($apiToken ?? null),
-    facebookAppId: @js($facebookAppId ?? null),
     checkInterval: null,
 
     init() {
-        this.initFacebookSdk();
         window.addEventListener('message', (event) => this.handleOAuthMessage(event));
-    },
-
-    initFacebookSdk() {
-        if (!this.facebookAppId || window.FB) {
-            return;
-        }
-
-        window.fbAsyncInit = () => {
-            window.FB.init({
-                appId: this.facebookAppId,
-                cookie: true,
-                xfbml: false,
-                version: 'v25.0',
-            });
-        };
-
-        const script = document.createElement('script');
-        script.async = true;
-        script.defer = true;
-        script.crossOrigin = 'anonymous';
-        script.src = 'https://connect.facebook.net/vi_VN/sdk.js';
-        document.head.appendChild(script);
     },
 
     getOauthWindow() {
@@ -91,57 +66,7 @@ if ((int) $statusValue === IntegrationStatus::CONNECTED->value) {
     },
 
     connectFacebook() {
-        if (!this.apiToken || !window.FB || !this.facebookAppId) {
-            this.openFacebookPopup();
-            return;
-        }
-
-        this.connecting = true;
-
-        window.FB.login(async (response) => {
-            const accessToken = response?.authResponse?.accessToken;
-
-            if (!accessToken) {
-                this.connecting = false;
-                this.notify('warning', '{{ __('filament.integration.notifications.cancelled.title') }}');
-                return;
-            }
-
-            try {
-                const apiResponse = await fetch('/api/v1/facebook/connect', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${this.apiToken}`,
-                    },
-                    body: JSON.stringify({
-                        userAccessToken: accessToken,
-                    }),
-                });
-
-                const result = await apiResponse.json();
-
-                if (!apiResponse.ok) {
-                    throw new Error(result.message || '{{ __('filament.integration.notifications.error.body') }}');
-                }
-
-                this.pendingPagesCount = result.data?.count ?? 0;
-                this.pagesCount = 0;
-                this.status = @js(IntegrationStatus::PENDING->value);
-                this.statusMessage = result.message;
-                this.notify('success', '{{ __('filament.integration.notifications.pending.title') }}', result.message);
-                setTimeout(() => window.location.reload(), 1000);
-            } catch (error) {
-                this.status = @js(IntegrationStatus::ERROR->value);
-                this.statusMessage = error.message;
-                this.notify('danger', '{{ __('filament.integration.notifications.error.title') }}', error.message);
-            } finally {
-                this.connecting = false;
-            }
-        }, {
-            scope: 'pages_show_list,pages_read_engagement,pages_manage_metadata,leads_retrieval',
-            return_scopes: true,
-        });
+        this.openFacebookPopup();
     },
 
     openFacebookPopup() {

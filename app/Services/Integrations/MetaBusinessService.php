@@ -30,7 +30,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Laravel\Socialite\Facades\Socialite;
 
 class MetaBusinessService
 {
@@ -60,15 +59,24 @@ class MetaBusinessService
 
     public function getRedirectUrl(?string $state = null): string
     {
-        $driver = Socialite::driver('facebook')
-            ->scopes($this->getRequiredScopes())
-            ->stateless();
+        $appId = (string) config('services.facebook.app_id', config('services.facebook.client_id'));
+        $configId = (string) config('services.facebook.login_config_id');
+        $redirectUri = (string) config('services.facebook.redirect');
 
-        if ($state) {
-            $driver = $driver->with(['state' => $state]);
+        if ($appId === '' || $configId === '' || $redirectUri === '') {
+            throw new \RuntimeException(__('messages.meta_business.error.login_configuration_missing'));
         }
 
-        return $driver->redirect()->getTargetUrl();
+        $version = trim((string) config('services.facebook.graph_api_version', 'v25.0'), '/');
+
+        return 'https://www.facebook.com/'.$version.'/dialog/oauth?'.http_build_query(array_filter([
+            'client_id' => $appId,
+            'redirect_uri' => $redirectUri,
+            'state' => $state,
+            'response_type' => 'code',
+            'override_default_response_type' => 'true',
+            'config_id' => $configId,
+        ], static fn ($value) => $value !== null && $value !== ''));
     }
 
     protected function getRequiredScopes(): array
@@ -140,17 +148,26 @@ class MetaBusinessService
         }
     }
 
-    public function handleCallback(Integration $integration): ServiceReturn
+    public function handleCallback(Integration $integration, string $authorizationCode): ServiceReturn
     {
         try {
-            $facebookUser = Socialite::driver('facebook')->stateless()->user();
             $user = Auth::user();
 
             if (!$user) {
                 return ServiceReturn::error(__('common.error.invalid_or_expired_token'));
             }
 
-            return $this->connectWithUserAccessToken($user, $facebookUser->token, $integration);
+            if ($authorizationCode === '') {
+                return ServiceReturn::error(__('filament.integration.errors.connection_failed'));
+            }
+
+            $tokenPayload = $this->exchangeAuthorizationCodeForToken($authorizationCode);
+
+            if (!$tokenPayload || empty($tokenPayload['access_token'])) {
+                throw new \RuntimeException(__('messages.meta_business.error.exchange_code_failed'));
+            }
+
+            return $this->connectWithUserAccessToken($user, (string) $tokenPayload['access_token'], $integration);
         } catch (\Throwable $throwable) {
             Log::error('Facebook callback failed', [
                 'integration_id' => $integration->id,
@@ -163,6 +180,34 @@ class MetaBusinessService
             ]);
 
             return ServiceReturn::error(__('messages.meta_business.error.callback_failed'), $throwable);
+        }
+    }
+
+    protected function exchangeAuthorizationCodeForToken(string $authorizationCode): ?array
+    {
+        try {
+            $response = Http::asForm()->post($this->graphUrl('/oauth/access_token'), [
+                'client_id' => config('services.facebook.app_id', config('services.facebook.client_id')),
+                'client_secret' => config('services.facebook.app_secret', config('services.facebook.client_secret')),
+                'redirect_uri' => config('services.facebook.redirect'),
+                'code' => $authorizationCode,
+            ]);
+
+            if ($response->successful()) {
+                return $response->json();
+            }
+
+            Log::error('Failed to exchange business login authorization code', [
+                'response' => $response->body(),
+            ]);
+
+            return null;
+        } catch (\Throwable $throwable) {
+            Log::error('Exception exchanging business login authorization code', [
+                'error' => $throwable->getMessage(),
+            ]);
+
+            return null;
         }
     }
 

@@ -59,7 +59,13 @@ class FacebookAuthController extends Controller
             ],
         ]);
 
-        return redirect($this->metaService->getRedirectUrl($state));
+        try {
+            return redirect($this->metaService->getRedirectUrl($state));
+        } catch (\Throwable $throwable) {
+            session()->forget([self::OAUTH_CONTEXT_KEY, 'integration_id', 'is_popup']);
+
+            return $this->handleError($throwable->getMessage(), $isPopup, statusCode: 422);
+        }
     }
 
     public function callback(Request $request): RedirectResponse|View|Response
@@ -111,7 +117,7 @@ class FacebookAuthController extends Controller
             return $this->handleError(__('common.error.403'), $isPopup, statusCode: 403);
         }
 
-        $result = $this->metaService->handleCallback($integration);
+        $result = $this->metaService->handleCallback($integration, (string) $request->query('code', ''));
         session()->forget([self::OAUTH_CONTEXT_KEY, 'integration_id', 'is_popup']);
 
         if ($result->isError()) {
@@ -154,7 +160,7 @@ class FacebookAuthController extends Controller
         }
 
         $integration = $result->getData();
-        $callbackResult = $this->metaService->handleCallback($integration);
+        $callbackResult = $this->metaService->handleCallback($integration, (string) request()->query('code', ''));
         session()->forget([self::OAUTH_CONTEXT_KEY, 'integration_id', 'is_popup']);
 
         if ($callbackResult->isError()) {
