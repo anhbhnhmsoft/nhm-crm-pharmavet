@@ -5,6 +5,9 @@ $pagesCount = 0;
 $pendingPagesCount = $pendingPagesCount ?? 0;
 $lastSync = null;
 $recordId = is_object($record ?? null) ? $record->id : 'temp';
+$statusValue = $status ?? null;
+$statusBadgeClass = 'bg-gray-100 text-gray-700';
+$statusLabel = __('filament.integration.status.pending');
 
 if (isset($record) && is_object($record) && $record !== 'temp') {
     try {
@@ -21,11 +24,23 @@ if (isset($record) && is_object($record) && $record !== 'temp') {
             : (string) $record->last_sync_at;
     }
 }
+
+if ((int) $statusValue === IntegrationStatus::CONNECTED->value) {
+    $statusBadgeClass = 'bg-emerald-100 text-emerald-700';
+    $statusLabel = __('filament.integration.status.connected');
+} elseif ((int) $statusValue === IntegrationStatus::ERROR->value) {
+    $statusBadgeClass = 'bg-rose-100 text-rose-700';
+    $statusLabel = __('filament.integration.status.error');
+} elseif ((int) $statusValue === IntegrationStatus::PENDING->value) {
+    $statusBadgeClass = 'bg-amber-100 text-amber-700';
+}
 @endphp
 
 @vite(['resources/css/app.css'])
 
-<div x-data="{
+<div
+    wire:ignore
+    x-data="{
     recordId: @js($recordId),
     pagesCount: @js($pagesCount),
     pendingPagesCount: @js($pendingPagesCount),
@@ -271,26 +286,21 @@ if (isset($record) && is_object($record) && $record !== 'temp') {
             status: status
         });
     }
-}" class="space-y-4">
+}"
+    class="space-y-4"
+>
     <div class="rounded-md border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-900/20">
         <div class="flex items-center justify-between text-sm">
             <span class="text-gray-600 dark:text-gray-300">{{ __('filament.integration.fields.connection_status') }}</span>
-            <span
-                class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold"
-                :class="{
-                    'bg-emerald-100 text-emerald-700': Number(status) === @js(IntegrationStatus::CONNECTED->value),
-                    'bg-amber-100 text-amber-700': Number(status) === @js(IntegrationStatus::PENDING->value),
-                    'bg-rose-100 text-rose-700': Number(status) === @js(IntegrationStatus::ERROR->value),
-                    'bg-gray-100 text-gray-700': !status || Number(status) === @js(IntegrationStatus::EXPIRED->value)
-                }"
-                x-text="Number(status) === @js(IntegrationStatus::CONNECTED->value)
-                    ? '{{ __('filament.integration.status.connected') }}'
-                    : (Number(status) === @js(IntegrationStatus::ERROR->value)
-                        ? '{{ __('filament.integration.status.error') }}'
-                        : '{{ __('filament.integration.status.pending') }}')"
-            >{{ __('filament.integration.status.pending') }}</span>
+            <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold {{ $statusBadgeClass }}">
+                {{ $statusLabel }}
+            </span>
         </div>
-        <p class="mt-2 text-xs text-gray-500 dark:text-gray-400" x-show="statusMessage" x-text="statusMessage"></p>
+        @if (filled($statusMessage))
+            <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                {{ $statusMessage }}
+            </p>
+        @endif
     </div>
 
     <div class="flex items-center justify-between gap-4 rounded-md border border-gray-200 bg-gray-50 p-3 dark:border-gray-800 dark:bg-gray-900/20">
@@ -300,11 +310,11 @@ if (isset($record) && is_object($record) && $record !== 'temp') {
             </svg>
             <div class="text-sm text-gray-700 dark:text-gray-200">
                 <div class="text-xs text-gray-600 dark:text-gray-400">
-                    <span x-text="pagesCount + ' {{ __('filament.integration.sections.approved_pages') }}'">{{ $pagesCount }} {{ __('filament.integration.sections.approved_pages') }}</span>
+                    <span>{{ $pagesCount }} {{ __('filament.integration.sections.approved_pages') }}</span>
                     <span class="mx-2">·</span>
-                    <span x-text="pendingPagesCount + ' {{ __('filament.integration.sections.pending_pages') }}'">{{ $pendingPagesCount }} {{ __('filament.integration.sections.pending_pages') }}</span>
+                    <span>{{ $pendingPagesCount }} {{ __('filament.integration.sections.pending_pages') }}</span>
                     <span class="mx-2">·</span>
-                    <span x-text="lastSync ? '{{ __('filament.integration.sections.last_sync') }}: ' + lastSync : '{{ __('filament.integration.sections.never_synced') }}'">{{ $lastSync ? __('filament.integration.sections.last_sync') . ': ' . $lastSync : __('filament.integration.sections.never_synced') }}</span>
+                    <span>{{ $lastSync ? __('filament.integration.sections.last_sync') . ': ' . $lastSync : __('filament.integration.sections.never_synced') }}</span>
                 </div>
             </div>
         </div>
@@ -322,21 +332,30 @@ if (isset($record) && is_object($record) && $record !== 'temp') {
         </div>
     </div>
 
-    <div class="flex gap-3">
-        <button type="button" x-on:click="connectFacebook" :disabled="connecting"
-            class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
-            <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" x-show="!connecting">
+    <div class="flex flex-wrap items-center gap-3">
+        <button
+            type="button"
+            x-on:click="connectFacebook"
+            :disabled="connecting"
+            class="inline-flex min-w-[220px] items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+            <svg class="h-5 w-5 shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
             </svg>
+            <span class="whitespace-nowrap">{{ __('filament.integration.actions.connect_facebook') }}</span>
+        </button>
 
-            <svg class="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24" x-show="connecting" x-cloak>
+        <div
+            class="inline-flex items-center gap-2 text-xs font-medium text-blue-700"
+            x-show="connecting"
+            x-cloak
+        >
+            <svg class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-
-            <span x-show="!connecting">{{ __('filament.integration.actions.connect_facebook') }}</span>
-            <span x-show="connecting" x-cloak>{{ __('filament.integration.sections.connecting') }}</span>
-        </button>
+            <span>{{ __('filament.integration.sections.connecting') }}</span>
+        </div>
     </div>
 
     <div class="text-xs text-gray-500 dark:text-gray-400">
