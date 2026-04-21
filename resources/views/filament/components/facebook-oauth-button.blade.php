@@ -223,7 +223,7 @@ if ((int) $statusValue === IntegrationStatus::CONNECTED->value) {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name=\\'csrf-token\\']').content,
+                    'X-CSRF-TOKEN': document.querySelector(`meta[name='csrf-token']`)?.content ?? '',
                 },
             });
 
@@ -256,7 +256,7 @@ if ((int) $statusValue === IntegrationStatus::CONNECTED->value) {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name=\\'csrf-token\\']').content,
+                    'X-CSRF-TOKEN': document.querySelector(`meta[name='csrf-token']`)?.content ?? '',
                 },
             });
 
@@ -320,7 +320,7 @@ if ((int) $statusValue === IntegrationStatus::CONNECTED->value) {
         </div>
 
         <div class="text-right text-xs">
-            <button type="button" x-on:click="syncPages" :disabled="syncing"
+            <button type="button" x-on:click="syncPages()" :disabled="syncing"
                 class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700">
                 <svg class="h-4 w-4" :class="{ 'animate-spin': syncing }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -335,7 +335,7 @@ if ((int) $statusValue === IntegrationStatus::CONNECTED->value) {
     <div class="flex flex-wrap items-center gap-3">
         <button
             type="button"
-            x-on:click="connectFacebook"
+            x-on:click="connectFacebook()"
             :disabled="connecting"
             class="inline-flex min-w-[220px] items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
