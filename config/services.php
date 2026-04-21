@@ -42,6 +42,10 @@ return [
         'app_secret' => env('META_APP_SECRET'),
         'access_token' => env('META_ACCESS_TOKEN'),
         'request_advanced_scopes' => env('META_REQUEST_ADVANCED_SCOPES', 'false'),
+        'graph_api_version' => env('META_GRAPH_API_VERSION', 'v25.0'),
+        'webhook_verify_token' => env('WEBHOOK_VERIFY_TOKEN'),
+        'webhook_app_secret' => env('META_APP_SECRET'),
+        'webhook_rate_limit' => (int) env('META_WEBHOOK_RATE_LIMIT', 120),
     ],
     'google' => [
         'map_key_api' => env('GOOGLE_MAPS_API_KEY'),

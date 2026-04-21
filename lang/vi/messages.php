@@ -17,7 +17,10 @@ return [
     'meta_business' => [
         'connected_successfully' => 'Kết nối thành công!',
         'disconnected' => 'Đã ngắt kết nối',
+        'pending_approval' => 'Đã kết nối Facebook và đang chờ quản trị viên duyệt.',
+        'rejected' => 'Kết nối Facebook đã bị từ chối.',
         'error' => [
+            'connect_failed' => 'Kết nối Facebook thất bại',
             'exchange_token_failed' => 'Không thể đổi token dài hạn',
             'callback_failed' => 'Callback thất bại',
             'no_user_token' => 'Không tìm thấy user token hợp lệ',
@@ -32,14 +35,24 @@ return [
             'lookup_page_error' => 'Lỗi tìm kiếm trang',
             'page_entity_not_found' => 'Không tìm thấy thông tin trang',
             'page_token_not_found' => 'Không tìm thấy token trang',
+            'page_token_expired' => 'Token của trang đã hết hạn',
             'webhook_subscribe_failed' => 'Không thể đăng ký webhook cho trang',
             'customer_blacklisted' => 'Khách hàng nằm trong danh sách đen',
             'process_lead_failed' => 'Xử lý lead thất bại',
+            'approve_failed' => 'Duyệt kết nối Facebook thất bại',
+            'reject_failed' => 'Từ chối kết nối Facebook thất bại',
+            'store_lead_failed' => 'Lưu lead Facebook thất bại',
+            'facebook_lead_not_found' => 'Không tìm thấy log lead Facebook',
+            'invalid_signature' => 'Chữ ký webhook Facebook không hợp lệ',
         ],
         'success' => [
             'connected' => 'Đã kết nối',
             'pages_synced' => 'Đã đồng bộ trang',
             'disconnected' => 'Đã ngắt kết nối',
+            'pending_approval' => 'Đã lưu kết nối Facebook, chờ quản trị viên duyệt',
+            'pages_synced_pending' => 'Đã đồng bộ Pages và chuyển sang trạng thái chờ duyệt',
+            'approved' => 'Đã duyệt kết nối Facebook thành công',
+            'rejected' => 'Đã từ chối kết nối Facebook',
         ]
     ],
     'auth' => [

@@ -13,11 +13,11 @@ class ProcessFacebookLeadJobTest extends TestCase
     {
         $service = $this->createMock(MetaBusinessService::class);
         $service->expects($this->once())
-            ->method('processLead')
-            ->with(99, '12345', 'lead_1')
+            ->method('processQueuedLead')
+            ->with(99)
             ->willReturn(ServiceReturn::error('Temporary error', data: ['retryable' => true]));
 
-        $job = new ProcessFacebookLeadJob(99, 'lead_1', '12345');
+        $job = new ProcessFacebookLeadJob(99);
 
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('Temporary error');
@@ -29,11 +29,11 @@ class ProcessFacebookLeadJobTest extends TestCase
     {
         $service = $this->createMock(MetaBusinessService::class);
         $service->expects($this->once())
-            ->method('processLead')
-            ->with(99, '12345', 'lead_1')
+            ->method('processQueuedLead')
+            ->with(99)
             ->willReturn(ServiceReturn::error('Blacklisted', data: ['retryable' => false]));
 
-        $job = new ProcessFacebookLeadJob(99, 'lead_1', '12345');
+        $job = new ProcessFacebookLeadJob(99);
 
         $job->handle($service);
 

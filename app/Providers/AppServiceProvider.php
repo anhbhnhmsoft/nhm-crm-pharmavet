@@ -41,6 +41,7 @@ use App\Repositories\FundLockAuditRepository;
 use App\Repositories\FundLockRuleRepository;
 use App\Repositories\FundTransactionAttachmentRepository;
 use App\Repositories\FacebookEventLogRepository;
+use App\Repositories\FacebookLeadRepository;
 use App\Repositories\MarketingAlertLogRepository;
 use App\Repositories\MarketingBudgetRepository;
 use App\Repositories\MarketingScoringRuleSetRepository;
@@ -110,6 +111,9 @@ use App\Services\Marketing\MarketingRankingService;
 use App\Services\Marketing\WebsiteLeadIngestService;
 use Filament\Support\Assets\Js;
 use Filament\Support\Facades\FilamentAsset;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use App\Repositories\ShiftRepository;
@@ -134,6 +138,12 @@ class AppServiceProvider extends ServiceProvider
         FilamentAsset::register([
             Js::make('activity-tracker', resource_path('js/activity-tracker.js')),
         ]);
+
+        RateLimiter::for('facebook-webhook', function (Request $request) {
+            $perMinute = max((int) config('services.facebook.webhook_rate_limit', 120), 1);
+
+            return Limit::perMinute($perMinute)->by($request->ip());
+        });
 
         if (config('app.env') === 'local' && (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) || isset($_SERVER['HTTP_X_FORWARDED_HOST']))) {
             URL::forceScheme('https');
@@ -188,6 +198,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(FundLockAuditRepository::class);
         $this->app->bind(FundTransactionAttachmentRepository::class);
         $this->app->bind(FacebookEventLogRepository::class);
+        $this->app->bind(FacebookLeadRepository::class);
         $this->app->bind(WebsiteLeadIngestLogRepository::class);
         $this->app->bind(MarketingScoringRuleSetRepository::class);
         $this->app->bind(MarketingBudgetRepository::class);

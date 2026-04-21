@@ -52,8 +52,21 @@ Route::middleware(['web', 'auth:web'])->prefix('api/integrations')->group(functi
         ->name('api.integrations.disconnect');
 });
 
-Route::match(['get', 'post'], '/webhooks/facebook', [FacebookWebhookController::class, 'handle'])
-    ->name('webhooks.facebook');
+Route::get('/webhook/facebook', [FacebookWebhookController::class, 'handle'])
+    ->middleware('throttle:facebook-webhook')
+    ->name('webhook.facebook.verify');
+
+Route::post('/webhook/facebook', [FacebookWebhookController::class, 'handle'])
+    ->middleware(['throttle:facebook-webhook', 'facebook.webhook.signature'])
+    ->name('webhook.facebook.receive');
+
+Route::get('/webhooks/facebook', [FacebookWebhookController::class, 'handle'])
+    ->middleware('throttle:facebook-webhook')
+    ->name('webhooks.facebook.verify');
+
+Route::post('/webhooks/facebook', [FacebookWebhookController::class, 'handle'])
+    ->middleware(['throttle:facebook-webhook', 'facebook.webhook.signature'])
+    ->name('webhooks.facebook.receive');
 
 Route::post('/webhooks/ghn', [GHNWebhookController::class, 'handle'])
     ->name('webhooks.ghn');

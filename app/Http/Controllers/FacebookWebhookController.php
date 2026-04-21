@@ -18,7 +18,7 @@ class FacebookWebhookController
 
     public function verify(Request $request)
     {
-        $token = $request->get('hub_verify_token');
+        $token = (string) $request->get('hub_verify_token');
         $challenge = $request->get('hub_challenge');
 
         $ret = $this->metaBusinessService->verifyIntegrationByWebhookToken($token);
@@ -46,12 +46,16 @@ class FacebookWebhookController
                     continue;
                 }
 
-                $ret = $this->metaBusinessService->findIntegrationByPageId($pageId);
-                if ($ret->isError()) {
+                $queueResult = $this->metaBusinessService->queueLeadFromWebhook($pageId, $leadId, $payload);
+                if ($queueResult->isError()) {
                     continue;
                 }
 
-                dispatch(new ProcessFacebookLeadJob($ret->getData()->id, $leadId, $pageId));
+                $facebookLead = $queueResult->getData();
+
+                if ($facebookLead->wasRecentlyCreated) {
+                    dispatch(new ProcessFacebookLeadJob($facebookLead->id));
+                }
             }
         }
 

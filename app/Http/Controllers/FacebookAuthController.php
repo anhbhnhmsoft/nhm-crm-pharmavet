@@ -120,7 +120,6 @@ class FacebookAuthController extends Controller
         $integration->refresh();
         $pagesCount = $integration->entities()
             ->where('type', IntegrationEntityType::PAGE_META->value)
-            ->where('status', StatusConnect::CONNECTED->value)
             ->count();
 
         if ($isPopup) {
@@ -134,7 +133,7 @@ class FacebookAuthController extends Controller
 
         return redirect()
             ->to(IntegrationResource::getUrl('edit', ['record' => $integration]))
-            ->with('success', __('filament.integration.success.facebook_connected', ['count' => $pagesCount]));
+            ->with('success', __('messages.meta_business.success.pending_approval', ['count' => $pagesCount]));
     }
 
     protected function handleTempIntegration(bool $isPopup): RedirectResponse|View
@@ -165,7 +164,6 @@ class FacebookAuthController extends Controller
         $integration->refresh();
         $pagesCount = $integration->entities()
             ->where('type', IntegrationEntityType::PAGE_META->value)
-            ->where('status', StatusConnect::CONNECTED->value)
             ->count();
 
         if ($isPopup) {
@@ -178,7 +176,7 @@ class FacebookAuthController extends Controller
         }
 
         return redirect(IntegrationResource::getUrl('edit', ['record' => $integration]))
-            ->with('success', __('filament.integration.success.facebook_connected', ['count' => $pagesCount]));
+            ->with('success', __('messages.meta_business.success.pending_approval', ['count' => $pagesCount]));
     }
 
     protected function handleError(

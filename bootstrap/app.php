@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Middleware\ActivityTimeout;
+use App\Http\Middleware\EnsureApiRole;
+use App\Http\Middleware\ValidateFacebookWebhookSignature;
 use Illuminate\Http\Request;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -17,10 +19,16 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->validateCsrfTokens(except: [
+            'webhook/facebook',
             'webhooks/facebook',
             'webhooks/ghn',
             'api/v2/website/*',
             'api/v2/facebook/capi/events',
+        ]);
+
+        $middleware->alias([
+            'api.role' => EnsureApiRole::class,
+            'facebook.webhook.signature' => ValidateFacebookWebhookSignature::class,
         ]);
 
         $middleware->append(ActivityTimeout::class);

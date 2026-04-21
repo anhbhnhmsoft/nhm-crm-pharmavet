@@ -2,9 +2,10 @@
 
 namespace App\Filament\Clusters\Marketing\Resources\Integrations\Tables;
 
+use App\Common\Constants\Marketing\FacebookConnectionStatus;
 use App\Common\Constants\Marketing\IntegrationEntityType;
+use App\Common\Constants\Marketing\IntegrationStatus;
 use App\Common\Constants\Marketing\IntegrationType;
-use App\Common\Constants\StatusConnect;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\RestoreAction;
@@ -45,28 +46,37 @@ class IntegrationsTable
                     ->label(__('filament.integration.table.status'))
                     ->formatStateUsing(function ($state) {
                         return match ((int) $state) {
-                            StatusConnect::CONNECTED->value => __('filament.integration.status.connected'),
-                            StatusConnect::PENDING->value => __('filament.integration.status.pending'),
-                            StatusConnect::ERROR->value => __('filament.integration.status.error'),
+                            IntegrationStatus::CONNECTED->value => __('filament.integration.status.connected'),
+                            IntegrationStatus::PENDING->value => __('filament.integration.status.pending'),
+                            IntegrationStatus::ERROR->value => __('filament.integration.status.error'),
+                            IntegrationStatus::EXPIRED->value => __('filament.integration.status.expired'),
                             default => __('filament.integration.status.not_connected'),
                         };
                     })
                     ->badge()
                     ->color(function ($state) {
                         return match ((int) $state) {
-                            StatusConnect::CONNECTED->value => 'success',
-                            StatusConnect::PENDING->value => 'warning',
-                            StatusConnect::ERROR->value => 'danger',
+                            IntegrationStatus::CONNECTED->value => 'success',
+                            IntegrationStatus::PENDING->value => 'warning',
+                            IntegrationStatus::ERROR->value => 'danger',
+                            IntegrationStatus::EXPIRED->value => 'gray',
                             default => 'gray',
                         };
                     })
                     ->sortable(),
 
-                TextColumn::make('pages')
-                    ->label(__('filament.integration.table.pages'))
+                TextColumn::make('approved_pages')
+                    ->label(__('filament.integration.table.approved_pages'))
                     ->state(fn ($record) => $record->entities()
                         ->where('type', IntegrationEntityType::PAGE_META->value)
-                        ->where('status', StatusConnect::CONNECTED->value)
+                        ->where('status', FacebookConnectionStatus::APPROVED->value)
+                        ->count()),
+
+                TextColumn::make('pending_pages')
+                    ->label(__('filament.integration.table.pending_pages'))
+                    ->state(fn ($record) => $record->entities()
+                        ->where('type', IntegrationEntityType::PAGE_META->value)
+                        ->where('status', FacebookConnectionStatus::PENDING->value)
                         ->count()),
 
                 TextColumn::make('config.site_id')
@@ -105,9 +115,10 @@ class IntegrationsTable
                 SelectFilter::make('status')
                     ->label(__('filament.integration.filters.status'))
                     ->options([
-                        StatusConnect::CONNECTED->value => __('filament.integration.status.connected'),
-                        StatusConnect::PENDING->value => __('filament.integration.status.pending'),
-                        StatusConnect::ERROR->value => __('filament.integration.status.error'),
+                        IntegrationStatus::CONNECTED->value => __('filament.integration.status.connected'),
+                        IntegrationStatus::PENDING->value => __('filament.integration.status.pending'),
+                        IntegrationStatus::ERROR->value => __('filament.integration.status.error'),
+                        IntegrationStatus::EXPIRED->value => __('filament.integration.status.expired'),
                     ]),
 
                 TrashedFilter::make()

@@ -19,11 +19,24 @@ class IntegrationEntity extends Model
         'metadata',
         'status',
         'connected_at',
+        'approved_by',
+        'approved_at',
+        'rejected_by',
+        'rejected_at',
+        'webhook_subscribed_at',
+        'last_lead_received_at',
+        'status_reason',
+        'disconnected_at',
     ];
 
     protected $casts = [
         'metadata' => 'array',
         'connected_at' => 'datetime',
+        'approved_at' => 'datetime',
+        'rejected_at' => 'datetime',
+        'webhook_subscribed_at' => 'datetime',
+        'last_lead_received_at' => 'datetime',
+        'disconnected_at' => 'datetime',
     ];
 
     public function integration()
@@ -34,5 +47,15 @@ class IntegrationEntity extends Model
     public function tokens()
     {
         return $this->hasMany(IntegrationToken::class, 'entity_id');
+    }
+
+    public function approvedBy()
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function rejectedBy()
+    {
+        return $this->belongsTo(User::class, 'rejected_by');
     }
 }

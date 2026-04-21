@@ -3,10 +3,12 @@
 namespace Tests\Unit\Integrations;
 
 use App\Repositories\CustomerRepository;
+use App\Repositories\FacebookLeadRepository;
 use App\Repositories\IntegrationEntityRepository;
 use App\Repositories\IntegrationRepository;
 use App\Repositories\IntegrationTokenRepository;
 use App\Repositories\LeadDistributionConfigRepository;
+use App\Services\Integrations\FacebookLeadMapper;
 use App\Services\Integrations\MetaBusinessService;
 use App\Services\LeadDistributionService;
 use Tests\TestCase;
@@ -57,6 +59,16 @@ class MetaBusinessServiceTest extends TestCase
         $this->assertFalse($method->invoke($service, ['MANAGE']));
     }
 
+    public function test_it_verifies_webhook_token_from_env_config(): void
+    {
+        config()->set('services.facebook.webhook_verify_token', 'verify-token-123');
+
+        $service = $this->makeService();
+
+        $this->assertTrue($service->verifyIntegrationByWebhookToken('verify-token-123')->isSuccess());
+        $this->assertTrue($service->verifyIntegrationByWebhookToken('invalid-token')->isError());
+    }
+
     protected function makeService(): MetaBusinessService
     {
         return new MetaBusinessService(
@@ -66,6 +78,8 @@ class MetaBusinessServiceTest extends TestCase
             $this->createMock(IntegrationEntityRepository::class),
             $this->createMock(LeadDistributionConfigRepository::class),
             $this->createMock(LeadDistributionService::class),
+            $this->createMock(FacebookLeadRepository::class),
+            new FacebookLeadMapper(),
         );
     }
 }

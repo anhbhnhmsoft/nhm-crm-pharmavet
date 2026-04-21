@@ -12,23 +12,19 @@ class ProcessFacebookLeadJob implements ShouldQueue
 {
     use InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $integrationId;
-    public string $leadId;
-    public string $pageId;
+    public int $facebookLeadId;
 
     public int $tries = 5;
     public array $backoff = [60, 120, 300, 600, 900];
 
-    public function __construct(int $integrationId, string $leadId, string $pageId)
+    public function __construct(int $facebookLeadId)
     {
-        $this->integrationId = $integrationId;
-        $this->leadId = $leadId;
-        $this->pageId = $pageId;
+        $this->facebookLeadId = $facebookLeadId;
     }
 
     public function handle(MetaBusinessService $service)
     {
-        $result = $service->processLead($this->integrationId, $this->pageId, $this->leadId);
+        $result = $service->processQueuedLead($this->facebookLeadId);
 
         if ($result->isSuccess()) {
             return;

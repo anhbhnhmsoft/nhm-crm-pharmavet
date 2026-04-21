@@ -7,6 +7,7 @@ use App\Common\Constants\StatusConnect;
 use App\Core\BaseRepository;
 use App\Models\IntegrationToken;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 
 class IntegrationTokenRepository extends BaseRepository
 {
@@ -59,6 +60,32 @@ class IntegrationTokenRepository extends BaseRepository
             ->where('type', \App\Common\Constants\Marketing\IntegrationTokenType::PAGE_ACCESS_TOKEN->value)
             ->where('status', StatusConnect::CONNECTED->value)
             ->first();
+    }
+
+    public function getActivePageAccessTokenByEntity(int | string $integrationId, int | string $entityId): ?IntegrationToken
+    {
+        return $this->getPageAccessTokenByEntity($integrationId, $entityId);
+    }
+
+    public function markEntityTokensDisconnected(int | string $integrationId, int | string $entityId): int
+    {
+        return $this->query()
+            ->where('integration_id', $integrationId)
+            ->where('entity_id', $entityId)
+            ->update([
+                'status' => StatusConnect::PENDING->value,
+            ]);
+    }
+
+    public function markExpiredIfNeeded(IntegrationToken $token): IntegrationToken
+    {
+        if ($token->expires_at instanceof Carbon && $token->expires_at->isPast()) {
+            $token->update([
+                'status' => StatusConnect::ERROR->value,
+            ]);
+        }
+
+        return $token->refresh();
     }
 
     protected function upsertToken(array $data, IntegrationTokenType $type): void

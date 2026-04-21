@@ -522,7 +522,7 @@ return [
             ],
             'facebook_login' => [
                 'title' => 'Kết nối Facebook',
-                'description' => 'Đăng nhập Facebook để tự động đồng bộ lead',
+                'description' => 'Marketing kết nối Page, sau đó quản trị viên duyệt để bật nhận lead tự động',
             ],
             'webhook' => [
                 'title' => 'Cấu hình Webhook',
@@ -535,11 +535,16 @@ return [
             'facebook_connected' => 'Đã kết nối Facebook thành công',
             'facebook_connect_required' => 'Vui lòng đăng nhập Facebook để bắt đầu nhận lead',
             'facebook_popup_hint' => 'Cửa sổ đăng nhập Facebook sẽ mở trong popup',
+            'facebook_pending_hint' => 'Sau khi kết nối, Pages sẽ ở trạng thái chờ quản trị viên duyệt.',
             'connecting' => 'Đang kết nối...',
             'disconnect_confirm' => 'Bạn có chắc chắn muốn ngắt kết nối Facebook? Tất cả Pages sẽ bị hủy đăng ký.',
             'facebook_connected_summary' => 'Đã kết nối :count Pages. Đồng bộ lần cuối: :last_sync',
+            'facebook_pending_summary' => 'Đã kết nối và đồng bộ :count Pages. Đồng bộ lần cuối: :last_sync. Các Pages đang chờ quản trị viên duyệt.',
+            'facebook_approval_summary' => 'Đã duyệt :approved Pages, còn :pending Pages chờ duyệt. Đồng bộ lần cuối: :last_sync',
             'never_synced' => 'Chưa bao giờ',
             'pages' => 'Pages',
+            'approved_pages' => 'Pages đã duyệt',
+            'pending_pages' => 'Pages chờ duyệt',
             'last_sync' => 'Đồng bộ lần cuối',
         ],
         'defaults' => [
@@ -571,7 +576,9 @@ return [
             'default_product_helper' => 'Lead từ nguồn này sẽ được gán vào sản phẩm này',
             'active' => 'Kích hoạt',
             'webhook_subscribed' => 'Webhook đã đăng ký',
+            'page_workflow_status' => 'Trạng thái duyệt',
             'page_connected_at' => 'Kết nối lúc',
+            'status_reason' => 'Lý do / ghi chú trạng thái',
             'webhook_url' => 'URL Webhook',
             'webhook_url_helper' => 'URL nhận webhook từ landing page/website',
             'site_id' => 'Site ID',
@@ -601,6 +608,8 @@ return [
             'create' => 'Tạo kết nối mới',
             'connect_facebook' => 'Đăng nhập Facebook',
             'sync_pages' => 'Đồng bộ Pages',
+            'approve_pages' => 'Duyệt Pages',
+            'reject_pages' => 'Từ chối Pages',
             'disconnect' => 'Ngắt kết nối',
             'copy_endpoint' => 'Copy endpoint',
             'copy_ping_endpoint' => 'Copy ping endpoint',
@@ -617,12 +626,24 @@ return [
             'not_connected' => 'Chưa kết nối',
         ],
 
+        'facebook' => [
+            'page_status' => [
+                'pending' => 'Chờ duyệt',
+                'approved' => 'Đã duyệt',
+                'rejected' => 'Đã từ chối',
+                'disconnected' => 'Đã ngắt kết nối',
+                'expired' => 'Đã hết hạn',
+            ],
+        ],
+
         // Table
         'table' => [
             'name' => 'Tên',
             'type' => 'Loại',
             'status' => 'Trạng thái',
             'pages' => 'Pages',
+            'approved_pages' => 'Pages đã duyệt',
+            'pending_pages' => 'Pages chờ duyệt',
             'last_sync' => 'Đồng bộ cuối',
             'never' => 'Chưa bao giờ',
             'created_at' => 'Ngày tạo',
@@ -638,6 +659,10 @@ return [
             'connected' => [
                 'title' => 'Kết nối thành công',
                 'body' => 'Facebook đã được kết nối và đồng bộ Pages',
+            ],
+            'pending' => [
+                'title' => 'Đã chuyển sang chờ duyệt',
+                'body' => 'Pages đã được đồng bộ, chờ quản trị viên duyệt để bật nhận lead.',
             ],
             'sync_success' => [
                 'title' => 'Đồng bộ thành công',

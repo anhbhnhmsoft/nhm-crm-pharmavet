@@ -2,19 +2,18 @@
 
 namespace App\Filament\Clusters\Marketing\Resources\Integrations\Schemas;
 
+use App\Common\Constants\Marketing\FacebookConnectionStatus;
 use App\Common\Constants\Marketing\IntegrationStatus;
 use App\Common\Constants\Marketing\IntegrationType;
+use App\Common\Constants\Marketing\IntegrationEntityType;
 use App\Models\Integration;
 use App\Models\Product;
-use App\Common\Constants\StatusConnect;
-use App\Common\Constants\Marketing\IntegrationEntityType;
 use Filament\Forms\Components\KeyValue;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Toggle;
-use Filament\Forms\Components\Hidden;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
@@ -22,8 +21,8 @@ use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 
 class IntegrationForm
 {
@@ -53,9 +52,7 @@ class IntegrationForm
 
                                         $type = IntegrationType::tryFrom($state);
 
-                                        if ($type === IntegrationType::FACEBOOK_ADS) {
-                                            $set('config.webhook_verify_token', fn($current) => $current ?: Str::random(32));
-                                        } elseif ($type === IntegrationType::WEBSITE) {
+                                        if ($type === IntegrationType::WEBSITE) {
                                             $set('config.webhook_secret', fn($current) => $current ?: Str::random(32));
                                             $set('config.site_id', fn($current) => $current ?: Str::lower(Str::random(16)));
                                         }
@@ -109,33 +106,61 @@ class IntegrationForm
                         Placeholder::make('facebook_status')
                             ->label(false)
                             ->content(function (?Integration $record) {
-                                if (!$record || $record->status !== IntegrationStatus::CONNECTED->value) {
+                                if (!$record) {
                                     return __('filament.integration.sections.facebook_connect_required');
                                 }
 
-                                $pagesCount = $record->entities()->where('type', IntegrationEntityType::PAGE_META->value)->count();
+                                $approvedPages = $record->approvedFacebookPages()->count();
+                                $pendingPages = $record->pendingFacebookPages()->count();
                                 $lastSync = $record->last_sync_at ? $record->last_sync_at->diffForHumans() : __('filament.integration.sections.never_synced');
 
-                                return __('filament.integration.sections.facebook_connected_summary', [
-                                    'count' => $pagesCount,
-                                    'last_sync' => $lastSync,
-                                ]);
+                                if ($approvedPages > 0) {
+                                    return __('filament.integration.sections.facebook_approval_summary', [
+                                        'approved' => $approvedPages,
+                                        'pending' => $pendingPages,
+                                        'last_sync' => $lastSync,
+                                    ]);
+                                }
+
+                                if ($pendingPages > 0) {
+                                    return __('filament.integration.sections.facebook_pending_summary', [
+                                        'count' => $pendingPages,
+                                        'last_sync' => $lastSync,
+                                    ]);
+                                }
+
+                                return __('filament.integration.sections.facebook_connect_required');
                             }),
 
                         View::make('filament.components.facebook-oauth-button')
-                            ->viewData(fn(?Integration $record) => [
-                                'record' => $record ?? 'temp',
-                                'isConnected' => (bool) ($record && $record->status === IntegrationStatus::CONNECTED->value),
-                                'pagesCount' => $record ? $record->entities()->where('type', IntegrationEntityType::PAGE_META->value)->count() : 0,
-                                'lastSync' => $record ? ($record->last_sync_at ? $record->last_sync_at->diffForHumans() : now()) : now(),
-                                'status' => $record?->status,
-                                'statusMessage' => $record?->status_message,
-                            ])
+                            ->viewData(function (?Integration $record) {
+                                $apiToken = null;
+
+                                if (Auth::user() && config('jwt.secret')) {
+                                    try {
+                                        $apiToken = \PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth::fromUser(Auth::user());
+                                    } catch (\Throwable) {
+                                        $apiToken = null;
+                                    }
+                                }
+
+                                return [
+                                    'record' => $record ?? 'temp',
+                                    'isConnected' => (bool) ($record && $record->status === IntegrationStatus::CONNECTED->value),
+                                    'pagesCount' => $record ? $record->approvedFacebookPages()->count() : 0,
+                                    'pendingPagesCount' => $record ? $record->pendingFacebookPages()->count() : 0,
+                                    'lastSync' => $record ? ($record->last_sync_at ? $record->last_sync_at->diffForHumans() : now()) : now(),
+                                    'status' => $record?->status,
+                                    'statusMessage' => $record?->status_message,
+                                    'apiToken' => $apiToken,
+                                    'facebookAppId' => (string) config('services.facebook.app_id', ''),
+                                ];
+                            })
                             ->columnSpanFull(),
 
                         Repeater::make('entities')
                             ->label(__('filament.integration.fields.connected_pages'))
-                            ->relationship('entities', modifyQueryUsing: fn($query) => $query->where('type', IntegrationEntityType::PAGE_META->value)->where('status', StatusConnect::CONNECTED->value))
+                            ->relationship('entities', modifyQueryUsing: fn($query) => $query->where('type', IntegrationEntityType::PAGE_META->value))
                             ->schema([
                                 Grid::make(12)
                                     ->schema([
@@ -174,18 +199,24 @@ class IntegrationForm
                                                 : __('filament.integration.status.pending'))
                                             ->columnSpan(2),
 
+                                        Placeholder::make('page_workflow_status')
+                                            ->label(__('filament.integration.fields.page_workflow_status'))
+                                            ->content(function (Get $get) {
+                                                $status = FacebookConnectionStatus::tryFrom((int) $get('status'));
+
+                                                return $status?->label() ?? __('filament.integration.status.pending');
+                                            })
+                                            ->columnSpan(2),
+
                                         Placeholder::make('page_connected_at')
                                             ->label(__('filament.integration.fields.page_connected_at'))
                                             ->content(fn(Get $get) => (string) ($get('connected_at') ?: __('filament.integration.sections.never_synced')))
                                             ->columnSpan(2),
 
-                                        Toggle::make('status')
-                                            ->label(__('filament.integration.fields.active'))
-                                            ->inline(false)
-                                            ->onColor('success')
-                                            ->offColor('danger')
-                                            ->columnSpan(1)
-                                            ->extraAttributes(['class' => 'flex justify-center']),
+                                        Placeholder::make('status_reason')
+                                            ->label(__('filament.integration.fields.status_reason'))
+                                            ->content(fn(Get $get) => (string) ($get('status_reason') ?: '-'))
+                                            ->columnSpan(4),
 
                                         Hidden::make('metadata.category'),
                                         Hidden::make('metadata.picture'),

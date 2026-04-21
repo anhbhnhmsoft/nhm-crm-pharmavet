@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Common\Constants\Marketing\FacebookConnectionStatus;
+use App\Common\Constants\Marketing\IntegrationEntityType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -53,5 +55,20 @@ class Integration extends Model
     public function updatedBy()
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    public function facebookPages()
+    {
+        return $this->entities()->where('type', IntegrationEntityType::PAGE_META->value);
+    }
+
+    public function pendingFacebookPages()
+    {
+        return $this->facebookPages()->where('status', FacebookConnectionStatus::PENDING->value);
+    }
+
+    public function approvedFacebookPages()
+    {
+        return $this->facebookPages()->where('status', FacebookConnectionStatus::APPROVED->value);
     }
 }

@@ -7,6 +7,50 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## Facebook Lead Ads Integration
+
+### Environment
+
+Set the following variables before using the Facebook Lead Ads integration:
+
+```env
+META_CLIENT_ID=
+META_CLIENT_SECRET=
+META_REDIRECT=
+META_APP_ID=
+META_APP_SECRET=
+META_GRAPH_API_VERSION=v25.0
+WEBHOOK_VERIFY_TOKEN=
+JWT_SECRET=
+```
+
+### Setup Flow
+
+1. Marketing user connects Facebook Page from the integration UI or `POST /api/v1/facebook/connect`.
+2. The system exchanges the user token, fetches eligible Pages, and stores them in `pending`.
+3. Admin approves or rejects Pages via UI or:
+   - `POST /api/v1/admin/facebook/approve`
+   - `POST /api/v1/admin/facebook/reject`
+4. Approved Pages are subscribed to Meta webhook `leadgen`.
+5. New leads are received at `GET/POST /webhook/facebook`, verified, queued, and pushed into CRM.
+
+### Meta App Requirements
+
+- Required permissions: `leads_retrieval`, `pages_show_list`, `pages_read_engagement`, `pages_manage_metadata`.
+- The Meta App must pass **App Review** to use `leads_retrieval` in production.
+- Use **Business Manager** for production ownership and page permission management.
+- Configure the webhook callback URL to:
+  - `https://your-domain.com/webhook/facebook`
+- Configure the verify token to match `WEBHOOK_VERIFY_TOKEN`.
+
+### Queue Requirement
+
+Facebook lead ingestion is asynchronous. Make sure the queue worker is running:
+
+```bash
+php artisan queue:work
+```
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:

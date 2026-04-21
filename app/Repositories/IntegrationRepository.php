@@ -2,8 +2,10 @@
 
 namespace App\Repositories;
 
+use App\Common\Constants\Marketing\FacebookConnectionStatus;
 use App\Common\Constants\Marketing\IntegrationEntityType;
 use App\Common\Constants\Marketing\IntegrationType;
+use App\Common\Constants\Marketing\IntegrationStatus;
 use App\Common\Constants\StatusConnect;
 use App\Core\BaseRepository;
 use App\Models\Integration;
@@ -58,9 +60,47 @@ class IntegrationRepository extends BaseRepository
             ->where('status', StatusConnect::CONNECTED->value)
             ->whereHas('entities', function ($query) use ($pageId) {
                 $query->where('type', IntegrationEntityType::PAGE_META->value)
-                    ->where('status', StatusConnect::CONNECTED->value)
+                    ->where('status', FacebookConnectionStatus::APPROVED->value)
                     ->where('external_id', $pageId);
             })
+            ->first();
+    }
+
+    public function findLatestFacebookByUser(int $organizationId, int $userId): ?Integration
+    {
+        return $this->query()
+            ->where('organization_id', $organizationId)
+            ->where('created_by', $userId)
+            ->where('type', IntegrationType::FACEBOOK_ADS->value)
+            ->latest('id')
+            ->first();
+    }
+
+    public function createOrReuseFacebookIntegration(int $organizationId, int $userId, ?string $name = null): Integration
+    {
+        $integration = $this->findLatestFacebookByUser($organizationId, $userId);
+
+        if ($integration) {
+            return $integration;
+        }
+
+        return $this->create([
+            'organization_id' => $organizationId,
+            'type' => IntegrationType::FACEBOOK_ADS->value,
+            'name' => $name ?: __('filament.integration.defaults.facebook_name'),
+            'status' => IntegrationStatus::PENDING->value,
+            'created_by' => $userId,
+            'updated_by' => $userId,
+        ]);
+    }
+
+    public function findFacebookForUser(int $integrationId, int $organizationId, int $userId): ?Integration
+    {
+        return $this->query()
+            ->where('id', $integrationId)
+            ->where('organization_id', $organizationId)
+            ->where('created_by', $userId)
+            ->where('type', IntegrationType::FACEBOOK_ADS->value)
             ->first();
     }
 }

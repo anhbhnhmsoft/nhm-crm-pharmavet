@@ -15,8 +15,9 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use PHPOpenSourceSaver\JWTAuth\Contracts\JWTSubject;
 
-class User extends Authenticatable implements FilamentUser
+class User extends Authenticatable implements FilamentUser, JWTSubject
 {
     use HasFactory, Notifiable, GenerateIdSnowflake, SoftDeletes;
 
@@ -124,5 +125,18 @@ class User extends Authenticatable implements FilamentUser
     public function assignedCustomers(): BelongsToMany
     {
         return $this->belongsToMany(Customer::class, UserAssignedStaff::class);
+    }
+
+    public function getJWTIdentifier()
+    {
+        return $this->getKey();
+    }
+
+    public function getJWTCustomClaims(): array
+    {
+        return [
+            'organization_id' => $this->organization_id,
+            'role' => $this->role,
+        ];
     }
 }

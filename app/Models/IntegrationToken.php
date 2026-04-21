@@ -23,6 +23,7 @@ class IntegrationToken extends Model
 
     protected $casts = [
         'type' => 'integer',
+        'token' => 'encrypted',
         'scopes' => 'array',
         'expires_at' => 'datetime',
     ];
