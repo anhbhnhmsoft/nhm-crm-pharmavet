@@ -2,6 +2,7 @@
 
 namespace App\Filament\Clusters\Warehouse\Resources\InventoryTickets;
 
+use App\Common\Constants\GateKey;
 use App\Common\Constants\User\UserRole;
 use App\Filament\Clusters\Warehouse\Resources\InventoryTickets\RelationManagers\InventoryTicketLogsRelationManager;
 use App\Filament\Clusters\Warehouse\Resources\InventoryTickets\Pages\CreateInventoryTicket;
@@ -11,7 +12,6 @@ use App\Filament\Clusters\Warehouse\Resources\InventoryTickets\Pages\ViewInvento
 use App\Filament\Clusters\Warehouse\Resources\InventoryTickets\Schemas\InventoryTicketForm;
 use App\Filament\Clusters\Warehouse\Resources\InventoryTickets\Tables\InventoryTicketsTable;
 use App\Models\InventoryTicket;
-use App\Utils\Helper;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -19,6 +19,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
 
 class InventoryTicketResource extends Resource
 {
@@ -48,12 +49,9 @@ class InventoryTicketResource extends Resource
 
     public static function canAccess(): bool
     {
-        return Helper::checkPermission([
-            UserRole::SUPER_ADMIN->value,
-            UserRole::ADMIN->value,
-            UserRole::WAREHOUSE->value,
-            UserRole::ACCOUNTING->value,
-        ], Auth::user()->role);
+        return Gate::allows(GateKey::IS_SUPER_ADMIN->name)
+            || Gate::allows(GateKey::IS_ADMIN->name)
+            || Gate::allows(GateKey::HAS_ROLE->name, [UserRole::WAREHOUSE, UserRole::ACCOUNTING]);
     }
 
     public static function getEloquentQuery(): Builder
@@ -64,9 +62,11 @@ class InventoryTicketResource extends Resource
             ]);
 
         $organizationId = Auth::user()->organization_id;
-        return $query->where(function (Builder $subQuery) use ($organizationId) {
-            $subQuery->where('organization_id', $organizationId);
-        });
+        return $query
+            ->where(function (Builder $subQuery) use ($organizationId) {
+                $subQuery->where('organization_id', $organizationId);
+            })
+            ->withSum('details as product_quantity_sum', 'quantity');
     }
 
 

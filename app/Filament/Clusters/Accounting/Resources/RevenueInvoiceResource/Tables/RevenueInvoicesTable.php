@@ -5,6 +5,7 @@ namespace App\Filament\Clusters\Accounting\Resources\RevenueInvoiceResource\Tabl
 use App\Common\Constants\Order\InvoiceStatus;
 use App\Common\Constants\Order\OrderStatus;
 use App\Models\Order;
+use App\Services\OrderService;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\DateTimePicker;
@@ -86,7 +87,12 @@ class RevenueInvoicesTable
                         Select::make('invoice_status')
                             ->label(__('order.invoice_status'))
                             ->options(InvoiceStatus::toArray())
+                            ->native(false)
                             ->required()
+                            ->extraInputAttributes(['required' => false])
+                            ->validationMessages([
+                                'required' => __('common.error.required'),
+                            ])
                             ->default(fn(Order $record) => $record->invoice_status),
                         TextInput::make('invoice_code')
                             ->label(__('order.invoice_code'))
@@ -94,15 +100,33 @@ class RevenueInvoicesTable
                         TextInput::make('invoice_url')
                             ->label(__('order.invoice_url'))
                             ->url()
+                            ->extraInputAttributes([
+                                'type' => 'text',
+                                'required' => false,
+                            ])
+                            ->validationMessages([
+                                'url' => __('common.error.url'),
+                            ])
                             ->default(fn(Order $record) => $record->invoice_url),
                         DateTimePicker::make('invoice_at')
                             ->label(__('order.invoice_at'))
                             ->default(fn(Order $record) => $record->invoice_at ?? now()),
                     ])
                     ->action(function (Order $record, array $data) {
-                        $record->update($data);
+                        $result = app(OrderService::class)->updateInvoice($record, $data);
+
+                        if ($result->isError()) {
+                            Notification::make()
+                                ->title(__('common.error.update_error'))
+                                ->body($result->getMessage())
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+
                         Notification::make()
-                            ->title(__('order.invoice_action.success'))
+                            ->title($result->getMessage())
                             ->success()
                             ->send();
                     }),

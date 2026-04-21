@@ -5,6 +5,7 @@ namespace App\Services\Accounting;
 use App\Core\Logging;
 use App\Repositories\DiscrepancyReportRepository;
 use App\Core\ServiceReturn;
+use App\Models\Order;
 use Throwable;
 
 class DiscrepancyReportService
@@ -32,5 +33,30 @@ class DiscrepancyReportService
             ]);
             return ServiceReturn::error(__('accounting.report.get_failed'));
         }
+    }
+
+    public function resolveSystemValue(Order $order): float
+    {
+        return $this->discrepancyReportRepository->resolveSystemValue($order);
+    }
+
+    public function resolveWarehouseValue(Order $order): float
+    {
+        return $this->discrepancyReportRepository->resolveWarehouseValue($order);
+    }
+
+    public function resolveActualPayment(Order $order): float
+    {
+        return $this->discrepancyReportRepository->resolveActualPayment($order);
+    }
+
+    public function resolveDiscrepancyNote(Order $order): string
+    {
+        return $this->discrepancyReportRepository->resolveDiscrepancyNote($order);
+    }
+
+    public function valuesDifferent(float $left, float $right): bool
+    {
+        return $this->discrepancyReportRepository->valuesDifferent($left, $right);
     }
 }

@@ -162,7 +162,10 @@ class InventoryTicketForm
                 Section::make(__('warehouse.ticket.section.products'))
                     ->schema([
                         Repeater::make('details')
+                            ->label(__('warehouse.ticket.section.products'))
+                            ->hiddenLabel()
                             ->relationship('details')
+                            ->minItems(1)
                             ->schema([
                                 Select::make('product_id')
                                     ->label(__('warehouse.ticket.form.product'))
@@ -193,14 +196,22 @@ class InventoryTicketForm
                                 TextInput::make('quantity')
                                     ->label(__('warehouse.ticket.form.quantity'))
                                     ->required()
-                                    ->numeric()
+                                    ->integer()
                                     ->default(1)
                                     ->minValue(1)
+                                    ->extraInputAttributes([
+                                        'type' => 'text',
+                                        'inputmode' => 'numeric',
+                                        'required' => false,
+                                        'min' => null,
+                                        'max' => null,
+                                        'step' => null,
+                                    ])
                                     ->columnSpan(1)
                                     ->validationMessages([
                                         'required' => __('common.error.required'),
-                                        'numeric' => __('common.error.numeric'),
-                                        'min_value' => __('common.error.min_value'),
+                                        'integer' => __('common.error.numeric'),
+                                        'min' => __('common.error.min_value', ['min' => 1]),
                                     ]),
 
                                 TextInput::make('unit_price')
@@ -238,6 +249,9 @@ class InventoryTicketForm
                             ->addActionLabel(__('common.action.add'))
                             ->reorderable(false)
                             ->collapsible()
+                            ->validationMessages([
+                                'min' => __('common.error.min_items', ['min' => 1]),
+                            ])
                             ->itemLabel(
                                 fn(array $state): ?string =>
                                 $state['product_id']

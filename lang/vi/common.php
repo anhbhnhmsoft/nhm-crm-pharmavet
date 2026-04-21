@@ -33,6 +33,8 @@ return [
         'max_length' => 'Trường này không được vượt quá :max ký tự.',
         'unique' => 'Giá trị này đã được sử dụng.',
         'numeric' => 'Trường này phải là một số.',
+        'integer' => 'Trường này phải là số nguyên.',
+        'digits_only' => 'Chỉ được nhập số hợp lệ, không gồm chữ hoặc ký tự đặc biệt.',
         'min_value' => 'Giá trị tối thiểu là :min.',
         'max_value' => 'Giá trị tối đa là :max.',
         'email' => 'Địa chỉ email không hợp lệ.',

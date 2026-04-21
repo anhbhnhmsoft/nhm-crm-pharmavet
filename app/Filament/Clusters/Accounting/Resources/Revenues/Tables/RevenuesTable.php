@@ -2,6 +2,8 @@
 
 namespace App\Filament\Clusters\Accounting\Resources\Revenues\Tables;
 
+use App\Models\Revenue;
+use App\Utils\AccountingPeriodGuard;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Actions\EditAction;
@@ -62,8 +64,12 @@ class RevenuesTable
                     })
             ])
             ->actions([
-                EditAction::make(),
-                DeleteAction::make(),
+                EditAction::make()
+                    ->disabled(fn(Revenue $record): bool => AccountingPeriodGuard::isClosedForRecord($record, 'revenue_date'))
+                    ->tooltip(fn(Revenue $record): ?string => AccountingPeriodGuard::isClosedForRecord($record, 'revenue_date') ? __('accounting.accounting_period.period_closed') : null),
+                DeleteAction::make()
+                    ->disabled(fn(Revenue $record): bool => AccountingPeriodGuard::isClosedForRecord($record, 'revenue_date'))
+                    ->tooltip(fn(Revenue $record): ?string => AccountingPeriodGuard::isClosedForRecord($record, 'revenue_date') ? __('accounting.accounting_period.period_closed') : null),
             ])
             ->bulkActions([
                 BulkActionGroup::make([

@@ -2,19 +2,19 @@
 
 namespace App\Filament\Clusters\Accounting\Resources\Revenues;
 
+use App\Common\Constants\GateKey;
 use App\Common\Constants\User\UserRole;
 use App\Filament\Clusters\Accounting\Resources\Revenues\Pages\ListRevenues;
 use App\Filament\Clusters\Accounting\Resources\Revenues\Schemas\RevenueForm;
 use App\Filament\Clusters\Accounting\Resources\Revenues\Tables\RevenuesTable;
 use App\Models\Revenue;
-use App\Utils\Helper;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
 
 class RevenueResource extends Resource
 {
@@ -31,26 +31,24 @@ class RevenueResource extends Resource
 
     public static function getModelLabel(): string
     {
-        return __('accounting.revenue.label');
+        return __('accounting.revenue.resource_label');
     }
 
     public static function getPluralModelLabel(): string
     {
-        return __('accounting.revenue.plural_label');
+        return __('accounting.revenue.resource_plural_label');
     }
 
     public static function getNavigationLabel(): string
     {
-        return __('accounting.revenue.navigation_label');
+        return __('accounting.revenue.resource_navigation_label');
     }
 
     public static function canAccess(): bool
     {
-        return Helper::checkPermission([
-            UserRole::SUPER_ADMIN->value,
-            UserRole::ADMIN->value,
-            UserRole::ACCOUNTING->value,
-        ], Auth::user()->role);
+        return Gate::allows(GateKey::IS_SUPER_ADMIN->name)
+            || Gate::allows(GateKey::IS_ADMIN->name)
+            || Gate::allows(GateKey::HAS_ROLE->name, [UserRole::ACCOUNTING]);
     }
 
     public static function form(Schema $schema): Schema
@@ -79,10 +77,7 @@ class RevenueResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()
-            ->withoutGlobalScopes([
-                SoftDeletingScope::class,
-            ]);
+        $query = parent::getEloquentQuery();
 
         $organizationId = Auth::user()->organization_id;
         return $query->where('organization_id', $organizationId);

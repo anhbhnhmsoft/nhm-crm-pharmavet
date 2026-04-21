@@ -695,7 +695,7 @@ class CustomerOperationsTable
                                 TextInput::make('source')
                                     ->disabled()
                                     ->label(__('common.table.source'))
-                                    ->default(IntegrationType::getLabel($record->source))
+                                    ->default(IntegrationType::getLabel((int) $record->source))
                                     ->visible($record->source ? true : false),
                                 TextInput::make('product')
                                     ->disabled()

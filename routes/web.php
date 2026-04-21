@@ -7,6 +7,7 @@ use App\Http\Controllers\FacebookAuthController;
 use App\Http\Controllers\FundTransactionAttachmentController;
 use App\Http\Controllers\GHNWebhookController;
 use App\Http\Controllers\MarketingSpendAttachmentController;
+use App\Http\Controllers\OrderExportTicketPrintController;
 use App\Http\Controllers\OrderShippingController;
 
 Route::middleware(['auth:web'])->group(function () {
@@ -21,6 +22,9 @@ Route::middleware(['auth:web'])->group(function () {
 
     Route::post('/orders/{order}/redelivery', [OrderShippingController::class, 'requestRedelivery'])
         ->name('orders.redelivery');
+
+    Route::get('/orders/{order}/export-ticket/print', OrderExportTicketPrintController::class)
+        ->name('orders.export-ticket.print');
 
     Route::get('/marketing/spend-attachments/{attachment}/download', [MarketingSpendAttachmentController::class, 'download'])
         ->name('marketing.spend-attachments.download');

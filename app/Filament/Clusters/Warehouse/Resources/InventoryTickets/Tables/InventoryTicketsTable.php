@@ -4,6 +4,8 @@ namespace App\Filament\Clusters\Warehouse\Resources\InventoryTickets\Tables;
 
 use App\Common\Constants\Warehouse\StatusTicket;
 use App\Common\Constants\Warehouse\TypeTicket;
+use App\Models\InventoryTicket;
+use App\Utils\AccountingPeriodGuard;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -18,6 +20,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class InventoryTicketsTable
 {
@@ -78,10 +81,12 @@ class InventoryTicketsTable
                     ->toggleable()
                     ->placeholder('—'),
 
-                TextColumn::make('details_count')
+                TextColumn::make('product_quantity_sum')
                     ->label(__('warehouse.ticket.form.product_quantity'))
-                    ->counts('details')
-                    ->sortable()
+                    ->formatStateUsing(fn ($state): int => (int) round((float) ($state ?? 0)))
+                    ->sortable(
+                        query: fn (Builder $query, string $direction): Builder => $query->orderBy('product_quantity_sum', $direction)
+                    )
                     ->alignCenter(),
                 TextColumn::make('note')
                     ->label(__('warehouse.ticket.form.note'))
@@ -160,18 +165,24 @@ class InventoryTicketsTable
                     EditAction::make()
                         ->label(__('common.action.edit'))
                         ->icon('heroicon-o-pencil-square')
-                        ->visible(fn($record) => $record->status === StatusTicket::DRAFT->value && !$record->trashed()),
+                        ->visible(fn($record) => $record->status === StatusTicket::DRAFT->value && !$record->trashed())
+                        ->disabled(fn(InventoryTicket $record): bool => AccountingPeriodGuard::isClosedForRecord($record, ['approved_at', 'created_at']))
+                        ->tooltip(fn(InventoryTicket $record): ?string => AccountingPeriodGuard::isClosedForRecord($record, ['approved_at', 'created_at']) ? __('accounting.accounting_period.period_closed') : null),
 
                     DeleteAction::make()
                         ->label(__('common.action.delete'))
                         ->icon('heroicon-o-trash')
                         ->requiresConfirmation()
-                        ->visible(fn($record) => $record->status === StatusTicket::DRAFT->value && !$record->trashed()),
+                        ->visible(fn($record) => $record->status === StatusTicket::DRAFT->value && !$record->trashed())
+                        ->disabled(fn(InventoryTicket $record): bool => AccountingPeriodGuard::isClosedForRecord($record, ['approved_at', 'created_at']))
+                        ->tooltip(fn(InventoryTicket $record): ?string => AccountingPeriodGuard::isClosedForRecord($record, ['approved_at', 'created_at']) ? __('accounting.accounting_period.period_closed') : null),
 
                     RestoreAction::make()
                         ->label(__('common.action.restore'))
                         ->icon('heroicon-o-arrow-path')
-                        ->visible(fn($record) => $record->trashed()),
+                        ->visible(fn($record) => $record->trashed())
+                        ->disabled(fn(InventoryTicket $record): bool => AccountingPeriodGuard::isClosedForRecord($record, ['approved_at', 'created_at']))
+                        ->tooltip(fn(InventoryTicket $record): ?string => AccountingPeriodGuard::isClosedForRecord($record, ['approved_at', 'created_at']) ? __('accounting.accounting_period.period_closed') : null),
                 ]),
             ], position: \Filament\Tables\Enums\RecordActionsPosition::BeforeColumns)
             ->bulkActions([

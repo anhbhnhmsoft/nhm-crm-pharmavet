@@ -478,18 +478,36 @@ class InventoryMovementService
         ?string $reasonNote,
         array $metadata,
     ): void {
-        $ticket->logs()->create([
-            'product_id' => null,
-            'reason' => $reasonCode,
-            'note' => $reasonNote,
-            'action' => $action,
-            'old_status' => $oldStatus,
-            'new_status' => $newStatus,
-            'metadata_json' => $metadata,
-            'user_id' => $actorId,
-            'created_by' => $actorId,
-            'updated_by' => $actorId,
-        ]);
+        $ticket->loadMissing('details');
+
+        $productIds = $ticket->details
+            ->pluck('product_id')
+            ->filter(fn ($productId): bool => filled($productId))
+            ->map(fn ($productId): int => (int) $productId)
+            ->unique()
+            ->values();
+
+        if ($productIds->isEmpty()) {
+            return;
+        }
+
+        foreach ($productIds as $productId) {
+            $ticket->logs()->create([
+                'product_id' => $productId,
+                'reason' => $reasonCode,
+                'note' => $reasonNote,
+                'action' => $action,
+                'old_status' => $oldStatus,
+                'new_status' => $newStatus,
+                'metadata_json' => [
+                    ...$metadata,
+                    'scope' => 'ticket',
+                ],
+                'user_id' => $actorId,
+                'created_by' => $actorId,
+                'updated_by' => $actorId,
+            ]);
+        }
     }
 
     protected function logDetailMovement(

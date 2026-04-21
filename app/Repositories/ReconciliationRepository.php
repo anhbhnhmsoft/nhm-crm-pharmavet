@@ -6,8 +6,9 @@ use App\Common\Constants\Accounting\ReconciliationStatus;
 use App\Core\BaseRepository;
 use App\Models\Reconciliation;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class ReconciliationRepository extends BaseRepository
@@ -32,7 +33,7 @@ class ReconciliationRepository extends BaseRepository
     /**
      * Lấy danh sách đối soát trong khoảng thời gian
      */
-    public function getReconciliationsByDateRange(int $organizationId, string $startDate, string $endDate): Collection
+    public function getReconciliationsByDateRange(int $organizationId, string $startDate, string $endDate): EloquentCollection
     {
         return $this->query()
             ->where('organization_id', $organizationId)

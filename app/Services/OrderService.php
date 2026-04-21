@@ -585,4 +585,29 @@ class OrderService
             return ServiceReturn::error($exception->getMessage());
         }
     }
+
+    public function updateInvoice(Order $order, array $data): ServiceReturn
+    {
+        try {
+            $updatedOrder = $this->orderRepository->updateById($order->id, [
+                'invoice_status' => $data['invoice_status'] ?? $order->invoice_status,
+                'invoice_code' => $data['invoice_code'] ?? null,
+                'invoice_url' => $data['invoice_url'] ?? null,
+                'invoice_at' => $data['invoice_at'] ?? null,
+            ]);
+
+            if (! $updatedOrder) {
+                return ServiceReturn::error(__('common.error.data_not_found'));
+            }
+
+            return ServiceReturn::success($updatedOrder, __('order.invoice_action.success'));
+        } catch (\Throwable $exception) {
+            Log::error('Update invoice failed', [
+                'order_id' => $order->id,
+                'error' => $exception->getMessage(),
+            ]);
+
+            return ServiceReturn::error($exception->getMessage(), $exception);
+        }
+    }
 }

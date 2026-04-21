@@ -6,6 +6,7 @@ use App\Common\Constants\Warehouse\StatusTicket;
 use App\Exports\SimpleArrayExport;
 use App\Filament\Clusters\Warehouse\Resources\InventoryTickets\InventoryTicketResource;
 use App\Services\Warehouse\InventoryMovementService;
+use App\Utils\AccountingPeriodGuard;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ForceDeleteAction;
@@ -15,6 +16,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
+use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Facades\Excel;
@@ -23,6 +25,12 @@ use App\Services\Warehouse\InventoryTicketExcelService;
 class EditInventoryTicket extends EditRecord
 {
     protected static string $resource = InventoryTicketResource::class;
+
+    public function form(Schema $schema): Schema
+    {
+        return parent::form($schema)
+            ->disabled($this->isRecordReadOnly());
+    }
 
     protected function getHeaderActions(): array
     {
@@ -111,18 +119,29 @@ class EditInventoryTicket extends EditRecord
                 ->icon('heroicon-o-check-circle')
                 ->color('success')
                 ->requiresConfirmation()
+                ->modalSubmitAction(fn (Action $action) => $action->extraAttributes(['formnovalidate' => true]))
                 ->form([
                     Select::make('reason_code')
                         ->label(__('warehouse.order.form.reason_code'))
                         ->options(__('warehouse.ticket.reason_codes'))
-                        ->required()
-                        ->native(false),
+                        ->markAsRequired()
+                        ->rule('required')
+                        ->extraInputAttributes(['required' => false])
+                        ->native(false)
+                        ->validationMessages([
+                            'required' => __('common.error.required'),
+                        ]),
                     Textarea::make('reason_note')
                         ->label(__('warehouse.order.form.reason_note'))
-                        ->required()
-                        ->rows(2),
+                        ->markAsRequired()
+                        ->rule('required')
+                        ->extraInputAttributes(['required' => false])
+                        ->rows(2)
+                        ->validationMessages([
+                            'required' => __('common.error.required'),
+                        ]),
                 ])
-                ->visible(fn() => $this->record->status === StatusTicket::DRAFT->value)
+                ->visible(fn() => $this->record->status === StatusTicket::DRAFT->value && ! $this->isRecordReadOnly())
                 ->action(function (array $data) {
                     /** @var InventoryMovementService $inventoryMovementService */
                     $inventoryMovementService = app(InventoryMovementService::class);
@@ -155,18 +174,29 @@ class EditInventoryTicket extends EditRecord
                 ->icon('heroicon-o-x-circle')
                 ->color('danger')
                 ->requiresConfirmation()
+                ->modalSubmitAction(fn (Action $action) => $action->extraAttributes(['formnovalidate' => true]))
                 ->form([
                     Select::make('reason_code')
                         ->label(__('warehouse.order.form.reason_code'))
                         ->options(__('warehouse.ticket.reason_codes'))
-                        ->required()
-                        ->native(false),
+                        ->markAsRequired()
+                        ->rule('required')
+                        ->extraInputAttributes(['required' => false])
+                        ->native(false)
+                        ->validationMessages([
+                            'required' => __('common.error.required'),
+                        ]),
                     Textarea::make('reason_note')
                         ->label(__('warehouse.order.form.reason_note'))
-                        ->required()
-                        ->rows(2),
+                        ->markAsRequired()
+                        ->rule('required')
+                        ->extraInputAttributes(['required' => false])
+                        ->rows(2)
+                        ->validationMessages([
+                            'required' => __('common.error.required'),
+                        ]),
                 ])
-                ->visible(fn() => $this->record->status === StatusTicket::COMPLETED->value || $this->record->status === StatusTicket::DRAFT->value)
+                ->visible(fn() => ($this->record->status === StatusTicket::COMPLETED->value || $this->record->status === StatusTicket::DRAFT->value) && ! $this->isRecordReadOnly())
                 ->action(function (array $data) {
                     /** @var InventoryMovementService $inventoryMovementService */
                     $inventoryMovementService = app(InventoryMovementService::class);
@@ -195,12 +225,21 @@ class EditInventoryTicket extends EditRecord
                 }),
 
             DeleteAction::make()
-                ->visible(fn() => $this->record->status === StatusTicket::DRAFT->value),
+                ->visible(fn() => $this->record->status === StatusTicket::DRAFT->value && ! $this->isRecordReadOnly()),
 
-            ForceDeleteAction::make(),
+            ForceDeleteAction::make()
+                ->visible(fn() => ! $this->isRecordReadOnly()),
 
-            RestoreAction::make(),
+            RestoreAction::make()
+                ->visible(fn() => ! $this->isRecordReadOnly()),
         ];
+    }
+
+    protected function getSaveFormAction(): Action
+    {
+        return parent::getSaveFormAction()
+            ->disabled($this->isRecordReadOnly())
+            ->tooltip($this->isRecordReadOnly() ? __('accounting.accounting_period.period_closed') : null);
     }
 
     protected function mutateFormDataBeforeSave(array $data): array
@@ -283,5 +322,10 @@ class EditInventoryTicket extends EditRecord
     protected function getRedirectUrl(): string
     {
         return $this->getResource()::getUrl('index');
+    }
+
+    protected function isRecordReadOnly(): bool
+    {
+        return AccountingPeriodGuard::isClosedForRecord($this->record, ['approved_at', 'created_at']);
     }
 }
