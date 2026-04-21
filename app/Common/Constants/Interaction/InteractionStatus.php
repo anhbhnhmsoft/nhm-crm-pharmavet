@@ -40,6 +40,7 @@ enum InteractionStatus: int
             self::COMPLETED->value => __('enum.interaction_type.completed'),
             self::MISSED->value => __('enum.interaction_type.missed'),
             self::FAILED->value => __('enum.interaction_type.failed'),
+            default => (string) $type,
         };
     }
 
@@ -71,6 +72,7 @@ enum InteractionStatus: int
             self::COMPLETED->value => __('enum.interaction_type.completed'),
             self::MISSED->value => __('enum.interaction_type.missed'),
             self::FAILED->value => __('enum.interaction_type.failed'),
+            default => (string) $type,
         };
     }
 
@@ -88,10 +90,12 @@ enum InteractionStatus: int
             self::THIRD_CARE->value => __('enum.interaction_type.third_care_label'),
             self::PASS->value => __('enum.interaction_type.pass_label'),
             self::UN_CARE->value => __('enum.interaction_type.un_care_label'),
+            self::INEFFICIENT->value => __('enum.interaction_type.inefficient_label'),
             self::RECEIVED->value => __('enum.interaction_type.received'),
             self::COMPLETED->value => __('enum.interaction_type.completed_label'),
             self::MISSED->value => __('enum.interaction_type.missed_label'),
             self::FAILED->value => __('enum.interaction_type.failed_label'),
+            default => (string) $type,
         };
      }
 
