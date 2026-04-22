@@ -18,6 +18,16 @@ class CreateTelesaleOperation extends CreateRecord
 {
     protected static string $resource = TelesaleOperationResource::class;
 
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
+
+    protected function getCreatedNotificationTitle(): ?string
+    {
+        return __('common.success.add_success');
+    }
+
     protected function handleRecordCreation(array $data): Model
     {
         if (Auth::user()->role !== UserRole::SUPER_ADMIN->value || !isset($data['organization_id'])) {

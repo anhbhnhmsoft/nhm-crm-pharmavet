@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Common\Constants\Order\GhnOrderStatus;
 use App\Common\Constants\Order\OrderStatus;
+use App\Common\Constants\User\UserRole;
 use App\Core\ServiceReturn;
 use App\Jobs\ProcessGHNOrderJob;
 use App\Models\Order;
@@ -16,6 +17,7 @@ use App\Repositories\ShippingConfigForWareHouseRepository;
 use App\Repositories\ShippingConfigRepository;
 use App\Services\Telesale\OrderFinanceService;
 use App\Services\Warehouse\InventoryMovementService;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -103,11 +105,22 @@ class OrderService
             return ServiceReturn::error(__('customer.notifications.customer_locked', ['customer' => $customer->username]));
         }
 
+        $existingOrder = $this->orderRepository->query()
+            ->with('items')
+            ->where('customer_id', $data['customer_id'])
+            ->latest()
+            ->first();
+
+        if (
+            $existingOrder
+            && (int) (Auth::user()?->role ?? 0) === UserRole::SALE->value
+            && in_array((int) $existingOrder->status, [OrderStatus::SHIPPING->value, OrderStatus::COMPLETED->value], true)
+        ) {
+            return ServiceReturn::error(__('telesale.messages.order_edit_locked_for_sale'));
+        }
+
         DB::beginTransaction();
         try {
-            $existingOrder = $this->orderRepository->query()->where('customer_id', $data['customer_id'])
-                ->latest()
-                ->first();
             $oldStatus = $existingOrder?->status;
 
             // Calculate totals
@@ -143,22 +156,31 @@ class OrderService
                 throw new \RuntimeException(__('telesale.messages.warehouse_required'));
             }
 
-            foreach ($items as $item) {
-                $productId = (int) ($item['product_id'] ?? 0);
-                $requiredQty = (int) ($item['quantity'] ?? 0);
+            $groupedQuantities = collect($items)
+                ->groupBy(fn($item) => (int) ($item['product_id'] ?? 0))
+                ->map(fn($group) => (int) $group->sum(fn($item) => (int) ($item['quantity'] ?? 0)))
+                ->filter(fn(int $requiredQty, int $productId) => $productId > 0 && $requiredQty > 0);
 
-                if ($productId <= 0 || $requiredQty <= 0) {
-                    continue;
-                }
-
+            foreach ($groupedQuantities as $productId => $requiredQty) {
                 $stock = $this->productWarehouseRepository->query()
                     ->where('warehouse_id', $warehouseId)
-                    ->where('product_id', $productId)
+                    ->where('product_id', (int) $productId)
                     ->first();
 
                 $availableQty = (int) (($stock?->quantity ?? 0) - ($stock?->pending_quantity ?? 0));
+
+                if (
+                    $existingOrder
+                    && (int) $existingOrder->status === OrderStatus::CONFIRMED->value
+                    && (int) $existingOrder->warehouse_id === $warehouseId
+                ) {
+                    $availableQty += (int) $existingOrder->items
+                        ->where('product_id', (int) $productId)
+                        ->sum('quantity');
+                }
+
                 if ($availableQty < $requiredQty) {
-                    $productName = $this->productRepository->find($productId)?->name ?? '#' . $productId;
+                    $productName = $this->productRepository->find((int) $productId)?->name ?? '#' . $productId;
                     throw new \RuntimeException(__('telesale.messages.insufficient_stock', ['product' => $productName]));
                 }
             }
