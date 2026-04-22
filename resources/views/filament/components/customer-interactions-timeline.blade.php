@@ -1,23 +1,58 @@
 @php
-    use App\Common\Constants\Interaction\InteractionType;
+    use App\Common\Constants\Customer\ReasonInteraction;
     use App\Common\Constants\Interaction\InteractionStatus;
+    use App\Common\Constants\Interaction\InteractionType;
 
     $customer = $getRecord();
-    $interactions = $customer?->interactions()->with('user')->latest('interacted_at')->get() ?? collect();
+    $interactions = $customer?->interactions()->with('user')->get() ?? collect();
+    $statusLogs = $customer?->customerStatusLog()->with('user')->get() ?? collect();
+
+    $timelineEntries = $interactions
+        ->map(function ($interaction): array {
+            $type = InteractionType::tryFrom((int) $interaction->type);
+
+            return [
+                'title' => $type ? InteractionType::getLabel((int) $interaction->type) : InteractionType::getLabel(InteractionType::NOTE->value),
+                'icon' => $type ? $type->getIcon() : InteractionType::NOTE->getIcon(),
+                'actor' => $interaction->user?->name ?? __('telesale.messages.system'),
+                'occurred_at' => $interaction->interacted_at ?? $interaction->created_at,
+                'status_label' => filled($interaction->status) ? InteractionStatus::getLabel((int) $interaction->status) : null,
+                'status_style' => filled($interaction->status) ? InteractionStatus::getStyle((int) $interaction->status) : null,
+                'direction' => $interaction->direction,
+                'content' => $interaction->content,
+                'duration' => $interaction->duration,
+                'reason_label' => null,
+            ];
+        })
+        ->merge(
+            $statusLogs->map(function ($statusLog): array {
+                return [
+                    'title' => __('telesale.form.result'),
+                    'icon' => InteractionType::NOTE->getIcon(),
+                    'actor' => $statusLog->user?->name ?? __('telesale.messages.system'),
+                    'occurred_at' => $statusLog->created_at,
+                    'status_label' => filled($statusLog->to_status) ? InteractionStatus::getLabelStatus((int) $statusLog->to_status) : null,
+                    'status_style' => filled($statusLog->to_status) ? InteractionStatus::getStyle((int) $statusLog->to_status) : null,
+                    'direction' => null,
+                    'content' => $statusLog->note ?? null,
+                    'duration' => null,
+                    'reason_label' => filled($statusLog->reason) ? ReasonInteraction::getLabel((int) $statusLog->reason) : null,
+                ];
+            })
+        )
+        ->filter(fn (array $entry) => filled($entry['occurred_at']))
+        ->sortByDesc(fn (array $entry) => $entry['occurred_at'])
+        ->values();
 @endphp
 @vite(['resources/css/app.css'])
 
 <div class="space-y-6">
-    @forelse($interactions as $interaction)
-    @php
-        $type = InteractionType::tryFrom((int)$interaction->type);
-        $icon = $type ? $type->getIcon() : InteractionType::NOTE->getIcon();
-    @endphp
+    @forelse($timelineEntries as $entry)
     <div class="flex gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
         <div class="flex-shrink-0">
-            <div class="w-10 h-10 rounded-full {{ $icon['bg'] }} flex items-center justify-center">
-                <svg class="w-5 h-5 {{ $icon['text'] }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $icon['path'] }}" />
+            <div class="w-10 h-10 rounded-full {{ $entry['icon']['bg'] }} flex items-center justify-center">
+                <svg class="w-5 h-5 {{ $entry['icon']['text'] }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $entry['icon']['path'] }}" />
                 </svg>
             </div>
         </div>
@@ -26,40 +61,54 @@
             <div class="flex items-start justify-between gap-2">
                 <div>
                     <p class="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {{ InteractionType::getLabel((int)$interaction->type) }}
-                        @if($interaction->direction)
+                        {{ $entry['title'] }}
+                        @if($entry['direction'])
                         <span class="text-xs text-gray-500 dark:text-gray-400">
-                            ({{ $interaction->direction === 'inbound' ? __('telesale.direction.inbound') : __('telesale.direction.outbound') }})
+                            ({{ $entry['direction'] === 'inbound' ? __('telesale.direction.inbound') : __('telesale.direction.outbound') }})
                         </span>
                         @endif
                     </p>
                     <div class="flex items-center gap-2 mt-0.5">
                         <span class="text-xs text-gray-500 dark:text-gray-400">
-                            {{ $interaction->user ? $interaction->user->name : __('telesale.messages.system') }}
+                            {{ $entry['actor'] }}
                         </span>
-                        <span class="text-xs text-gray-400">•</span>
+                        <span class="text-xs text-gray-400">|</span>
                         <span class="text-xs text-gray-500 dark:text-gray-400">
-                            {{ $interaction->interacted_at->diffForHumans() }}
+                            {{ $entry['occurred_at']->diffForHumans() }}
                         </span>
                     </div>
                 </div>
 
-                @if($interaction->status)
-                <span class="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full {{ InteractionStatus::getStyle((int)$interaction->status) }}">
-                    {{ InteractionStatus::getLabel((int)$interaction->status) }}
+                @if($entry['status_label'])
+                <span class="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full {{ $entry['status_style'] }}">
+                    {{ $entry['status_label'] }}
                 </span>
                 @endif
             </div>
 
-            @if($interaction->content)
+            @if($entry['content'])
             <div class="mt-2 text-sm text-gray-600 dark:text-gray-300">
-                {!! nl2br(e($interaction->content)) !!}
+                {!! nl2br(e($entry['content'])) !!}
             </div>
             @endif
 
-            @if($interaction->duration)
+            @if($entry['status_label'])
+            <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                {{ __('telesale.form.result') }}:
+                <span class="font-medium text-gray-700 dark:text-gray-200">{{ $entry['status_label'] }}</span>
+            </p>
+            @endif
+
+            @if($entry['reason_label'])
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                {{ __('telesale.messages.duration') }}: {{ gmdate('i:s', $interaction->duration) }}
+                {{ __('common.table.note') }}:
+                <span class="font-medium text-gray-700 dark:text-gray-200">{{ $entry['reason_label'] }}</span>
+            </p>
+            @endif
+
+            @if($entry['duration'])
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {{ __('telesale.messages.duration') }}: {{ gmdate('i:s', $entry['duration']) }}
             </p>
             @endif
         </div>

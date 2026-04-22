@@ -69,7 +69,13 @@ class SaleKpiReportPage extends Page implements HasForms
                         DatePicker::make('month')
                             ->label(__('telesale.reports.month'))
                             ->native(false)
-                            ->required(),
+                            ->required()
+                            ->extraInputAttributes(['required' => false])
+                            ->validationMessages([
+                                'required' => __('validation.required', [
+                                    'attribute' => __('telesale.reports.month'),
+                                ]),
+                            ]),
                         Select::make('staff_id')
                             ->label(__('telesale.reports.staff'))
                             ->options(User::query()->where('role', UserRole::SALE->value)->pluck('name', 'id'))
@@ -84,7 +90,7 @@ class SaleKpiReportPage extends Page implements HasForms
     {
         /** @var TelesaleKpiService $kpiService */
         $kpiService = app(TelesaleKpiService::class);
-        $state = $this->form->getState();
+        $state = $this->validateAndBuildFilters();
         $user = Auth::user();
 
         $staffId = $state['staff_id'] ?? null;
@@ -92,12 +98,36 @@ class SaleKpiReportPage extends Page implements HasForms
             $staffId = $user->id;
         }
 
-        $month = Carbon::parse($state['month'] ?? now()->toDateString());
+        $month = Carbon::parse($state['month']);
 
         $this->summary = $kpiService->buildMonthlyKpiSummary(
             organizationId: (int) $user->organization_id,
             userId: $staffId ? (int) $staffId : null,
             month: $month,
         );
+    }
+
+    protected function validateAndBuildFilters(): array
+    {
+        $validated = validator(
+            $this->data,
+            [
+                'month' => ['bail', 'required', 'date'],
+                'staff_id' => ['nullable'],
+            ],
+            [
+                'month.required' => __('validation.required', [
+                    'attribute' => __('telesale.reports.month'),
+                ]),
+            ],
+            [
+                'month' => __('telesale.reports.month'),
+            ]
+        )->validate();
+
+        return [
+            'month' => (string) $validated['month'],
+            'staff_id' => $validated['staff_id'] ?? null,
+        ];
     }
 }

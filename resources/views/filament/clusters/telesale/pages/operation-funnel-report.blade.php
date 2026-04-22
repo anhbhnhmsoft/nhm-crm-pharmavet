@@ -5,6 +5,14 @@
             {{ $this->form }}
 
             <div class="flex justify-end gap-2">
+                <x-filament::button
+                    type="button"
+                    color="gray"
+                    tag="a"
+                    :href="\App\Filament\Clusters\Telesale\Pages\ReportExportHistoryPage::getUrl()"
+                >
+                    {{ __('telesale.reports.export_history_navigation') }}
+                </x-filament::button>
                 <x-filament::button type="button" color="gray" wire:click="exportReport">
                     {{ __('telesale.reports.export') }}
                 </x-filament::button>
