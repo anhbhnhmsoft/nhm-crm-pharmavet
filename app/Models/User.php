@@ -87,7 +87,6 @@ class User extends Authenticatable implements FilamentUser, JWTSubject
         }
         return false;
     }
-
     public function hasPosition(UserPosition $position): bool
     {
         return $this->position === $position->value;

@@ -465,19 +465,29 @@ class CustomerService
     {
         try {
             DB::beginTransaction();
+            $currentStatus = $customer->interaction_status;
+            $nextStatus = (int) $data['new_interaction_status'];
 
             $interaction = $customer->interactions()->create([
                 'type' => InteractionType::NOTE->value,
                 'user_id' => Auth::id(),
-                'status' => $data['new_interaction_status'],
-                'content' => $data['new_interaction_content'],
+                'status' => $nextStatus,
+                'content' => $data['new_interaction_content'] ?? null,
                 'interacted_at' => now(),
             ]);
 
             $customer->update([
-                'interaction_status' => $data['new_interaction_status'],
+                'interaction_status' => $nextStatus,
                 'next_action_at' => $data['next_action_at'] ?? $customer->next_action_at,
             ]);
+
+            if ((int) $currentStatus !== $nextStatus) {
+                $customer->customerStatusLog()->create([
+                    'from_status' => $currentStatus,
+                    'to_status' => $nextStatus,
+                    'user_id' => Auth::id(),
+                ]);
+            }
 
             DB::commit();
 

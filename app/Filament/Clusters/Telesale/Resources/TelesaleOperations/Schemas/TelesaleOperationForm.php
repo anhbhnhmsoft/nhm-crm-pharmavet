@@ -13,6 +13,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\ViewField;
+use Filament\Resources\Pages\EditRecord;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
@@ -36,6 +37,9 @@ class TelesaleOperationForm
 
     public static function getComponents(): array
     {
+        $today = now()->startOfDay();
+        $minimumBirthday = $today->copy()->subYears(100);
+
         $calculateTotal = function (Get $get, Set $set) {
             $items = $get('order_items') ?? [];
             $subtotal = collect($items)->sum(fn($item) => ($item['quantity'] ?? 0) * ($item['price'] ?? 0));
@@ -67,6 +71,7 @@ class TelesaleOperationForm
                                         ->label(__('telesale.form.full_name'))
                                         ->placeholder(__('telesale.form.full_name_placeholder'))
                                         ->required()
+                                        ->extraInputAttributes(['required' => false])
                                         ->validationMessages([
                                             'required' => __('common.error.required'),
                                         ]),
@@ -74,19 +79,47 @@ class TelesaleOperationForm
                                         ->label(__('telesale.form.phone_number'))
                                         ->placeholder(__('telesale.form.phone_placeholder'))
                                         ->tel()
+                                        ->maxLength(15)
                                         ->required()
+                                        ->rules([
+                                            'regex:/^(0|(\+84))[35789][0-9]{8}$/',
+                                        ])
+                                        ->extraInputAttributes([
+                                            'required' => false,
+                                            'type' => 'text',
+                                            'inputmode' => 'tel',
+                                        ])
                                         ->validationMessages([
                                             'required' => __('common.error.required'),
+                                            'regex' => __('common.error.phone_invalid'),
+                                            'max' => __('common.error.max_length', ['max' => 15]),
                                         ]),
                                     TextInput::make('email')
                                         ->label(__('telesale.form.email'))
                                         ->placeholder(__('telesale.form.email_placeholder'))
                                         ->email()
+                                        ->extraInputAttributes([
+                                            'required' => false,
+                                            'type' => 'text',
+                                        ])
                                         ->validationMessages([
-                                            'required' => __('common.error.required'),
+                                            'email' => __('common.error.email'),
                                         ]),
                                     DatePicker::make('birthday')
-                                        ->label(__('telesale.form.birthday')),
+                                        ->label(__('telesale.form.birthday'))
+                                        ->native(false)
+                                        ->displayFormat('d/m/Y')
+                                        ->rules(['nullable', 'date'])
+                                        ->minDate($minimumBirthday)
+                                        ->maxDate($today)
+                                        ->afterOrEqual($minimumBirthday->toDateString())
+                                        ->beforeOrEqual($today->toDateString())
+                                        ->extraInputAttributes(['required' => false])
+                                        ->validationMessages([
+                                            'date' => __('validation.date', ['attribute' => __('telesale.form.birthday')]),
+                                            'after_or_equal' => __('common.error.date_after', ['date' => $minimumBirthday->format('d/m/Y')]),
+                                            'before_or_equal' => __('common.error.date_before', ['date' => $today->format('d/m/Y')]),
+                                        ]),
                                     Textarea::make('address')
                                         ->label(__('telesale.form.address'))
                                         ->placeholder(__('telesale.form.address_placeholder')),
@@ -100,7 +133,11 @@ class TelesaleOperationForm
                                         ->visible(fn() => Auth::user()->role === UserRole::SUPER_ADMIN->value)
                                         ->default(Auth::user()->organization_id)
                                         ->afterStateUpdated(fn(Set $set) => $set('product_id', null))
-                                        ->required(),
+                                        ->required()
+                                        ->extraInputAttributes(['required' => false])
+                                        ->validationMessages([
+                                            'required' => __('common.error.required'),
+                                        ]),
 
                                     Select::make('product_id')
                                         ->label(__('telesale.form.product'))
@@ -119,6 +156,7 @@ class TelesaleOperationForm
                                                 ->pluck('name', 'id');
                                         })
                                         ->required()
+                                        ->extraInputAttributes(['required' => false])
                                         ->validationMessages([
                                             'required' => __('common.error.required'),
                                         ]),
@@ -158,6 +196,7 @@ class TelesaleOperationForm
                                                     ->options(Warehouse::query()->pluck('name', 'id'))
                                                     ->searchable()
                                                     ->required()
+                                                    ->extraInputAttributes(['required' => false])
                                                     ->validationMessages([
                                                         'required' => __('common.error.required'),
                                                     ]),
@@ -175,18 +214,50 @@ class TelesaleOperationForm
                                                                     $product = Product::find($state);
                                                                     $set('price', $product?->sale_price ?? 0);
                                                                     $set('quantity', 1);
-                                                                }),
+                                                                })
+                                                                ->extraInputAttributes(['required' => false])
+                                                                ->validationMessages([
+                                                                    'required' => __('common.error.required'),
+                                                                ]),
                                                             TextInput::make('quantity')
                                                                 ->label(__('telesale.form.quantity'))
-                                                                ->numeric()
+                                                                ->integer()
                                                                 ->default(1)
+                                                                ->minValue(1)
                                                                 ->live()
-                                                                ->required(),
+                                                                ->required()
+                                                                ->extraInputAttributes([
+                                                                    'type' => 'text',
+                                                                    'inputmode' => 'numeric',
+                                                                    'required' => false,
+                                                                    'min' => null,
+                                                                    'max' => null,
+                                                                    'step' => null,
+                                                                ])
+                                                                ->validationMessages([
+                                                                    'required' => __('common.error.required'),
+                                                                    'integer' => __('common.error.numeric'),
+                                                                    'min' => __('common.error.min_value', ['min' => 1]),
+                                                                ]),
                                                             TextInput::make('price')
                                                                 ->label(__('telesale.form.unit_price'))
                                                                 ->numeric()
+                                                                ->minValue(0)
+                                                                ->extraInputAttributes([
+                                                                    'type' => 'text',
+                                                                    'inputmode' => 'decimal',
+                                                                    'required' => false,
+                                                                    'min' => null,
+                                                                    'max' => null,
+                                                                    'step' => null,
+                                                                ])
                                                                 ->live()
-                                                                ->required(),
+                                                                ->required()
+                                                                ->validationMessages([
+                                                                    'required' => __('common.error.required'),
+                                                                    'numeric' => __('common.error.numeric'),
+                                                                    'min' => __('common.error.min_value', ['min' => 0]),
+                                                                ]),
                                                         ]),
                                                     ])
                                                     ->defaultItems(1)
@@ -196,35 +267,116 @@ class TelesaleOperationForm
                                                     TextInput::make('cod_fee')
                                                         ->label(__('telesale.form.cod_fee'))
                                                         ->numeric()
+                                                        ->minValue(0)
+                                                        ->extraInputAttributes([
+                                                            'type' => 'text',
+                                                            'inputmode' => 'decimal',
+                                                            'required' => false,
+                                                            'min' => null,
+                                                            'max' => null,
+                                                            'step' => null,
+                                                        ])
                                                         ->live()
+                                                        ->validationMessages([
+                                                            'numeric' => __('common.error.numeric'),
+                                                            'min' => __('common.error.min_value', ['min' => 0]),
+                                                        ])
                                                         ->afterStateUpdated(fn(Get $get, Set $set) => $calculateTotal($get, $set)),
                                                     TextInput::make('deposit')
                                                         ->label(__('telesale.form.deposit'))
                                                         ->numeric()
+                                                        ->minValue(0)
+                                                        ->extraInputAttributes([
+                                                            'type' => 'text',
+                                                            'inputmode' => 'decimal',
+                                                            'required' => false,
+                                                            'min' => null,
+                                                            'max' => null,
+                                                            'step' => null,
+                                                        ])
                                                         ->live()
+                                                        ->validationMessages([
+                                                            'numeric' => __('common.error.numeric'),
+                                                            'min' => __('common.error.min_value', ['min' => 0]),
+                                                        ])
                                                         ->afterStateUpdated(fn(Get $get, Set $set) => $calculateTotal($get, $set)),
                                                     TextInput::make('discount')
                                                         ->label(__('telesale.form.discount_amount'))
                                                         ->numeric()
+                                                        ->minValue(0)
+                                                        ->extraInputAttributes([
+                                                            'type' => 'text',
+                                                            'inputmode' => 'decimal',
+                                                            'required' => false,
+                                                            'min' => null,
+                                                            'max' => null,
+                                                            'step' => null,
+                                                        ])
                                                         ->live()
+                                                        ->validationMessages([
+                                                            'numeric' => __('common.error.numeric'),
+                                                            'min' => __('common.error.min_value', ['min' => 0]),
+                                                        ])
                                                         ->afterStateUpdated(fn(Get $get, Set $set) => $calculateTotal($get, $set)),
                                                     TextInput::make('ck1')
                                                         ->label(__('telesale.form.ck1'))
                                                         ->numeric()
+                                                        ->minValue(0)
+                                                        ->maxValue(100)
+                                                        ->extraInputAttributes([
+                                                            'type' => 'text',
+                                                            'inputmode' => 'decimal',
+                                                            'required' => false,
+                                                            'min' => null,
+                                                            'max' => null,
+                                                            'step' => null,
+                                                        ])
                                                         ->suffix('%')
                                                         ->live()
+                                                        ->validationMessages([
+                                                            'numeric' => __('common.error.numeric'),
+                                                            'min' => __('common.error.min_value', ['min' => 0]),
+                                                            'max' => __('common.error.max_value', ['max' => 100]),
+                                                        ])
                                                         ->afterStateUpdated(fn(Get $get, Set $set) => $calculateTotal($get, $set)),
                                                     TextInput::make('ck2')
                                                         ->label(__('telesale.form.ck2'))
                                                         ->numeric()
+                                                        ->minValue(0)
+                                                        ->maxValue(100)
+                                                        ->extraInputAttributes([
+                                                            'type' => 'text',
+                                                            'inputmode' => 'decimal',
+                                                            'required' => false,
+                                                            'min' => null,
+                                                            'max' => null,
+                                                            'step' => null,
+                                                        ])
                                                         ->suffix('%')
                                                         ->live()
+                                                        ->validationMessages([
+                                                            'numeric' => __('common.error.numeric'),
+                                                            'min' => __('common.error.min_value', ['min' => 0]),
+                                                            'max' => __('common.error.max_value', ['max' => 100]),
+                                                        ])
                                                         ->afterStateUpdated(fn(Get $get, Set $set) => $calculateTotal($get, $set)),
                                                     TextInput::make('total_amount')
                                                         ->label(__('telesale.form.total_amount'))
                                                         ->numeric()
+                                                        ->minValue(0)
+                                                        ->extraInputAttributes([
+                                                            'type' => 'text',
+                                                            'inputmode' => 'decimal',
+                                                            'min' => null,
+                                                            'max' => null,
+                                                            'step' => null,
+                                                        ])
                                                         ->disabled()
-                                                        ->dehydrated(),
+                                                        ->dehydrated()
+                                                        ->validationMessages([
+                                                            'numeric' => __('common.error.numeric'),
+                                                            'min' => __('common.error.min_value', ['min' => 0]),
+                                                        ]),
                                                 ]),
                                             ]),
                                     ]),
@@ -243,10 +395,22 @@ class TelesaleOperationForm
                                                 Select::make('new_interaction_status')
                                                     ->label(__('telesale.form.result'))
                                                     ->options(InteractionStatus::options())
-                                                    ->native(false),
+                                                    ->native(false)
+                                                    ->live()
+                                                    ->required(fn(Get $get, $livewire) => $livewire instanceof EditRecord && (
+                                                        filled($get('new_interaction_content')) ||
+                                                        filled($get('next_action_at'))
+                                                    ))
+                                                    ->extraInputAttributes(['required' => false])
+                                                    ->validationMessages([
+                                                        'required' => __('common.error.required'),
+                                                    ]),
                                                 DateTimePicker::make('next_action_at')
                                                     ->label(__('telesale.form.schedule_callback'))
-                                                    ->native(false),
+                                                    ->native(false)
+                                                    ->displayFormat('d/m/Y H:i')
+                                                    ->seconds(false)
+                                                    ->minutesStep(15),
                                                 Textarea::make('new_interaction_content')
                                                     ->label(__('telesale.form.content'))
                                                     ->placeholder(__('telesale.form.content_placeholder'))

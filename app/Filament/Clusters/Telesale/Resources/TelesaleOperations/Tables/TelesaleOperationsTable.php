@@ -35,6 +35,31 @@ use Illuminate\Support\Facades\DB;
 
 class TelesaleOperationsTable
 {
+    protected static function getLikeOperator(Builder $query): string
+    {
+        return $query->getConnection()->getDriverName() === 'pgsql'
+            ? 'ilike'
+            : 'like';
+    }
+
+    protected static function applyKeywordSearch(Builder $query, string $keyword): Builder
+    {
+        $keyword = trim($keyword);
+        if ($keyword === '') {
+            return $query;
+        }
+
+        $likeOperator = self::getLikeOperator($query);
+        $like = "%{$keyword}%";
+
+        return $query->where(function (Builder $subQuery) use ($likeOperator, $like): void {
+            $subQuery
+                ->where('customers.username', $likeOperator, $like)
+                ->orWhere('customers.phone', $likeOperator, $like)
+                ->orWhereHas('orders', fn (Builder $orderQuery) => $orderQuery->where('orders.code', $likeOperator, $like));
+        });
+    }
+
     public static function configure(Table $table): Table
     {
         return $table
@@ -55,7 +80,9 @@ class TelesaleOperationsTable
                 TextColumn::make('username')
                     ->label(__('telesale.table.customer_name'))
                     ->description(fn(Customer $record) => $record->phone)
-                    ->searchable(['username', 'phone'])
+                    ->searchable(
+                        query: fn (Builder $query, string $search): Builder => self::applyKeywordSearch($query, $search)
+                    )
                     ->size('sm')
                     ->weight('medium'),
 
@@ -108,19 +135,28 @@ class TelesaleOperationsTable
                             return $query;
                         }
 
-                        return $query->where(function (Builder $subQuery) use ($keyword) {
-                            $subQuery
-                                ->where('username', 'like', "%{$keyword}%")
-                                ->orWhere('phone', 'like', "%{$keyword}%")
-                                ->orWhereHas('orders', fn(Builder $orderQuery) => $orderQuery->where('code', 'like', "%{$keyword}%"));
-                        });
+                        return self::applyKeywordSearch($query, $keyword);
                     }),
 
                 Filter::make('date_received')
                     ->label(__('telesale.filters.date_received'))
                     ->form([
-                        DatePicker::make('from_date')->label(__('telesale.filters.from_date')),
-                        DatePicker::make('to_date')->label(__('telesale.filters.to_date')),
+                        DatePicker::make('from_date')
+                            ->label(__('telesale.filters.from_date'))
+                            ->live()
+                            ->beforeOrEqual('to_date')
+                            ->extraInputAttributes(['required' => false])
+                            ->validationMessages([
+                                'before_or_equal' => __('common.error.date_before', ['date' => __('telesale.filters.to_date')]),
+                            ]),
+                        DatePicker::make('to_date')
+                            ->label(__('telesale.filters.to_date'))
+                            ->live()
+                            ->afterOrEqual('from_date')
+                            ->extraInputAttributes(['required' => false])
+                            ->validationMessages([
+                                'after_or_equal' => __('common.error.date_after', ['date' => __('telesale.filters.from_date')]),
+                            ]),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
