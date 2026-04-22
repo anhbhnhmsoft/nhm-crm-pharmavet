@@ -943,6 +943,18 @@ class CustomerOperationsTable
                                                         'numeric' => __('common.error.numeric'),
                                                         'min' => __('common.error.min_value', ['min' => 0]),
                                                     ]),
+                                                TextInput::make('cod_support_amount')
+                                                    ->label(__('telesale.form.cod_support_amount'))
+                                                    ->numeric()
+                                                    ->minValue(0)
+                                                    ->default(0)
+                                                    ->extraInputAttributes(self::numericInputAttributes())
+                                                    ->live(onBlur: true)
+                                                    ->afterStateUpdated(fn(Get $get, Set $set) => self::recalculateOrderSummary($set, $get))
+                                                    ->validationMessages([
+                                                        'numeric' => __('common.error.numeric'),
+                                                        'min' => __('common.error.min_value', ['min' => 0]),
+                                                    ]),
                                                 TextInput::make('cod_amount')->label(__('warehouse.order.form.cod_amount'))->numeric()->disabled()->dehydrated(),
                                             ]),
 

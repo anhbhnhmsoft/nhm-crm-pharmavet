@@ -549,12 +549,15 @@ class ReconciliationsTable
                             $note = e($noteText);
                         }
 
+                        $editLink = e(__('accounting.reconciliation.edit_link'));
+
                         return "
                             <div class='w-full h-full cursor-pointer py-1'>
                                 <div class='text-[10px] text-gray-500 text-center'>{$updated}</div>
                                 <div class='text-xs text-gray-900 text-center'>{$care}</div>
                                 <div class='text-[10px] font-semibold text-center {$careStatusClass}'>{$careStatus}</div>
                                 <div class='text-[10px] text-center line-clamp-2'>{$note}</div>
+                                <div style='font-size:12px;color:#3b82f6;font-weight:600;cursor:pointer;margin-top:2px;text-align:center'>{$editLink}</div>
                             </div>
                         ";
                     })

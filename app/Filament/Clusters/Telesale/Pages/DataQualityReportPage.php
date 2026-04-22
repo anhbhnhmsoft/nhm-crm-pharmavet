@@ -62,8 +62,33 @@ class DataQualityReportPage extends Page implements HasForms
             ->schema([
                 Section::make(__('marketing.report.filter_section'))
                     ->schema([
-                        DatePicker::make('from_date')->label(__('telesale.filters.from_date'))->native(false),
-                        DatePicker::make('to_date')->label(__('telesale.filters.to_date'))->native(false),
+                        DatePicker::make('from_date')
+                            ->label(__('telesale.filters.from_date'))
+                            ->required()
+                            ->native(false)
+                            ->displayFormat('d/m/Y')
+                            ->extraInputAttributes(['required' => false])
+                            ->validationMessages([
+                                'required' => __('validation.required', [
+                                    'attribute' => __('telesale.filters.from_date'),
+                                ]),
+                            ]),
+                        DatePicker::make('to_date')
+                            ->label(__('telesale.filters.to_date'))
+                            ->required()
+                            ->native(false)
+                            ->displayFormat('d/m/Y')
+                            ->afterOrEqual('from_date')
+                            ->extraInputAttributes(['required' => false])
+                            ->validationMessages([
+                                'required' => __('validation.required', [
+                                    'attribute' => __('telesale.filters.to_date'),
+                                ]),
+                                'after_or_equal' => __('validation.after_or_equal', [
+                                    'attribute' => __('telesale.filters.to_date'),
+                                    'date' => __('telesale.filters.from_date'),
+                                ]),
+                            ]),
                     ])
                     ->columns(2),
             ])
@@ -72,7 +97,7 @@ class DataQualityReportPage extends Page implements HasForms
 
     public function generateReport(): void
     {
-        $state = $this->form->getState();
+        $state = $this->getValidatedFilters();
         $user = Auth::user();
 
         $query = Customer::query()->whereBetween('created_at', [
@@ -95,5 +120,32 @@ class DataQualityReportPage extends Page implements HasForms
             'duplicate_contacts' => $duplicateByType,
             'unique_contacts' => max(0, $total - $duplicateByType),
         ];
+    }
+
+    protected function getValidationAttributes(): array
+    {
+        return [
+            'data.from_date' => __('telesale.filters.from_date'),
+            'data.to_date' => __('telesale.filters.to_date'),
+        ];
+    }
+
+    protected function getValidatedFilters(): array
+    {
+        $validated = $this->validate(
+            [
+                'data.from_date' => ['bail', 'required', 'date'],
+                'data.to_date' => ['bail', 'required', 'date', 'after_or_equal:data.from_date'],
+            ],
+            [
+                'data.to_date.after_or_equal' => __('validation.after_or_equal', [
+                    'attribute' => __('telesale.filters.to_date'),
+                    'date' => __('telesale.filters.from_date'),
+                ]),
+            ],
+            $this->getValidationAttributes(),
+        );
+
+        return $validated['data'];
     }
 }

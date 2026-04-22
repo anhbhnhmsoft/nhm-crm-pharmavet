@@ -2,9 +2,9 @@
 
 namespace App\Jobs\Telesale;
 
-use Filament\Notifications\Notification;
-use App\Models\Order;
 use App\Models\ReportExportJob;
+use App\Services\Telesale\TelesaleReportDataService;
+use Filament\Notifications\Notification;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -31,31 +31,16 @@ class GenerateTelesaleReportExportJob implements ShouldQueue
 
         try {
             $filters = $exportJob->filters_json ?? [];
-            $query = Order::query()->where('organization_id', $exportJob->user->organization_id);
+            /** @var TelesaleReportDataService $reportDataService */
+            $reportDataService = app(TelesaleReportDataService::class);
+            $dataset = $reportDataService->buildExportDataset(
+                reportType: (string) $exportJob->report_type,
+                user: $exportJob->user,
+                filters: $filters,
+            );
 
-            if (!empty($filters['from_date'])) {
-                $query->whereDate('created_at', '>=', $filters['from_date']);
-            }
-            if (!empty($filters['to_date'])) {
-                $query->whereDate('created_at', '<=', $filters['to_date']);
-            }
-
-            $rows = $query->latest('created_at')->get(['code', 'customer_id', 'status', 'total_amount', 'collect_amount', 'created_at']);
-
-            $filePath = 'exports/telesale_report_' . $exportJob->id . '.csv';
-            $csv = "code,customer_id,status,total_amount,collect_amount,created_at\n";
-            foreach ($rows as $row) {
-                $csv .= implode(',', [
-                    $row->code,
-                    $row->customer_id,
-                    $row->status,
-                    $row->total_amount,
-                    $row->collect_amount,
-                    $row->created_at,
-                ]) . "\n";
-            }
-
-            Storage::disk('local')->put($filePath, $csv);
+            $filePath = 'exports/telesale_' . $exportJob->report_type . '_' . $exportJob->id . '.csv';
+            Storage::disk('local')->put($filePath, $this->buildCsv($dataset['headers'], $dataset['rows']));
 
             $exportJob->update([
                 'status' => 'completed',
@@ -80,5 +65,23 @@ class GenerateTelesaleReportExportJob implements ShouldQueue
                 ->danger()
                 ->sendToDatabase($exportJob->user);
         }
+    }
+
+    protected function buildCsv(array $headers, array $rows): string
+    {
+        $handle = fopen('php://temp', 'r+');
+
+        fwrite($handle, "\xEF\xBB\xBF");
+        fputcsv($handle, $headers);
+
+        foreach ($rows as $row) {
+            fputcsv($handle, $row);
+        }
+
+        rewind($handle);
+        $csv = stream_get_contents($handle) ?: '';
+        fclose($handle);
+
+        return $csv;
     }
 }
