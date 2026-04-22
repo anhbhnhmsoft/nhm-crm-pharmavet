@@ -2,13 +2,10 @@
 
 namespace App\Filament\Clusters\Telesale\Pages;
 
-use App\Common\Constants\Customer\CustomerType;
-use App\Common\Constants\Order\OrderStatus;
 use App\Common\Constants\User\UserRole;
-use App\Models\Order;
 use App\Models\PushsaleRuleSet;
 use App\Models\User;
-use App\Services\Telesale\PushsaleRuleService;
+use App\Services\Telesale\TelesaleReportDataService;
 use App\Services\Telesale\TelesaleReportExportService;
 use App\Services\Telesale\TelesaleReportScopeService;
 use BackedEnum;
@@ -38,7 +35,7 @@ class TopSaleRankingReport extends Page implements HasForms
 
     public array $rows = [];
 
-    public function mount(TelesaleReportScopeService $scopeService, PushsaleRuleService $pushsaleRuleService): void
+    public function mount(): void
     {
         $this->form->fill([
             'from_date' => now()->startOfMonth()->toDateString(),
@@ -47,7 +44,7 @@ class TopSaleRankingReport extends Page implements HasForms
             'pushsale_rule_set_id' => null,
         ]);
 
-        $this->generateReport($scopeService, $pushsaleRuleService);
+        $this->generateReport();
     }
 
     public static function getNavigationLabel(): string
@@ -92,12 +89,7 @@ class TopSaleRankingReport extends Page implements HasForms
                             ->afterOrEqual('from_date'),
                         Select::make('staff_id')
                             ->label(__('telesale.reports.staff'))
-                            ->options(
-                                User::query()
-                                    ->where('role', UserRole::SALE->value)
-                                    ->orderBy('name')
-                                    ->pluck('name', 'id')
-                            )
+                            ->options(fn() => $this->getStaffOptions(app(TelesaleReportScopeService::class)))
                             ->placeholder(__('telesale.reports.all_staff'))
                             ->searchable(),
                         Select::make('pushsale_rule_set_id')
@@ -115,81 +107,55 @@ class TopSaleRankingReport extends Page implements HasForms
             ->statePath('data');
     }
 
-    public function generateReport(TelesaleReportScopeService $scopeService, PushsaleRuleService $pushsaleRuleService): void
+    protected function getStaffOptions(TelesaleReportScopeService $scopeService): array
     {
-        $state = $this->form->getState();
-        $from = ($state['from_date'] ?? now()->startOfMonth()->toDateString()) . ' 00:00:00';
-        $to = ($state['to_date'] ?? now()->toDateString()) . ' 23:59:59';
-        $staffId = $state['staff_id'] ?? null;
         /** @var \App\Models\User $user */
         $user = Auth::user();
 
-        $query = Order::query()
-            ->join('users', 'users.id', '=', 'orders.created_by')
-            ->join('customers', 'customers.id', '=', 'orders.customer_id')
-            ->whereBetween('orders.created_at', [$from, $to])
-            ->whereIn('orders.status', [
-                OrderStatus::CONFIRMED->value,
-                OrderStatus::SHIPPING->value,
-                OrderStatus::COMPLETED->value,
-            ])
-            ->selectRaw('orders.created_by as staff_id')
-            ->selectRaw('users.name as staff_name')
-            ->selectRaw('COUNT(orders.id) as total_orders')
-            ->selectRaw('SUM(orders.total_amount) as total_revenue')
-            ->selectRaw(
-                'SUM(CASE WHEN customers.customer_type = ? THEN 1 ELSE 0 END) as new_customers',
-                [CustomerType::NEW->value]
-            )
-            ->selectRaw(
-                'SUM(CASE WHEN customers.customer_type = ? THEN 1 ELSE 0 END) as old_customers',
-                [CustomerType::OLD_CUSTOMER->value]
-            )
-            ->groupBy('orders.created_by', 'users.name')
-            ->orderByDesc('total_revenue');
+        $query = User::query()
+            ->where('role', UserRole::SALE->value)
+            ->orderBy('name');
 
-        $scopeService->applyOrderScope($query, $user);
-
-        if (!empty($staffId)) {
-            $query->where('orders.created_by', $staffId);
+        if ($user->role !== UserRole::SUPER_ADMIN->value) {
+            $query->where('organization_id', $user->organization_id);
         }
 
-        if ($user->role === UserRole::SALE->value) {
-            $query->where('orders.created_by', $user->id);
+        $staffIds = $scopeService->resolveScopedStaffIds($user);
+        if (is_array($staffIds)) {
+            $query->whereIn('id', $staffIds);
         }
 
-        $ruleSetId = (int) ($state['pushsale_rule_set_id'] ?? 0);
+        return $query->pluck('name', 'id')->all();
+    }
 
-        $this->rows = $query->get()
-            ->values()
-            ->map(function ($row, $index) use ($pushsaleRuleService, $ruleSetId) {
-                $rule = $pushsaleRuleService->applyRuleSet((float) $row->total_revenue, $ruleSetId ?: null);
+    public function generateReport(): void
+    {
+        /** @var TelesaleReportDataService $reportDataService */
+        $reportDataService = app(TelesaleReportDataService::class);
 
-                return [
-                    'rank' => $index + 1,
-                    'staff_name' => $row->staff_name,
-                    'new_customers' => (int) $row->new_customers,
-                    'old_customers' => (int) $row->old_customers,
-                    'total_orders' => (int) $row->total_orders,
-                    'total_revenue' => (float) $row->total_revenue,
-                    'adjusted_revenue' => (float) $rule['adjusted_revenue'],
-                    'kpi_multiplier' => (float) $rule['kpi_multiplier'],
-                ];
-            })
-            ->toArray();
+        $this->rows = $reportDataService->buildTopSaleRankingRows(
+            user: Auth::user(),
+            filters: $this->form->getState(),
+        );
     }
 
     public function exportReport(TelesaleReportExportService $exportService): void
     {
+        /** @var TelesaleReportDataService $reportDataService */
+        $reportDataService = app(TelesaleReportDataService::class);
+        $filters = $this->form->getState();
+        $rows = $reportDataService->buildTopSaleRankingRows(Auth::user(), $filters);
+
         $job = $exportService->enqueueExport(
             user: Auth::user(),
             reportType: 'top_sale_ranking',
-            filters: $this->form->getState(),
-            rowCount: count($this->rows),
+            filters: $filters,
+            rowCount: count($rows),
         );
 
         Notification::make()
             ->title(__('telesale.reports.export_queued', ['id' => $job->id]))
+            ->body(__('telesale.reports.export_history_hint'))
             ->success()
             ->send();
     }

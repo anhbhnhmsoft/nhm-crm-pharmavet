@@ -27,4 +27,5 @@ composer.lock
 yarn.lock
 *.log
 .vscode
-.codex
+.composer-cache/
+.composer-home/

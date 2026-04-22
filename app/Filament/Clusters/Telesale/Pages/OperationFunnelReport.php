@@ -3,11 +3,9 @@
 namespace App\Filament\Clusters\Telesale\Pages;
 
 use App\Common\Constants\Interaction\InteractionStatus;
-use App\Common\Constants\Order\OrderStatus;
 use App\Common\Constants\User\UserRole;
-use App\Models\CustomerStatusLog;
-use App\Models\Order;
 use App\Models\User;
+use App\Services\Telesale\TelesaleReportDataService;
 use App\Services\Telesale\TelesaleReportExportService;
 use App\Services\Telesale\TelesaleReportScopeService;
 use BackedEnum;
@@ -20,6 +18,7 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 
 class OperationFunnelReport extends Page implements HasForms
@@ -38,7 +37,7 @@ class OperationFunnelReport extends Page implements HasForms
 
     public array $rows = [];
 
-    public function mount(TelesaleReportScopeService $scopeService): void
+    public function mount(): void
     {
         $this->form->fill([
             'from_date' => now()->startOfMonth()->toDateString(),
@@ -48,7 +47,7 @@ class OperationFunnelReport extends Page implements HasForms
             'unlimited_close_date' => false,
         ]);
 
-        $this->generateReport($scopeService);
+        $this->generateReport();
     }
 
     public static function getNavigationLabel(): string
@@ -89,12 +88,7 @@ class OperationFunnelReport extends Page implements HasForms
                             ->afterOrEqual('from_date'),
                         Select::make('staff_id')
                             ->label(__('telesale.reports.staff'))
-                            ->options(
-                                User::query()
-                                    ->where('role', UserRole::SALE->value)
-                                    ->orderBy('name')
-                                    ->pluck('name', 'id')
-                            )
+                            ->options(fn (): array => $this->getStaffOptions())
                             ->placeholder(__('telesale.reports.all_staff'))
                             ->searchable(),
                         Select::make('selected_steps')
@@ -110,109 +104,80 @@ class OperationFunnelReport extends Page implements HasForms
             ->statePath('data');
     }
 
-    public function generateReport(TelesaleReportScopeService $scopeService): void
+    public function generateReport(): void
     {
-        $state = $this->form->getState();
-        $from = ($state['from_date'] ?? now()->startOfMonth()->toDateString()) . ' 00:00:00';
-        $to = ($state['to_date'] ?? now()->toDateString()) . ' 23:59:59';
-        $staffId = $state['staff_id'] ?? null;
-        $selectedSteps = $state['selected_steps'] ?? [];
-        $unlimitedCloseDate = (bool) ($state['unlimited_close_date'] ?? false);
-        /** @var \App\Models\User $user */
-        $user = Auth::user();
+        /** @var TelesaleReportDataService $reportDataService */
+        $reportDataService = app(TelesaleReportDataService::class);
 
-        $base = CustomerStatusLog::query()
-            ->join('customers', 'customers.id', '=', 'customer_status_logs.customer_id');
-
-        if (!$unlimitedCloseDate) {
-            $base->whereBetween('customer_status_logs.created_at', [$from, $to]);
-        }
-
-        if ($user->role !== UserRole::SUPER_ADMIN->value) {
-            $base->where('customers.organization_id', $user->organization_id);
-        }
-
-        if (!empty($staffId)) {
-            $base->where('customer_status_logs.user_id', $staffId);
-        }
-
-        if ($user->role === UserRole::SALE->value) {
-            $base->where('customer_status_logs.user_id', $user->id);
-        }
-
-        $steps = [
-            InteractionStatus::FIRST_CALL->value,
-            InteractionStatus::SECOND_CALL->value,
-            InteractionStatus::THIRD_CALL->value,
-            InteractionStatus::FOURTH_CALL->value,
-            InteractionStatus::FIFTH_CALL->value,
-            InteractionStatus::SIXTH_CALL->value,
-            InteractionStatus::USER_MANUAL->value,
-            InteractionStatus::SECOND_CARE->value,
-            InteractionStatus::THIRD_CARE->value,
-            InteractionStatus::PASS->value,
-        ];
-        if (!empty($selectedSteps)) {
-            $steps = array_values(array_intersect($steps, array_map('intval', $selectedSteps)));
-        }
-
-        $rows = [];
-
-        foreach ($steps as $step) {
-            $stepQuery = (clone $base)->where('customer_status_logs.to_status', $step);
-            $customerIds = $stepQuery->distinct()->pluck('customer_status_logs.customer_id');
-            $contacts = $customerIds->count();
-
-            $ordersQuery = Order::query()
-                ->whereIn('customer_id', $customerIds)
-                ->whereIn('status', [
-                    OrderStatus::CONFIRMED->value,
-                    OrderStatus::SHIPPING->value,
-                    OrderStatus::COMPLETED->value,
-                ]);
-
-            if (!$unlimitedCloseDate) {
-                $ordersQuery->whereBetween('created_at', [$from, $to]);
-            }
-
-            $scopeService->applyOrderScope($ordersQuery, $user);
-
-            if (!empty($staffId)) {
-                $ordersQuery->where('created_by', $staffId);
-            }
-
-            if ($user->role === UserRole::SALE->value) {
-                $ordersQuery->where('created_by', $user->id);
-            }
-
-            $orderCount = (clone $ordersQuery)->count();
-            $revenue = (float) ((clone $ordersQuery)->sum('total_amount') ?? 0);
-            $rate = $contacts > 0 ? round(($orderCount / $contacts) * 100, 2) : 0;
-
-            $rows[] = [
-                'step' => InteractionStatus::getLabelStatus($step),
-                'contacts' => $contacts,
-                'orders' => $orderCount,
-                'conversion_rate' => $rate,
-                'revenue' => $revenue,
-            ];
-        }
-
-        $this->rows = $rows;
+        $this->rows = $reportDataService->buildOperationFunnelRows(
+            user: Auth::user(),
+            filters: $this->form->getState(),
+        );
     }
 
     public function exportReport(TelesaleReportExportService $exportService): void
     {
+        /** @var TelesaleReportDataService $reportDataService */
+        $reportDataService = app(TelesaleReportDataService::class);
+        $filters = $this->form->getState();
+        $rows = $reportDataService->buildOperationFunnelRows(Auth::user(), $filters);
+
         $job = $exportService->enqueueExport(
             user: Auth::user(),
             reportType: 'operation_funnel',
-            filters: $this->form->getState(),
-            rowCount: count($this->rows),
+            filters: $filters,
+            rowCount: count($rows),
         );
 
         Notification::make()
             ->title(__('telesale.reports.export_queued', ['id' => $job->id]))
+            ->body(__('telesale.reports.export_history_hint'))
             ->success()
             ->send();
+    }
+
+    protected function getStaffOptions(): array
+    {
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+        $scopeService = app(TelesaleReportScopeService::class);
+        $scopedStaffIds = $scopeService->resolveScopedStaffIds($user);
+
+        $query = User::query()
+            ->where('role', UserRole::SALE->value)
+            ->orderBy('name');
+
+        if ($user->role !== UserRole::SUPER_ADMIN->value) {
+            $query->where('organization_id', $user->organization_id);
+        }
+
+        if (is_array($scopedStaffIds)) {
+            $query->whereIn('id', $scopedStaffIds);
+        }
+
+        return $query->pluck('name', 'id')->all();
+    }
+
+    protected function applyAssignedStaffScope(Builder $query, array $staffIds): void
+    {
+        $staffIds = array_values(array_filter(array_map('intval', $staffIds)));
+
+        if ($staffIds === []) {
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+
+        $query->where(function (Builder $scopeQuery) use ($staffIds): void {
+            $scopeQuery
+                ->whereIn('customers.assigned_staff_id', $staffIds)
+                ->orWhereExists(function ($subQuery) use ($staffIds): void {
+                    $subQuery
+                        ->selectRaw('1')
+                        ->from('user_assigned_staff')
+                        ->whereColumn('user_assigned_staff.customer_id', 'customers.id')
+                        ->whereIn('user_assigned_staff.staff_id', $staffIds);
+                });
+        });
     }
 }
