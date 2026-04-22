@@ -54,68 +54,6 @@ enum ReasonInteraction: int
     }
 
     /**
-     * Determine the next interaction status based on the reason and current status
-     * 
-     * @param int $reasonValue The reason interaction value
-     * @param int $currentStatus The current interaction status
-     * @return int The next interaction status
-     */
-    public static function getNextStatus(int $reasonValue, int $currentStatus): int
-    {
-        return match ($reasonValue) {
-            // Dứt điểm - Thành công
-            self::CLOSING_ORDER->value,
-            self::GOOD_PERFORMANCE->value => \App\Common\Constants\Interaction\InteractionStatus::RECEIVED->value,
-
-            // Dứt điểm - Thất bại
-            self::NO_NEED->value => \App\Common\Constants\Interaction\InteractionStatus::UN_CARE->value,
-            self::SUBSCRIBERS->value,
-            self::POOR_PERFORMANCE->value => \App\Common\Constants\Interaction\InteractionStatus::INEFFICIENT->value,
-
-            // Phụ thuộc - Lên lịch chăm sóc
-            self::CALL_BACK->value,
-            self::THINK_MORE->value => \App\Common\Constants\Interaction\InteractionStatus::SECOND_CARE->value,
-
-            // Tiếp tuyến - Gọi lại theo quy trình
-            self::NO_ANSWER->value,
-            self::BUSY->value => self::getNextCallStatus($currentStatus),
-
-            default => $currentStatus, // Giữ nguyên nếu không match
-        };
-    }
-
-    /**
-     * Get the next call status in the sequence
-     * 
-     * @param int $currentStatus Current interaction status
-     * @return int Next call status
-     */
-    private static function getNextCallStatus(int $currentStatus): int
-    {
-        return match ($currentStatus) {
-            \App\Common\Constants\Interaction\InteractionStatus::FIRST_CALL->value =>
-            \App\Common\Constants\Interaction\InteractionStatus::SECOND_CALL->value,
-            \App\Common\Constants\Interaction\InteractionStatus::SECOND_CALL->value =>
-            \App\Common\Constants\Interaction\InteractionStatus::THIRD_CALL->value,
-            \App\Common\Constants\Interaction\InteractionStatus::THIRD_CALL->value =>
-            \App\Common\Constants\Interaction\InteractionStatus::FOURTH_CALL->value,
-            \App\Common\Constants\Interaction\InteractionStatus::FOURTH_CALL->value =>
-            \App\Common\Constants\Interaction\InteractionStatus::FIFTH_CALL->value,
-            \App\Common\Constants\Interaction\InteractionStatus::FIFTH_CALL->value =>
-            \App\Common\Constants\Interaction\InteractionStatus::SIXTH_CALL->value,
-            \App\Common\Constants\Interaction\InteractionStatus::SIXTH_CALL->value =>
-            \App\Common\Constants\Interaction\InteractionStatus::USER_MANUAL->value,
-            \App\Common\Constants\Interaction\InteractionStatus::USER_MANUAL->value =>
-            \App\Common\Constants\Interaction\InteractionStatus::SECOND_CARE->value,
-            \App\Common\Constants\Interaction\InteractionStatus::SECOND_CARE->value =>
-            \App\Common\Constants\Interaction\InteractionStatus::THIRD_CARE->value,
-            \App\Common\Constants\Interaction\InteractionStatus::THIRD_CARE->value =>
-            \App\Common\Constants\Interaction\InteractionStatus::RECEIVED->value,
-            default => $currentStatus,
-        };
-    }
-
-    /**
      * Check if this reason requires scheduling a callback
      * 
      * @param int $reasonValue The reason interaction value

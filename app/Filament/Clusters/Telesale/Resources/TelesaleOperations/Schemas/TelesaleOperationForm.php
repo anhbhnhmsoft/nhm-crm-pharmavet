@@ -2,6 +2,7 @@
 
 namespace App\Filament\Clusters\Telesale\Resources\TelesaleOperations\Schemas;
 
+use App\Filament\Clusters\Telesale\Resources\CustomerOperations\Actions\InteractionStepActions;
 use App\Models\District;
 use App\Models\Province;
 use App\Models\Warehouse;
@@ -24,7 +25,6 @@ use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use App\Models\Organization;
 use App\Models\Product;
-use App\Common\Constants\Interaction\InteractionStatus;
 use App\Common\Constants\User\UserRole;
 use Illuminate\Support\Facades\Auth;
 
@@ -392,29 +392,14 @@ class TelesaleOperationForm
                                             ]),
                                         Section::make(__('telesale.form.add_new_note'))
                                             ->schema([
-                                                Select::make('new_interaction_status')
-                                                    ->label(__('telesale.form.result'))
-                                                    ->options(InteractionStatus::options())
+                                                InteractionStepActions::reasonField('interaction_reason')
                                                     ->native(false)
-                                                    ->live()
                                                     ->required(fn(Get $get, $livewire) => $livewire instanceof EditRecord && (
-                                                        filled($get('new_interaction_content')) ||
-                                                        filled($get('next_action_at'))
-                                                    ))
-                                                    ->extraInputAttributes(['required' => false])
-                                                    ->validationMessages([
-                                                        'required' => __('common.error.required'),
-                                                    ]),
-                                                DateTimePicker::make('next_action_at')
-                                                    ->label(__('telesale.form.schedule_callback'))
-                                                    ->native(false)
-                                                    ->displayFormat('d/m/Y H:i')
-                                                    ->seconds(false)
-                                                    ->minutesStep(15),
-                                                Textarea::make('new_interaction_content')
-                                                    ->label(__('telesale.form.content'))
-                                                    ->placeholder(__('telesale.form.content_placeholder'))
-                                                    ->rows(3),
+                                                        filled($get('interaction_note')) ||
+                                                        filled($get('interaction_next_action_at'))
+                                                    )),
+                                                InteractionStepActions::nextActionField('interaction_reason', 'interaction_next_action_at'),
+                                                InteractionStepActions::noteField('interaction_note'),
                                             ]),
                                     ]),
                             ])

@@ -4,26 +4,32 @@ namespace App\Filament\Clusters\Telesale\Resources\TelesaleOperations\Pages;
 
 use App\Filament\Clusters\Telesale\Resources\TelesaleOperations\TelesaleOperationResource;
 use App\Models\Order;
-use App\Services\CustomerService;
+use App\Services\Telesale\TelesaleInteractionCommand;
+use App\Services\Telesale\TelesaleInteractionWorkflowService;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\RestoreAction;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class EditTelesaleOperation extends EditRecord
 {
     protected static string $resource = TelesaleOperationResource::class;
 
-    protected CustomerService $customerService;
+    protected TelesaleInteractionWorkflowService $interactionWorkflowService;
 
     protected function getRedirectUrl(): string
     {
         return $this->getResource()::getUrl('index');
     }
 
-    public function boot(CustomerService $customerService): void
+    public function boot(TelesaleInteractionWorkflowService $interactionWorkflowService): void
     {
-        $this->customerService = $customerService;
+        $this->interactionWorkflowService = $interactionWorkflowService;
     }
 
     protected function getHeaderActions(): array
@@ -70,22 +76,40 @@ class EditTelesaleOperation extends EditRecord
     {
         $data = $this->form->getRawState();
 
-        if (! filled($data['new_interaction_status'] ?? null)) {
+        if (! filled($data['interaction_reason'] ?? null)) {
             return;
         }
 
-        $result = $this->customerService->saveInteraction($this->record, $data);
+        try {
+            $result = $this->interactionWorkflowService->execute(
+                TelesaleInteractionCommand::fromArray($this->record, $data, (int) Auth::id(), 'edit_form')
+            );
 
-        if (! $result->isSuccess()) {
-            return;
+            $this->record->refresh();
+
+            $this->form->fill([
+                'interaction_reason' => null,
+                'interaction_note' => null,
+                'interaction_next_action_at' => null,
+                'next_action_at' => $this->record->next_action_at,
+            ]);
+
+            Notification::make()
+                ->title($result->message)
+                ->success()
+                ->send();
+        } catch (ValidationException $exception) {
+            throw $exception;
+        } catch (Throwable $exception) {
+            Log::error('Edit telesale interaction workflow error', [
+                'customer_id' => $this->record->id,
+                'message' => $exception->getMessage(),
+            ]);
+
+            Notification::make()
+                ->title(__('common.error.update_error'))
+                ->danger()
+                ->send();
         }
-
-        $this->record->refresh();
-
-        $this->form->fill([
-            'new_interaction_status' => null,
-            'new_interaction_content' => null,
-            'next_action_at' => $this->record->next_action_at,
-        ]);
     }
 }

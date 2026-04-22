@@ -191,6 +191,8 @@ return [
         'deposit_exceeds_total' => 'Tiền cọc không được lớn hơn tổng giá trị đơn hàng',
         'insufficient_stock' => 'Sản phẩm :product không đủ tồn kho tại kho đã chọn',
         'warehouse_required' => 'Vui lòng chọn kho xử lý đơn',
+        'invalid_interaction_status' => 'Trạng thái hiện tại không hỗ trợ tác nghiệp theo quy trình sale.',
+        'invalid_interaction_reason' => 'Kết quả tác nghiệp không hợp lệ.',
 
     ],
 

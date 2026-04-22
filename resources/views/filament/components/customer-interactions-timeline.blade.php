@@ -1,48 +1,8 @@
 @php
-    use App\Common\Constants\Customer\ReasonInteraction;
-    use App\Common\Constants\Interaction\InteractionStatus;
-    use App\Common\Constants\Interaction\InteractionType;
+    use App\Support\Telesale\CustomerInteractionTimelineBuilder;
 
     $customer = $getRecord();
-    $interactions = $customer?->interactions()->with('user')->get() ?? collect();
-    $statusLogs = $customer?->customerStatusLog()->with('user')->get() ?? collect();
-
-    $timelineEntries = $interactions
-        ->map(function ($interaction): array {
-            $type = InteractionType::tryFrom((int) $interaction->type);
-
-            return [
-                'title' => $type ? InteractionType::getLabel((int) $interaction->type) : InteractionType::getLabel(InteractionType::NOTE->value),
-                'icon' => $type ? $type->getIcon() : InteractionType::NOTE->getIcon(),
-                'actor' => $interaction->user?->name ?? __('telesale.messages.system'),
-                'occurred_at' => $interaction->interacted_at ?? $interaction->created_at,
-                'status_label' => filled($interaction->status) ? InteractionStatus::getLabel((int) $interaction->status) : null,
-                'status_style' => filled($interaction->status) ? InteractionStatus::getStyle((int) $interaction->status) : null,
-                'direction' => $interaction->direction,
-                'content' => $interaction->content,
-                'duration' => $interaction->duration,
-                'reason_label' => null,
-            ];
-        })
-        ->merge(
-            $statusLogs->map(function ($statusLog): array {
-                return [
-                    'title' => __('telesale.form.result'),
-                    'icon' => InteractionType::NOTE->getIcon(),
-                    'actor' => $statusLog->user?->name ?? __('telesale.messages.system'),
-                    'occurred_at' => $statusLog->created_at,
-                    'status_label' => filled($statusLog->to_status) ? InteractionStatus::getLabelStatus((int) $statusLog->to_status) : null,
-                    'status_style' => filled($statusLog->to_status) ? InteractionStatus::getStyle((int) $statusLog->to_status) : null,
-                    'direction' => null,
-                    'content' => $statusLog->note ?? null,
-                    'duration' => null,
-                    'reason_label' => filled($statusLog->reason) ? ReasonInteraction::getLabel((int) $statusLog->reason) : null,
-                ];
-            })
-        )
-        ->filter(fn (array $entry) => filled($entry['occurred_at']))
-        ->sortByDesc(fn (array $entry) => $entry['occurred_at'])
-        ->values();
+    $timelineEntries = app(CustomerInteractionTimelineBuilder::class)->build($customer);
 @endphp
 @vite(['resources/css/app.css'])
 
@@ -62,9 +22,9 @@
                 <div>
                     <p class="text-sm font-medium text-gray-900 dark:text-gray-100">
                         {{ $entry['title'] }}
-                        @if($entry['direction'])
+                        @if($entry['direction_label'])
                         <span class="text-xs text-gray-500 dark:text-gray-400">
-                            ({{ $entry['direction'] === 'inbound' ? __('telesale.direction.inbound') : __('telesale.direction.outbound') }})
+                            ({{ $entry['direction_label'] }})
                         </span>
                         @endif
                     </p>

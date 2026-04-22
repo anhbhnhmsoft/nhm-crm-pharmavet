@@ -29,3 +29,5 @@ yarn.lock
 .vscode
 .composer-cache/
 .composer-home/
+
+.codex
