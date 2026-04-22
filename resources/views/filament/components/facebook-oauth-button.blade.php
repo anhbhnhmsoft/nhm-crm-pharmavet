@@ -6,8 +6,10 @@ $pendingPagesCount = $pendingPagesCount ?? 0;
 $lastSync = null;
 $recordId = is_object($record ?? null) ? $record->id : 'temp';
 $statusValue = $status ?? null;
+$rawStatusMessage = is_string($statusMessage ?? null) ? trim((string) $statusMessage) : null;
 $statusBadgeClass = 'bg-gray-100 text-gray-700';
 $statusLabel = __('filament.integration.status.pending');
+$displayStatusMessage = $rawStatusMessage;
 
 if (isset($record) && is_object($record) && $record !== 'temp') {
     try {
@@ -33,6 +35,21 @@ if ((int) $statusValue === IntegrationStatus::CONNECTED->value) {
     $statusLabel = __('filament.integration.status.error');
 } elseif ((int) $statusValue === IntegrationStatus::PENDING->value) {
     $statusBadgeClass = 'bg-amber-100 text-amber-700';
+}
+
+if ($displayStatusMessage !== null) {
+    $looksLikeRawError = str_contains($displayStatusMessage, 'SQLSTATE[')
+        || str_contains($displayStatusMessage, 'Illuminate\\')
+        || str_contains($displayStatusMessage, 'Exception')
+        || str_contains($displayStatusMessage, 'Connection:')
+        || str_contains($displayStatusMessage, 'select * from')
+        || str_contains($displayStatusMessage, 'insert into')
+        || str_contains($displayStatusMessage, 'update ')
+        || str_contains($displayStatusMessage, 'delete from');
+
+    if ($looksLikeRawError) {
+        $displayStatusMessage = __('filament.integration.notifications.error.body');
+    }
 }
 @endphp
 
@@ -254,9 +271,9 @@ if ((int) $statusValue === IntegrationStatus::CONNECTED->value) {
                 {{ $statusLabel }}
             </span>
         </div>
-        @if (filled($statusMessage))
+        @if (filled($displayStatusMessage))
             <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                {{ $statusMessage }}
+                {{ $displayStatusMessage }}
             </p>
         @endif
     </div>
