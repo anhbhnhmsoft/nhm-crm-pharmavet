@@ -2,6 +2,7 @@
 
 namespace App\Exports\Sheets;
 
+use App\Common\Constants\Order\GhnOrderStatus;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithTitle;
@@ -27,6 +28,22 @@ class ReconciliationDetailSheet implements FromCollection, WithHeadings, WithTit
     public function title(): string
     {
         return __('accounting.reconciliation.plural_label');
+    }
+
+    private function resolveShippingStatusLabel($row): string
+    {
+        $shippingStatus = GhnOrderStatus::normalize($row->ghn_status)
+            ?? GhnOrderStatus::normalize($row->order?->ghn_status);
+
+        if ($shippingStatus !== null) {
+            return GhnOrderStatus::resolveLabel($shippingStatus);
+        }
+
+        if ($row->order && blank($row->order->ghn_posted_at)) {
+            return __('order.table.not_posted');
+        }
+
+        return '-';
     }
 
     public function headings(): array
@@ -62,7 +79,7 @@ class ReconciliationDetailSheet implements FromCollection, WithHeadings, WithTit
             $row->shipping_fee,
             $row->storage_fee,
             $row->total_fee,
-            $row->ghn_status_label,
+            $this->resolveShippingStatusLabel($row),
             strip_tags((string) $row->ghn_employee_note),
         ];
     }

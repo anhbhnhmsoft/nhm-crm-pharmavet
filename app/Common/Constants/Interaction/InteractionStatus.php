@@ -78,7 +78,7 @@ enum InteractionStatus: int
 
     public static function getLabelStatus(int $type): string
     {
-        return match ($type) {
+        $labels = [
             self::FIRST_CALL->value => __('enum.interaction_type.first_call_label'),
             self::SECOND_CALL->value => __('enum.interaction_type.second_call_label'),
             self::THIRD_CALL->value => __('enum.interaction_type.third_call_label'),
@@ -91,12 +91,13 @@ enum InteractionStatus: int
             self::PASS->value => __('enum.interaction_type.pass_label'),
             self::UN_CARE->value => __('enum.interaction_type.un_care_label'),
             self::INEFFICIENT->value => __('enum.interaction_type.inefficient_label'),
-            self::RECEIVED->value => __('enum.interaction_type.received'),
+            self::RECEIVED->value => __('enum.interaction_type.received_label'),
             self::COMPLETED->value => __('enum.interaction_type.completed_label'),
             self::MISSED->value => __('enum.interaction_type.missed_label'),
             self::FAILED->value => __('enum.interaction_type.failed_label'),
-            default => (string) $type,
-        };
+        ];
+
+        return $labels[$type] ?? (string) $type;
      }
 
     public static function getStyle(?int $type): string

@@ -112,6 +112,20 @@ class OrderFinanceServiceTest extends TestCase
         ]);
     }
 
+    public function test_deposit_and_cod_support_cannot_exceed_order_total(): void
+    {
+        $service = new OrderFinanceService();
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage(__('telesale.messages.collect_adjustments_exceed_total'));
+
+        $service->calculateCollectAmount([
+            'product_total' => 1000,
+            'deposit' => 700,
+            'cod_support_amount' => 301,
+        ]);
+    }
+
     public function test_preview_clamps_invalid_deposit_to_keep_collect_amount_non_negative(): void
     {
         $service = new OrderFinanceService();

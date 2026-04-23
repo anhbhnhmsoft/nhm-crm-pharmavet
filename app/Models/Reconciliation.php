@@ -19,7 +19,7 @@ class Reconciliation extends Model
         'ghn_to_name',
         'ghn_to_phone',
         'ghn_to_address',
-        'ghn_status_label',
+        'ghn_status',
         'ghn_created_at',
         'ghn_updated_at',
         'ghn_items',

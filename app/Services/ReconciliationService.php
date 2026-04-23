@@ -4,8 +4,10 @@ namespace App\Services;
 
 use App\Common\Constants\Accounting\ReconciliationStatus;
 use App\Common\Constants\Order\GhnOrderStatus;
+use App\Common\Constants\Order\OrderCareStatus;
 use App\Core\Logging;
 use App\Core\ServiceReturn;
+use App\Models\Reconciliation;
 use App\Repositories\ExchangeRateRepository;
 use App\Repositories\OrganizationRepository;
 use App\Repositories\OrderRepository;
@@ -37,6 +39,52 @@ class ReconciliationService
         protected OrganizationRepository $organizationRepository,
         protected GHNService $ghnService,
     ) {
+    }
+
+    public function getEffectiveShippingStatus(Reconciliation $reconciliation): ?string
+    {
+        return GhnOrderStatus::normalize($reconciliation->ghn_status)
+            ?? GhnOrderStatus::normalize($reconciliation->order?->ghn_status);
+    }
+
+    public function isNotPostedRecord(Reconciliation $reconciliation): bool
+    {
+        return blank($reconciliation->ghn_status)
+            && blank($reconciliation->order?->ghn_status)
+            && filled($reconciliation->order)
+            && blank($reconciliation->order?->ghn_posted_at);
+    }
+
+    public function getShippingStatusLabel(Reconciliation $reconciliation): string
+    {
+        $shippingStatus = $this->getEffectiveShippingStatus($reconciliation);
+
+        if ($shippingStatus !== null) {
+            return GhnOrderStatus::resolveLabel($shippingStatus);
+        }
+
+        return $this->isNotPostedRecord($reconciliation)
+            ? __('order.table.not_posted')
+            : '-';
+    }
+
+    public function canConfirmRecord(Reconciliation $reconciliation): bool
+    {
+        return (int) ($reconciliation->status ?? 0) === ReconciliationStatus::PENDING->value
+            && GhnOrderStatus::isFinalForReconciliation($this->getEffectiveShippingStatus($reconciliation));
+    }
+
+    public function getAllowedCareStatusOptions(Reconciliation $reconciliation): array
+    {
+        return OrderCareStatus::allowedOptionsForShippingStatus(
+            $this->getEffectiveShippingStatus($reconciliation),
+            filled($reconciliation->order?->care_status) ? (int) $reconciliation->order->care_status : null,
+        );
+    }
+
+    private function normalizeReconciliationShippingStatus(?string $status): ?string
+    {
+        return GhnOrderStatus::normalize($status);
     }
 
     private function resolveGhnCredentials(int $organizationId): array|ServiceReturn
@@ -451,7 +499,7 @@ class ReconciliationService
                             'ghn_to_name' => $orderDetail['to_name'] ?? $orderData['to_name'] ?? null,
                             'ghn_to_phone' => $orderDetail['to_phone'] ?? $orderData['to_phone'] ?? null,
                             'ghn_to_address' => $orderDetail['to_address'] ?? $orderData['to_address'] ?? null,
-                            'ghn_status_label' => GhnOrderStatus::getLabel($orderDetail['status'] ?? $orderData['status'] ?? ''),
+                            'ghn_status' => $this->normalizeReconciliationShippingStatus($orderDetail['status'] ?? $orderData['status'] ?? null),
                             'ghn_created_at' => isset($orderDetail['created_date']) ? Carbon::parse($orderDetail['created_date']) : (isset($orderData['created_date']) ? Carbon::parse($orderData['created_date']) : null),
                             'ghn_updated_at' => isset($orderDetail['updated_date']) ? Carbon::parse($orderDetail['updated_date']) : null,
                             'ghn_items' => $orderDetail['items'] ?? null,
@@ -500,7 +548,7 @@ class ReconciliationService
                             'ghn_to_name' => $orderData['to_name'] ?? null,
                             'ghn_to_phone' => $orderData['to_phone'] ?? null,
                             'ghn_to_address' => $orderData['to_address'] ?? null,
-                            'ghn_status_label' => GhnOrderStatus::getLabel($orderData['status'] ?? ''),
+                            'ghn_status' => $this->normalizeReconciliationShippingStatus($orderData['status'] ?? null),
                             'ghn_created_at' => isset($orderData['created_date']) ? Carbon::parse($orderData['created_date']) : null,
                             'ghn_items' => $orderData['items'] ?? null,
                             'ghn_content' => $orderData['content'] ?? null,
@@ -639,6 +687,7 @@ class ReconciliationService
                 'shipping_fee' => $shippingFee,
                 'storage_fee' => $storageFee,
                 'total_fee' => $totalFee,
+                'ghn_status' => $this->normalizeReconciliationShippingStatus($orderDetail['status'] ?? $reconciliation->ghn_status),
                 'ghn_cod_failed_amount' => $orderDetail['cod_failed_amount'] ?? $reconciliation->ghn_cod_failed_amount,
                 'ghn_employee_note' => $orderDetail['employee_note'] ?? $reconciliation->ghn_employee_note,
                 'reconciliation_date' => $this->normalizeDate($orderDetail['created_date'] ?? $reconciliation->reconciliation_date),
@@ -731,6 +780,7 @@ class ReconciliationService
                 'shipping_fee' => $shippingFee,
                 'storage_fee' => $storageFee,
                 'total_fee' => $totalFee,
+                'ghn_status' => $this->normalizeReconciliationShippingStatus($orderDetail['status'] ?? $reconciliation->ghn_status),
                 'reconciliation_date' => $this->normalizeDate($orderDetail['created_date'] ?? $reconciliation->reconciliation_date),
                 'ghn_to_name' => $orderDetail['to_name'] ?? $reconciliation->ghn_to_name,
                 'ghn_to_phone' => $orderDetail['to_phone'] ?? $reconciliation->ghn_to_phone,
@@ -802,20 +852,53 @@ class ReconciliationService
     public function confirmReconciliation(int $reconciliationId): ServiceReturn
     {
         try {
-            /** @var \App\Models\Reconciliation $reconciliation */
-            $reconciliation = $this->reconciliationRepository->find($reconciliationId);
+            $reconciliation = $this->reconciliationRepository->findWithOrderForConfirmation($reconciliationId);
 
-            if (!$reconciliation) {
+            if (! $reconciliation) {
                 return ServiceReturn::error(__('accounting.reconciliation.not_found'));
             }
 
-            $reconciliation->update([
+            if ((int) $reconciliation->status !== ReconciliationStatus::PENDING->value) {
+                return ServiceReturn::error(__('accounting.reconciliation.confirm_only_pending'));
+            }
+
+            $shippingStatus = $this->getEffectiveShippingStatus($reconciliation);
+
+            if (! GhnOrderStatus::isFinalForReconciliation($shippingStatus)) {
+                return ServiceReturn::error(__('accounting.reconciliation.confirm_requires_final_shipping_status'));
+            }
+
+            $updatedReconciliation = $this->reconciliationRepository->updateById($reconciliationId, [
                 'status' => ReconciliationStatus::CONFIRMED->value,
                 'confirmed_by' => Auth::id(),
                 'confirmed_at' => now(),
             ]);
 
-            return ServiceReturn::success(data: $reconciliation, message: __('accounting.reconciliation.confirmed'));
+            if (! $updatedReconciliation) {
+                return ServiceReturn::error(__('accounting.reconciliation.confirm_failed'));
+            }
+
+            $currentCareStatus = $reconciliation->order?->care_status;
+            $careStatus = OrderCareStatus::isAllowedForShippingStatus($currentCareStatus, $shippingStatus)
+                ? $currentCareStatus
+                : OrderCareStatus::suggestedForShippingStatus($shippingStatus);
+
+            if ($careStatus !== null && filled($reconciliation->order_id)) {
+                $updatedOrder = $this->orderRepository->updateById((int) $reconciliation->order_id, [
+                    'care_status' => $careStatus,
+                    'care_by_id' => Auth::id(),
+                    'care_updated_at' => now(),
+                ]);
+
+                if (! $updatedOrder) {
+                    return ServiceReturn::error(__('accounting.reconciliation.confirm_failed'));
+                }
+            }
+
+            return ServiceReturn::success(
+                data: $this->reconciliationRepository->findWithOrderForConfirmation($reconciliationId),
+                message: __('accounting.reconciliation.confirmed')
+            );
         } catch (Throwable $e) {
             Logging::error('Confirm reconciliation error', ['error' => $e->getMessage()], $e);
             return ServiceReturn::error(__('accounting.reconciliation.confirm_failed'));

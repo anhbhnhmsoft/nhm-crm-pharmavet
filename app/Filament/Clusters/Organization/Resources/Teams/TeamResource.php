@@ -69,7 +69,7 @@ class TeamResource extends Resource
 
     public static  function canAccess(): bool
     {
-        return Gate::allows(GateKey::IS_ADMIN->name);
+        return Gate::any([GateKey::IS_ADMIN->name,GateKey::IS_SUPER_ADMIN->name]);
     }
     
     public static function getEloquentQuery(): Builder

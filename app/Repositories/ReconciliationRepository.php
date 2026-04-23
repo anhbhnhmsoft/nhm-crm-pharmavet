@@ -82,4 +82,16 @@ class ReconciliationRepository extends BaseRepository
                 )
             "));
     }
+
+    public function findWithOrderForConfirmation(int $id): ?Reconciliation
+    {
+        /** @var Reconciliation|null $reconciliation */
+        $reconciliation = $this->query()
+            ->with([
+                'order:id,ghn_status,ghn_posted_at,care_status,care_by_id,care_updated_at',
+            ])
+            ->find($id);
+
+        return $reconciliation;
+    }
 }
