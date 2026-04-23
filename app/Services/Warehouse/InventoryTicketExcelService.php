@@ -63,7 +63,7 @@ class InventoryTicketExcelService
             'unit_price',
             'batch_no',
             'expired_at',
-            'current_quantity',
+            'available_stock',
         ];
     }
 
@@ -255,9 +255,14 @@ class InventoryTicketExcelService
             return 0;
         }
 
-        return (float) (ProductWarehouse::query()
+        $stock = ProductWarehouse::query()
             ->where('warehouse_id', $warehouseId)
             ->where('product_id', $productId)
-            ->value('quantity') ?? 0);
+            ->first(['quantity', 'pending_quantity']);
+
+        return (float) max(
+            0,
+            (int) ($stock?->quantity ?? 0) - (int) ($stock?->pending_quantity ?? 0)
+        );
     }
 }

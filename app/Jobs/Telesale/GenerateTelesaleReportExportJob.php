@@ -2,6 +2,7 @@
 
 namespace App\Jobs\Telesale;
 
+use App\Exports\SimpleArrayExport;
 use App\Models\ReportExportJob;
 use App\Services\Telesale\TelesaleReportDataService;
 use Filament\Notifications\Notification;
@@ -10,7 +11,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Storage;
+use Maatwebsite\Excel\Facades\Excel;
 
 class GenerateTelesaleReportExportJob implements ShouldQueue
 {
@@ -39,8 +40,12 @@ class GenerateTelesaleReportExportJob implements ShouldQueue
                 filters: $filters,
             );
 
-            $filePath = 'exports/telesale_' . $exportJob->report_type . '_' . $exportJob->id . '.csv';
-            Storage::disk('local')->put($filePath, $this->buildCsv($dataset['headers'], $dataset['rows']));
+            $filePath = 'exports/telesale_' . $exportJob->report_type . '_' . $exportJob->id . '.xlsx';
+            Excel::store(
+                new SimpleArrayExport($dataset['headers'], $dataset['rows']),
+                $filePath,
+                'local'
+            );
 
             $exportJob->update([
                 'status' => 'completed',
@@ -65,23 +70,5 @@ class GenerateTelesaleReportExportJob implements ShouldQueue
                 ->danger()
                 ->sendToDatabase($exportJob->user);
         }
-    }
-
-    protected function buildCsv(array $headers, array $rows): string
-    {
-        $handle = fopen('php://temp', 'r+');
-
-        fwrite($handle, "\xEF\xBB\xBF");
-        fputcsv($handle, $headers);
-
-        foreach ($rows as $row) {
-            fputcsv($handle, $row);
-        }
-
-        rewind($handle);
-        $csv = stream_get_contents($handle) ?: '';
-        fclose($handle);
-
-        return $csv;
     }
 }

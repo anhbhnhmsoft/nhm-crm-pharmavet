@@ -114,9 +114,14 @@ return [
         'updated_by' => 'Người cập nhật',
     ],
     'action' => [
-        'cancel_post' => 'Hủy đăng đơn',
+        'cancel_post' => 'Hủy / Hoàn / Đổi',
+        'confirm_cancel' => 'Xác nhận hủy',
         'post_order' => 'Đăng đơn',
         'calculate_fee' => 'Tính phí',
+    ],
+    'modal' => [
+        'cancel_post_title' => 'Hủy / Hoàn / Đổi',
+        'cancel_post_description' => 'Bạn có chắc chắn muốn hủy đăng đơn này để tiếp tục xử lý hoàn hoặc đổi đơn không?',
     ],
     'table' => [
         'code' => 'Mã đơn hàng',
@@ -145,8 +150,12 @@ return [
         'ghn_status' => 'Trạng thái vận đơn',
     ],
     'notification' => [
+        'post_order_success' => 'Đăng đơn / Bàn giao thành công',
         'post_order_queued' => 'Đăng đơn đã được thêm vào hàng đợi',
         'post_order_failed' => 'Đăng đơn thất bại',
+        'cancel_order_success' => 'Hủy / Hoàn / Đổi thành công',
+        'cancel_order_failed' => 'Hủy / Hoàn / Đổi thất bại',
+        'fee_calculated' => 'Tính phí thành công',
         'calculate_fee_failed' => 'Tính phí thất bại',
         'calculate_fee_success' => 'Tính phí thành công',
         'debt' => [

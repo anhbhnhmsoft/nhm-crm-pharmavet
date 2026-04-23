@@ -12,6 +12,7 @@ use App\Common\Constants\Order\ServiceType;
 use App\Common\Constants\Shipping\ProviderShipping;
 use App\Common\Constants\Shipping\RequiredNote;
 use App\Common\Constants\User\UserRole;
+use App\Filament\Clusters\Telesale\Resources\CustomerOperations\CustomerOperationResource;
 use App\Filament\Clusters\Telesale\Resources\CustomerOperations\Actions\InteractionStepActions;
 use App\Filament\Clusters\Telesale\Resources\CustomerOperations\Schemas\FinalizeOrderActionForm;
 use App\Models\District;
@@ -409,6 +410,25 @@ class CustomerOperationsTable
         }
     }
 
+    protected static function notifyFinalizeOrderValidationException(ValidationException $exception): void
+    {
+        $message = collect($exception->errors())
+            ->filter(fn(array $messages, string $key) => str_starts_with($key, 'items.') && str_ends_with($key, '.quantity'))
+            ->flatten()
+            ->filter(fn($value) => is_string($value) && filled($value))
+            ->map(fn(string $value) => trim($value))
+            ->first();
+
+        if (! $message) {
+            return;
+        }
+
+        Notification::make()
+            ->title($message)
+            ->danger()
+            ->send();
+    }
+
     protected static function careResultField(): Select
     {
         return Select::make('reason')
@@ -560,7 +580,7 @@ class CustomerOperationsTable
             ->recordActions([
                 ActionGroup::make([
                     Action::make('finalize_order')
-                        ->label(__('warehouse.actions.finalize_order'))
+                        ->label(__('telesale_action.edit_warehouse'))
                         ->icon('heroicon-o-shopping-cart')
                         ->color('success')
                         ->disabled(fn($record): bool => self::isFinalizeOrderLockedForSale($record))
@@ -770,15 +790,19 @@ class CustomerOperationsTable
                                                 ->options(ProviderShipping::getOptions())
                                                 ->live()
                                                 ->required()
+                                                ->extraInputAttributes(['required' => false])
                                                 ->validationMessages([
-                                                    'required' => __('common.error.required')
+                                                    'required' => __('common.error.required'),
+                                                    'in' => __('common.error.in', ['attribute' => __('warehouse.order.form.shipping_method')]),
                                                 ]),
                                             Select::make('required_note')
                                                 ->label(__('warehouse.order.form.required_note'))
                                                 ->options(RequiredNote::getOptions())
                                                 ->required()
+                                                ->extraInputAttributes(['required' => false])
                                                 ->validationMessages([
-                                                    'required' => __('common.error.required')
+                                                    'required' => __('common.error.required'),
+                                                    'in' => __('common.error.in', ['attribute' => __('warehouse.order.form.required_note')]),
                                                 ]),
 
                                             Placeholder::make('logistics_helper')
@@ -1079,7 +1103,7 @@ class CustomerOperationsTable
                                     }
                                 }),
                         ])
-                        ->action(function (array $data, $record, OrderService $orderService) {
+                        ->action(function (array $data, $record, OrderService $orderService, $livewire) {
                             Log::info('finalize_order: Action triggered', [
                                 'customer_id' => $record->id,
                                 'user_id' => Auth::id(),
@@ -1092,7 +1116,13 @@ class CustomerOperationsTable
                             $data['created_by'] = Auth::id();
                             $data['updated_by'] = Auth::id();
 
-                            self::validateFinalizeOrderData($data, $record);
+                            try {
+                                self::validateFinalizeOrderData($data, $record);
+                            } catch (ValidationException $exception) {
+                                self::notifyFinalizeOrderValidationException($exception);
+
+                                throw $exception;
+                            }
 
                             $result = $orderService->finalizeOrder($data);
 
@@ -1102,7 +1132,14 @@ class CustomerOperationsTable
                             ]);
 
                             if ($result->isSuccess()) {
-                                Notification::make()->title(__('common.success.update_success'))->success()->send();
+                                Notification::make()
+                                    ->title(__('telesale_action.edit_warehouse_success'))
+                                    ->success()
+                                    ->send();
+
+                                $livewire->redirect(CustomerOperationResource::getUrl('index'));
+
+                                return;
                             } else {
                                 if ($result->getMessage() === __('telesale.messages.deposit_exceeds_total')) {
                                     throw ValidationException::withMessages([

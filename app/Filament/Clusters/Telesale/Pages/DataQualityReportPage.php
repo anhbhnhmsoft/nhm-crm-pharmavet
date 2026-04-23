@@ -11,6 +11,7 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 
 class DataQualityReportPage extends Page implements HasForms
@@ -99,11 +100,10 @@ class DataQualityReportPage extends Page implements HasForms
     {
         $state = $this->getValidatedFilters();
         $user = Auth::user();
+        $from = $this->resolveDateBoundary($state['from_date'] ?? now()->subMonth()->toDateString(), true);
+        $to = $this->resolveDateBoundary($state['to_date'] ?? now()->toDateString(), false);
 
-        $query = Customer::query()->whereBetween('created_at', [
-            ($state['from_date'] ?? now()->subMonth()->toDateString()) . ' 00:00:00',
-            ($state['to_date'] ?? now()->toDateString()) . ' 23:59:59',
-        ]);
+        $query = Customer::query()->whereBetween('created_at', [$from, $to]);
 
         if ($user->role !== UserRole::SUPER_ADMIN->value) {
             $query->where('organization_id', $user->organization_id);
@@ -147,5 +147,14 @@ class DataQualityReportPage extends Page implements HasForms
         );
 
         return $validated['data'];
+    }
+
+    protected function resolveDateBoundary(string $value, bool $isStart): string
+    {
+        $date = Carbon::parse($value);
+
+        return $isStart
+            ? $date->startOfDay()->toDateTimeString()
+            : $date->endOfDay()->toDateTimeString();
     }
 }

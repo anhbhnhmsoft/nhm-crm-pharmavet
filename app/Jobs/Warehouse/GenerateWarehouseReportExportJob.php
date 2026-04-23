@@ -2,6 +2,7 @@
 
 namespace App\Jobs\Warehouse;
 
+use App\Exports\SimpleArrayExport;
 use App\Models\ReportExportJob;
 use Filament\Notifications\Notification;
 use Illuminate\Bus\Queueable;
@@ -9,7 +10,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Storage;
+use Maatwebsite\Excel\Facades\Excel;
 
 class GenerateWarehouseReportExportJob implements ShouldQueue
 {
@@ -30,16 +31,20 @@ class GenerateWarehouseReportExportJob implements ShouldQueue
 
         try {
             $filters = $job->filters_json ?? [];
-            $csv = "report_type,from_date,to_date,generated_at\n";
-            $csv .= implode(',', [
-                $job->report_type,
-                $filters['from_date'] ?? '',
-                $filters['to_date'] ?? '',
-                now()->toDateTimeString(),
-            ]) . "\n";
-
-            $path = 'exports/warehouse_report_' . $job->id . '.csv';
-            Storage::disk('local')->put($path, $csv);
+            $path = 'exports/warehouse_report_' . $job->id . '.xlsx';
+            Excel::store(
+                new SimpleArrayExport(
+                    ['report_type', 'from_date', 'to_date', 'generated_at'],
+                    [[
+                        $job->report_type,
+                        $filters['from_date'] ?? '',
+                        $filters['to_date'] ?? '',
+                        now()->toDateTimeString(),
+                    ]]
+                ),
+                $path,
+                'local'
+            );
 
             $job->update([
                 'status' => 'completed',
