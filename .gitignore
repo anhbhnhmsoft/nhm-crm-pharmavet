@@ -27,7 +27,11 @@ composer.lock
 yarn.lock
 *.log
 .vscode
+.codex
+
+.agents
+_ide_helper.php
+_ide_helper_models.php
 .composer-cache/
 .composer-home/
 
-.codex
