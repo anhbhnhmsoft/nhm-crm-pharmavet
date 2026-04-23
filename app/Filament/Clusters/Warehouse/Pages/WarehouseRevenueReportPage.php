@@ -13,6 +13,7 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -95,8 +96,8 @@ class WarehouseRevenueReportPage extends Page implements HasForms
     public function generateReport(): void
     {
         $filters = $this->validateAndBuildFilters();
-        $from = $filters['from_date'] . ' 00:00:00';
-        $to = $filters['to_date'] . ' 23:59:59';
+        $from = $this->normalizeBoundary($filters['from_date'], true);
+        $to = $this->normalizeBoundary($filters['to_date'], false);
 
         $query = Order::query()
             ->join('warehouses', 'warehouses.id', '=', 'orders.warehouse_id')
@@ -170,5 +171,14 @@ class WarehouseRevenueReportPage extends Page implements HasForms
             'from_date' => (string) $validated['from_date'],
             'to_date' => (string) $validated['to_date'],
         ];
+    }
+
+    protected function normalizeBoundary(string $value, bool $isStart): string
+    {
+        $date = Carbon::parse($value);
+
+        return $isStart
+            ? $date->startOfDay()->toDateTimeString()
+            : $date->endOfDay()->toDateTimeString();
     }
 }
