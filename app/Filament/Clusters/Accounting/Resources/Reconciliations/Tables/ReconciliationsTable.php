@@ -29,6 +29,7 @@ use Filament\Schemas\Components\Grid;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\HtmlString;
+use Illuminate\Support\Str;
 use App\Models\Warehouse;
 use App\Common\Constants\Order\OrderStatus;
 use Filament\Tables\Table;
@@ -80,6 +81,39 @@ class ReconciliationsTable
             ->all();
     }
 
+    protected static function normalizeSearchTerm(?string $value): string
+    {
+        $normalized = mb_strtolower(trim(strip_tags((string) $value)));
+
+        if ($normalized === '') {
+            return '';
+        }
+
+        return preg_replace('/\s+/', ' ', Str::ascii($normalized)) ?? '';
+    }
+
+    protected static function matchesNotPostedSearch(string $search): bool
+    {
+        $normalizedSearch = self::normalizeSearchTerm($search);
+
+        if ($normalizedSearch === '') {
+            return false;
+        }
+
+        foreach ([
+            __('order.table.not_posted'),
+            'chua dang don',
+        ] as $candidate) {
+            $normalizedCandidate = self::normalizeSearchTerm($candidate);
+
+            if ($normalizedCandidate !== '' && str_contains($normalizedCandidate, $normalizedSearch)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     protected static function applyGlobalTableSearch(Builder $query, string $search): Builder
     {
         $search = trim($search);
@@ -96,6 +130,7 @@ class ReconciliationsTable
         $matchingReconciliationStatuses = self::getMatchingOptionValues(ReconciliationStatus::getOptions(), $search);
         $matchingCareStatuses = self::getMatchingOptionValues(OrderCareStatus::toOptions(), $search);
         $matchingShippingStatuses = self::getMatchingOptionValues(GhnOrderStatus::toOptions(), $search, castToInt: false);
+        $matchesNotPosted = self::matchesNotPostedSearch($search);
 
         return $query->where(function (Builder $searchQuery) use (
             $like,
@@ -103,19 +138,36 @@ class ReconciliationsTable
             $numericLike,
             $matchingReconciliationStatuses,
             $matchingCareStatuses,
-            $matchingShippingStatuses
+            $matchingShippingStatuses,
+            $matchesNotPosted
         ): void {
             $searchQuery
                 ->where('reconciliations.ghn_order_code', $likeOperator, $like)
                 ->orWhere('reconciliations.ghn_to_name', $likeOperator, $like)
                 ->orWhere('reconciliations.ghn_to_phone', $likeOperator, $like)
                 ->orWhere('reconciliations.ghn_to_address', $likeOperator, $like)
-                ->orWhere('reconciliations.ghn_status_label', $likeOperator, $like)
+                ->orWhere('reconciliations.ghn_status', $likeOperator, $like)
                 ->orWhere('reconciliations.ghn_employee_note', $likeOperator, $like)
                 ->orWhere('reconciliations.note', $likeOperator, $like);
 
             if ($matchingReconciliationStatuses !== []) {
                 $searchQuery->orWhereIn('reconciliations.status', $matchingReconciliationStatuses);
+            }
+
+            if ($matchingShippingStatuses !== []) {
+                $searchQuery->orWhereIn('reconciliations.ghn_status', $matchingShippingStatuses);
+            }
+
+            if ($matchesNotPosted) {
+                $searchQuery->orWhere(function (Builder $notPostedQuery): void {
+                    $notPostedQuery
+                        ->whereNull('reconciliations.ghn_status')
+                        ->whereHas('order', function (Builder $orderQuery): void {
+                            $orderQuery
+                                ->whereNull('orders.ghn_status')
+                                ->whereNull('orders.ghn_posted_at');
+                        });
+                });
             }
 
             if ($numericLike !== null) {
@@ -326,12 +378,8 @@ class ReconciliationsTable
     protected static function getFinalShippingStatuses(): array
     {
         return [
-            GhnOrderStatus::DELIVERED->value,
-            GhnOrderStatus::RETURNED->value,
-            GhnOrderStatus::CANCEL->value,
-            GhnOrderStatus::LOST->value,
-            GhnOrderStatus::DAMAGE->value,
-            'cancelled',
+            ...GhnOrderStatus::finalStatusesForReconciliation(),
+            GhnOrderStatus::LEGACY_CANCELLED,
         ];
     }
 
@@ -398,6 +446,31 @@ class ReconciliationsTable
             }),
             default => $query,
         };
+    }
+
+    protected static function getEffectiveShippingStatus($record): ?string
+    {
+        return self::getReconciliationService()->getEffectiveShippingStatus($record);
+    }
+
+    protected static function isNotPostedRecord($record): bool
+    {
+        return self::getReconciliationService()->isNotPostedRecord($record);
+    }
+
+    protected static function getShippingStatusLabel($record): string
+    {
+        return self::getReconciliationService()->getShippingStatusLabel($record);
+    }
+
+    protected static function canConfirmRecord($record): bool
+    {
+        return self::getReconciliationService()->canConfirmRecord($record);
+    }
+
+    protected static function getAllowedCareStatusOptions($record): array
+    {
+        return self::getReconciliationService()->getAllowedCareStatusOptions($record);
     }
 
     protected static function getCareStatusLabel(int|string|null $status): string
@@ -601,7 +674,7 @@ class ReconciliationsTable
                                     ]),
                                 Select::make('care_status')
                                     ->label(__('accounting.reconciliation.care_status_next'))
-                                    ->options(OrderCareStatus::toOptions())
+                                    ->options(fn ($record): array => self::getAllowedCareStatusOptions($record))
                                     ->placeholder(__('accounting.reconciliation.care_status_placeholder'))
                                     ->native(false)
                                     ->searchable(),
@@ -649,6 +722,22 @@ class ReconciliationsTable
                                     return;
                                 }
 
+                                if (
+                                    $statusChanged
+                                    && ! OrderCareStatus::isAllowedForShippingStatus(
+                                        $nextStatus,
+                                        self::getEffectiveShippingStatus($record),
+                                    )
+                                ) {
+                                    Notification::make()
+                                        ->warning()
+                                        ->title(__('accounting.reconciliation.care_status_invalid_title'))
+                                        ->body(__('accounting.reconciliation.care_status_invalid_body'))
+                                        ->send();
+
+                                    return;
+                                }
+
                                 if ($noteChanged) {
                                     $record->update([
                                         'ghn_employee_note' => $nextNote !== '' ? $nextNote : null,
@@ -671,7 +760,7 @@ class ReconciliationsTable
                                     ->send();
                             })
                     ),
-                TextColumn::make('ghn_status_label')
+                TextColumn::make('ghn_status')
                     ->label(new HtmlString('<div class="text-center font-semibold">' .
                         __('accounting.reconciliation.status_update_date') . '<br>' .
                         __('accounting.reconciliation.shipping_status') . '<br>' .
@@ -680,11 +769,7 @@ class ReconciliationsTable
                     ->html()
                     ->formatStateUsing(function ($state, $record) {
                         $updated = $record->updated_at?->format('d/m/Y H:i') ?? '-';
-                        $status = $record->order?->ghn_status;
-                        $label = GhnOrderStatus::getLabel($status);
-                        if (($label === '-' || empty($label)) && !empty($record->ghn_status_label)) {
-                            $label = $record->ghn_status_label;
-                        }
+                        $label = self::getShippingStatusLabel($record);
 
                         $posted = $record->order?->ghn_posted_at ? Carbon::parse($record->order->ghn_posted_at)->format('d/m/Y H:i') : ($record->ghn_created_at ? $record->ghn_created_at->format('d/m/Y H:i') : ($record->order?->created_at?->format('d/m/Y H:i') ?? '-'));
 
@@ -1469,6 +1554,10 @@ class ReconciliationsTable
                     ->color('success')
                     ->requiresConfirmation()
                     ->visible(fn($record) => $record->status === ReconciliationStatus::PENDING->value)
+                    ->disabled(fn($record) => ! self::canConfirmRecord($record))
+                    ->tooltip(fn($record) => ! self::canConfirmRecord($record)
+                        ? __('accounting.reconciliation.confirm_requires_final_shipping_status')
+                        : null)
                     ->action(function ($record, ReconciliationService $service) {
                         $result = $service->confirmReconciliation($record->id);
 
@@ -1520,38 +1609,13 @@ class ReconciliationsTable
                         $count = 0;
                         $skipped = 0;
 
-                        $finalStatuses = collect([
-                            GhnOrderStatus::DELIVERED,
-                            GhnOrderStatus::RETURNED,
-                            GhnOrderStatus::CANCEL,
-                            GhnOrderStatus::LOST,
-                            GhnOrderStatus::DAMAGE,
-                        ])
-                            ->flatMap(fn(GhnOrderStatus $status) => [
-                                mb_strtolower($status->value),
-                                mb_strtolower($status->label()),
-                            ])
-                            ->push('cancelled')
-                            ->unique()
-                            ->values()
-                            ->all();
-
                         foreach ($records as $record) {
-                            $ghnStatuses = collect([
-                                $record->order?->ghn_status,
-                                $record->ghn_status_label,
-                            ])
-                                ->filter()
-                                ->map(fn($status) => mb_strtolower(trim((string) $status)));
-
-                            $isFinalStatus = $ghnStatuses->contains(
-                                fn(string $status) => in_array($status, $finalStatuses, true)
-                            );
-
-                            if ($isFinalStatus && $record->status === ReconciliationStatus::PENDING->value) {
+                            if ($service->canConfirmRecord($record)) {
                                 $result = $service->confirmReconciliation($record->id);
                                 if (!$result->isError()) {
                                     $count++;
+                                } else {
+                                    $skipped++;
                                 }
                             } else {
                                 $skipped++;

@@ -99,4 +99,88 @@ enum OrderCareStatus: int
             default => 'text-primary-600',
         };
     }
+
+    public static function allowedValuesForShippingStatus(?string $shippingStatus): ?array
+    {
+        return match (GhnOrderStatus::careRuleGroup($shippingStatus)) {
+            GhnCareRuleGroup::BEFORE_DELIVERY => [
+                null,
+                self::IMMEDIATE_DELIVERY->value,
+                self::WAITING_DELIVERY->value,
+                self::NEED_RECHECK->value,
+                self::PRINTED->value,
+            ],
+            GhnCareRuleGroup::DELIVERING => [
+                self::IMMEDIATE_DELIVERY->value,
+                self::WAITING_DELIVERY->value,
+                self::DELAYED_DELIVERY->value,
+                self::NO_ANSWER->value,
+                self::CUSTOMER_REFUSED->value,
+                self::REDELIVERY_REQUESTED->value,
+                self::NEED_RECHECK->value,
+            ],
+            GhnCareRuleGroup::DELIVERED => [
+                self::RECEIVED->value,
+                self::OUT_FOR_DELIVERY_RECEIVED->value,
+                self::COMPLAINT_RESOLVED->value,
+            ],
+            GhnCareRuleGroup::RETURNING => [
+                self::RETURN_REPORTED->value,
+                self::REDELIVERY_REQUESTED->value,
+                self::REDELIVERY->value,
+                self::SALE_RESCUED_ORDER->value,
+                self::RETURNED_ORDER->value,
+                self::OUT_FOR_DELIVERY_RETURN->value,
+                self::NEED_RECHECK->value,
+            ],
+            GhnCareRuleGroup::ABNORMAL => [
+                self::DUPLICATE_ORDER->value,
+                self::NEED_RECHECK->value,
+                self::CUSTOMER_COMPLAINT->value,
+                self::COMPLAINT_RESOLVED->value,
+            ],
+            default => null,
+        };
+    }
+
+    public static function allowedOptionsForShippingStatus(?string $shippingStatus, ?int $currentStatus = null): array
+    {
+        $allowedValues = self::allowedValuesForShippingStatus($shippingStatus);
+
+        if ($allowedValues === null) {
+            $options = self::toOptions();
+        } else {
+            $options = collect($allowedValues)
+                ->filter(fn ($value) => $value !== null)
+                ->mapWithKeys(fn (int $value): array => [$value => self::getLabel($value)])
+                ->all();
+        }
+
+        if ($currentStatus !== null && ! array_key_exists($currentStatus, $options)) {
+            $options[$currentStatus] = self::getLabel($currentStatus);
+        }
+
+        return $options;
+    }
+
+    public static function isAllowedForShippingStatus(?int $careStatus, ?string $shippingStatus): bool
+    {
+        $allowedValues = self::allowedValuesForShippingStatus($shippingStatus);
+
+        if ($allowedValues === null) {
+            return true;
+        }
+
+        return in_array($careStatus, $allowedValues, true);
+    }
+
+    public static function suggestedForShippingStatus(?string $shippingStatus): ?int
+    {
+        return match (GhnOrderStatus::careRuleGroup($shippingStatus)) {
+            GhnCareRuleGroup::DELIVERED => self::RECEIVED->value,
+            GhnCareRuleGroup::RETURNING => self::RETURNED_ORDER->value,
+            GhnCareRuleGroup::ABNORMAL => self::NEED_RECHECK->value,
+            default => null,
+        };
+    }
 }

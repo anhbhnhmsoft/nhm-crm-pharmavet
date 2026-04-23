@@ -14,16 +14,38 @@ class OrderFinanceService
 
     public function calculatePreview(array $inputs): array
     {
-        $values = $this->normalizeInputs($inputs);
-        $values['discount'] = max(0, $values['discount']);
-        $values['ck1'] = min(100, max(0, $values['ck1']));
-        $values['ck2'] = min(100, max(0, $values['ck2']));
-        $values['shipping_fee'] = max(0, $values['shipping_fee']);
-        $values['cod_fee'] = max(0, $values['cod_fee']);
-        $values['deposit'] = max(0, $values['deposit']);
-        $values['cod_support_amount'] = max(0, $values['cod_support_amount']);
+        $values = $this->sanitizePreviewValues($this->normalizeInputs($inputs));
 
         return $this->buildSummary($values, false);
+    }
+
+    public function getMaxAllowedDeposit(array $inputs): float
+    {
+        return (float) ($this->calculatePreview($inputs)['gross_total'] ?? 0);
+    }
+
+    public function getMaxAllowedCodSupport(array $inputs): float
+    {
+        $values = $this->sanitizePreviewValues($this->normalizeInputs($inputs));
+
+        return max(0, $this->getMaxAllowedDeposit($values) - $values['deposit']);
+    }
+
+    public function getCollectValidationMessages(array $inputs): array
+    {
+        $values = $this->sanitizePreviewValues($this->normalizeInputs($inputs));
+        $grossTotal = (float) ($this->buildSummary($values, false)['gross_total'] ?? 0);
+        $messages = [];
+
+        if ($values['deposit'] > $grossTotal) {
+            $messages['deposit'] = __('telesale.messages.deposit_exceeds_total');
+        }
+
+        if ($values['deposit'] <= $grossTotal && ($values['deposit'] + $values['cod_support_amount']) > $grossTotal) {
+            $messages['cod_support_amount'] = __('telesale.messages.collect_adjustments_exceed_total');
+        }
+
+        return $messages;
     }
 
     protected function normalizeInputs(array $inputs): array
@@ -80,8 +102,12 @@ class OrderFinanceService
         $totalDiscount = $productDiscount + $values['discount'];
         $grossTotal = max(0, $values['product_total'] - $totalDiscount + $values['shipping_fee'] + $values['cod_fee']);
 
-        if ($validateDeposit && $values['deposit'] > $grossTotal) {
-            throw new \RuntimeException(__('telesale.messages.deposit_exceeds_total'));
+        if ($validateDeposit) {
+            $messages = $this->getCollectValidationMessages($values);
+
+            if ($messages !== []) {
+                throw new \RuntimeException(reset($messages));
+            }
         }
 
         $collectAmount = max(0, $grossTotal - $values['deposit'] - $values['cod_support_amount']);
@@ -92,5 +118,18 @@ class OrderFinanceService
             'total_discount' => round($totalDiscount, 2),
             'collect_amount' => round($collectAmount, 2),
         ];
+    }
+
+    protected function sanitizePreviewValues(array $values): array
+    {
+        $values['discount'] = max(0, $values['discount']);
+        $values['ck1'] = min(100, max(0, $values['ck1']));
+        $values['ck2'] = min(100, max(0, $values['ck2']));
+        $values['shipping_fee'] = max(0, $values['shipping_fee']);
+        $values['cod_fee'] = max(0, $values['cod_fee']);
+        $values['deposit'] = max(0, $values['deposit']);
+        $values['cod_support_amount'] = max(0, $values['cod_support_amount']);
+
+        return $values;
     }
 }

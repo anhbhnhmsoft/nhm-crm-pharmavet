@@ -189,6 +189,7 @@ return [
         'duplicate_group_count' => 'Nhóm trùng: :count',
         'order_edit_locked_for_sale' => 'Sale không được sửa/chốt đơn khi đơn đã ở trạng thái giao hàng hoặc hoàn tất',
         'deposit_exceeds_total' => 'Tiền cọc không được lớn hơn tổng giá trị đơn hàng',
+        'collect_adjustments_exceed_total' => 'Tổng tiền đặt cọc và hỗ trợ COD không được lớn hơn tổng giá trị đơn hàng',
         'insufficient_stock' => 'Sản phẩm :product không đủ tồn kho tại kho đã chọn',
         'warehouse_required' => 'Vui lòng chọn kho xử lý đơn',
         'invalid_interaction_status' => 'Trạng thái hiện tại không hỗ trợ tác nghiệp theo quy trình sale.',
