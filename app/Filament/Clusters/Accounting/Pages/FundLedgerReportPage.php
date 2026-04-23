@@ -113,12 +113,7 @@ class FundLedgerReportPage extends Page implements HasForms
                             ]),
                         Select::make('fund_id')
                             ->label(__('accounting.fund.label'))
-                            ->options(function () {
-                                return Fund::query()
-                                    ->where('organization_id', Auth::user()->organization_id)
-                                    ->pluck('name', 'id')
-                                    ->toArray();
-                            })
+                            ->options(fn (): array => $this->getFundOptions())
                             ->searchable()
                             ->native(false),
                         TextInput::make('counterparty_name')
@@ -246,6 +241,27 @@ class FundLedgerReportPage extends Page implements HasForms
             'data.fund_id' => __('accounting.fund.label'),
             'data.counterparty_name' => __('accounting.fund_transaction.counterparty_name'),
         ];
+    }
+
+    protected function getFundOptions(): array
+    {
+        $organizationId = (int) (Auth::user()->organization_id ?? 0);
+
+        return Fund::query()
+            ->where('organization_id', $organizationId)
+            ->orderBy('fund_type')
+            ->orderBy('currency')
+            ->orderBy('id')
+            ->get(['id', 'fund_type', 'currency'])
+            ->mapWithKeys(function (Fund $fund): array {
+                $fundType = __('accounting.fund.fund_types.' . ($fund->fund_type ?: 'cash'));
+                $currency = strtoupper((string) ($fund->currency ?: 'VND'));
+
+                return [
+                    $fund->id => "{$fundType} - {$currency} (#{$fund->id})",
+                ];
+            })
+            ->all();
     }
 
     protected function formatLedgerRows(Collection $collection): array
