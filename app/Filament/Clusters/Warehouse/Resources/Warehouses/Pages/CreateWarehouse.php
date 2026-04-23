@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Filament\Clusters\Warehouse\Resources\Warehouses\Pages;
-          
+
 use App\Filament\Clusters\Warehouse\Resources\Warehouses\WarehouseResource;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\Auth;
@@ -10,7 +10,6 @@ use Illuminate\Support\Str;
 class CreateWarehouse extends CreateRecord
 {
     protected static string $resource = WarehouseResource::class;
-    protected string $view = 'filament.clusters.warehouse.resources.warehouses.pages.create-warehouse';
 
     public function mutateFormDataBeforeCreate(array $data): array
     {
@@ -32,18 +31,5 @@ class CreateWarehouse extends CreateRecord
     protected function getCreatedNotificationTitle(): ?string
     {
         return __('common.success.add_success');
-    }
-
-    public function getSubheading(): ?string
-    {
-        return 'Thiet lap thong tin kho, khu vuc giao hang va ton kho ban dau trong cung mot man hinh.';
-    }
-
-    public function getPageClasses(): array
-    {
-        return [
-            ...parent::getPageClasses(),
-            'warehouse-create-page',
-        ];
     }
 }
