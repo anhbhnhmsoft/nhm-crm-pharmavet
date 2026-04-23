@@ -85,8 +85,8 @@ class FundLedgerReportService
         }
 
         $query
-            ->whereDate('transaction_date', '>=', $fromDate)
-            ->whereDate('transaction_date', '<=', $toDate);
+            ->whereNotNull('transaction_date')
+            ->whereBetween('transaction_date', [$fromDate, $toDate]);
 
         if ($fundId > 0) {
             $query->where('fund_id', $fundId);

@@ -87,7 +87,7 @@ class ExchangeRateForm
                         ->validationMessages([
                             'required' => __('common.error.required'),
                             'numeric' => __('accounting.exchange_rate.rate_numeric_error'),
-                            'min' => __('common.error.min_value', ['min' => 0.000001]),
+                            'min' => __('accounting.exchange_rate.rate_positive_error'),
                             'max' => __('accounting.exchange_rate.rate_max_error'),
                         ]),
                 ]),

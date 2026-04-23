@@ -40,15 +40,15 @@
     <tbody>
     @foreach($rows as $row)
         <tr>
-            <td>{{ optional($row->transaction_date)->format('d/m/Y') }}</td>
-            <td>{{ $row->transaction_code }}</td>
-            <td>{{ $row->purpose }}</td>
-            <td>{{ $row->counterparty_name }}</td>
-            <td class="right">{{ (int) $row->type === \App\Common\Constants\Organization\FundTransactionType::DEPOSIT->value ? number_format((float) $row->amount, 2) : '' }}</td>
-            <td class="right">{{ (int) $row->type === \App\Common\Constants\Organization\FundTransactionType::WITHDRAW->value ? number_format((float) $row->amount, 2) : '' }}</td>
-            <td>{{ $row->currency }}</td>
-            <td class="right">{{ number_format((float) $row->balance_after, 2) }}</td>
-            <td>{{ $row->note }}</td>
+            <td>{{ filled(data_get($row, 'transaction_date')) ? \Illuminate\Support\Carbon::parse(data_get($row, 'transaction_date'))->format('d/m/Y') : '' }}</td>
+            <td>{{ data_get($row, 'transaction_code', '') }}</td>
+            <td>{{ data_get($row, 'purpose', '') }}</td>
+            <td>{{ data_get($row, 'counterparty_name', '') }}</td>
+            <td class="right">{{ (int) data_get($row, 'type', 0) === \App\Common\Constants\Organization\FundTransactionType::DEPOSIT->value ? number_format((float) data_get($row, 'amount', 0), 2) : '' }}</td>
+            <td class="right">{{ (int) data_get($row, 'type', 0) === \App\Common\Constants\Organization\FundTransactionType::WITHDRAW->value ? number_format((float) data_get($row, 'amount', 0), 2) : '' }}</td>
+            <td>{{ data_get($row, 'currency', 'VND') }}</td>
+            <td class="right">{{ number_format((float) data_get($row, 'balance_after', 0), 2) }}</td>
+            <td>{{ data_get($row, 'note', '') }}</td>
         </tr>
     @endforeach
     </tbody>

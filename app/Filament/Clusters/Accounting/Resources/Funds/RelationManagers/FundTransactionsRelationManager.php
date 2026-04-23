@@ -104,6 +104,8 @@ class FundTransactionsRelationManager extends RelationManager
                 TextInput::make('exchange_rate')
                     ->label(__('accounting.fund_transaction.exchange_rate'))
                     ->numeric()
+                    ->minValue(0.000001)
+                    ->validationAttribute(__('accounting.fund_transaction.exchange_rate'))
                     ->extraInputAttributes([
                         'type' => 'text',
                         'inputmode' => 'decimal',
@@ -114,6 +116,7 @@ class FundTransactionsRelationManager extends RelationManager
                     ])
                     ->validationMessages([
                         'numeric' => __('common.error.numeric'),
+                        'min' => __('accounting.fund_transaction.exchange_rate_positive'),
                     ])
                     ->visible(fn ($get) => (string) $get('currency') !== 'VND'),
                 TextInput::make('purpose')

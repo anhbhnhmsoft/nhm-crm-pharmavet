@@ -1,9 +1,9 @@
 <x-filament-panels::page>
     @vite(['resources/css/app.css'])
-    <form wire:submit="generateReport" class="space-y-4">
+    <form wire:submit="generateReport" class="space-y-4" novalidate>
         {{ $this->form }}
         <div class="flex justify-end">
-            <x-filament::button type="submit">{{ __('telesale.reports.generate') }}</x-filament::button>
+            <x-filament::button type="submit">{{ __('accounting.report.generate_button') }}</x-filament::button>
         </div>
     </form>
 
@@ -33,8 +33,16 @@
     <x-filament::section class="mt-6">
         <x-slot name="heading">{{ __('accounting.fund_ledger.compare_previous') }}</x-slot>
         <div class="mb-2 text-xs text-gray-600">
+            {{ __('accounting.fund_ledger.current_range') }}:
+            {{ filled(data_get($data, 'from_date')) ? \Illuminate\Support\Carbon::parse(data_get($data, 'from_date'))->format('d/m/Y') : '-' }}
+            -
+            {{ filled(data_get($data, 'to_date')) ? \Illuminate\Support\Carbon::parse(data_get($data, 'to_date'))->format('d/m/Y') : '-' }}
+        </div>
+        <div class="mb-2 text-xs text-gray-600">
             {{ __('accounting.fund_ledger.previous_range') }}:
-            {{ data_get($compare, 'previous_range.0') }} - {{ data_get($compare, 'previous_range.1') }}
+            {{ filled(data_get($compare, 'previous_range.0')) ? \Illuminate\Support\Carbon::parse(data_get($compare, 'previous_range.0'))->format('d/m/Y') : '-' }}
+            -
+            {{ filled(data_get($compare, 'previous_range.1')) ? \Illuminate\Support\Carbon::parse(data_get($compare, 'previous_range.1'))->format('d/m/Y') : '-' }}
         </div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
             @php($varIn = (float) data_get($compare, 'variance.total_in', 0))

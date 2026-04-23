@@ -497,6 +497,7 @@ class FundService
                 'counterparty_name' => ['bail', 'required'],
                 'amount' => ['bail', 'required', 'numeric', 'min:0.01'],
                 'currency' => ['bail', 'required'],
+                'exchange_rate' => ['nullable', 'numeric', 'gt:0'],
                 'purpose' => ['bail', 'required'],
                 'description' => ['bail', 'required'],
             ],
@@ -508,10 +509,21 @@ class FundService
                 'amount.numeric' => __('common.error.numeric'),
                 'amount.min' => __('common.error.min_value', ['min' => 0.01]),
                 'currency.required' => __('common.error.required'),
+                'exchange_rate.numeric' => __('common.error.numeric'),
+                'exchange_rate.gt' => __('accounting.fund_transaction.exchange_rate_positive'),
                 'purpose.required' => __('common.error.required'),
                 'description.required' => __('common.error.required'),
             ]
         );
+
+        $validator->after(function ($validator) use ($payload) {
+            $currency = strtoupper((string) ($payload['currency'] ?? 'VND'));
+            $exchangeRate = $payload['exchange_rate'] ?? null;
+
+            if ($currency !== 'VND' && blank($exchangeRate)) {
+                $validator->errors()->add('exchange_rate', __('common.error.required'));
+            }
+        });
 
         if ($validator->fails()) {
             return $validator->errors()->first();

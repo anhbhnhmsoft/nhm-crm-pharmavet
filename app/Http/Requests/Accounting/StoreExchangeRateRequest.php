@@ -31,7 +31,7 @@ class StoreExchangeRateRequest extends FormRequest
             'rate.required' => __('common.error.required'),
             'rate.lte' => __('accounting.exchange_rate.rate_max_error'),
             'rate.numeric' => __('accounting.exchange_rate.rate_numeric_error'),
-            'rate.min' => __('common.error.min_value', ['min' => 0.000001]),
+            'rate.min' => __('accounting.exchange_rate.rate_positive_error'),
         ];
     }
 }
