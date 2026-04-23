@@ -24,6 +24,9 @@ return [
         'view_mode' => 'Chế độ xem',
         'view_mode_full' => 'Đầy đủ',
         'view_mode_care' => 'Care Page',
+        'validation' => [
+            'invalid_date_range' => 'Khoảng ngày không hợp lệ.',
+        ],
     ],
 
     'honor_board' => [
@@ -159,6 +162,9 @@ return [
             'uploaded_by' => 'Người upload',
             'uploaded_at' => 'Thời điểm upload',
         ],
+        'validation' => [
+            'invalid_date_range' => 'Khoảng ngày không hợp lệ.',
+        ],
     ],
 
     'kpi' => [
@@ -169,6 +175,9 @@ return [
             'to_date' => 'Đến ngày',
             'channel' => 'Kênh',
             'campaign' => 'Chiến dịch',
+        ],
+        'validation' => [
+            'invalid_date_range' => 'Khoảng ngày không hợp lệ.',
         ],
         'cards' => [
             'total_spend' => 'Tổng chi tiêu',

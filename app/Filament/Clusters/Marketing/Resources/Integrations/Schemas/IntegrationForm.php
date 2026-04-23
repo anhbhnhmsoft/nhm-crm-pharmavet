@@ -41,6 +41,7 @@ class IntegrationForm
                                     ->options(IntegrationType::toOptions())
                                     ->required()
                                     ->native(false)
+                                    ->extraInputAttributes(['required' => false])
                                     ->live()
                                     ->disabled(fn(?Integration $record) => $record !== null)
                                     ->dehydrated()
@@ -66,6 +67,7 @@ class IntegrationForm
                                     ->label(__('filament.integration.fields.name'))
                                     ->required()
                                     ->maxLength(255)
+                                    ->extraInputAttributes(['required' => false])
                                     ->placeholder(__('filament.integration.fields.name_placeholder'))
                                     ->validationMessages([
                                         'required' => __('common.error.required'),
@@ -79,7 +81,12 @@ class IntegrationForm
                                         'manual' => __('filament.integration.fields.input_mode_manual'),
                                     ])
                                     ->default('auto')
-                                    ->native(false),
+                                    ->required()
+                                    ->native(false)
+                                    ->extraInputAttributes(['required' => false])
+                                    ->validationMessages([
+                                        'required' => __('common.error.required'),
+                                    ]),
 
                                 Select::make('config.distribution_mode')
                                     ->label(__('filament.integration.fields.distribution_mode'))
@@ -89,14 +96,28 @@ class IntegrationForm
                                         'round_robin' => __('filament.integration.fields.distribution_mode_round_robin'),
                                     ])
                                     ->default('manual_pick')
-                                    ->native(false),
+                                    ->required()
+                                    ->native(false)
+                                    ->extraInputAttributes(['required' => false])
+                                    ->validationMessages([
+                                        'required' => __('common.error.required'),
+                                    ]),
 
                                 TextInput::make('config.distribution_limit')
                                     ->label(__('filament.integration.fields.distribution_limit'))
-                                    ->numeric()
+                                    ->integer()
                                     ->minValue(1)
                                     ->default(1)
-                                    ->helperText(__('filament.integration.fields.distribution_limit_helper')),
+                                    ->required()
+                                    ->extraInputAttributes(['required' => false])
+                                    ->helperText(__('filament.integration.fields.distribution_limit_helper'))
+                                    ->rules(['integer', 'min:1'])
+                                    ->validationMessages([
+                                        'required' => __('common.error.required'),
+                                        'numeric' => __('common.error.numeric'),
+                                        'integer' => __('common.error.integer'),
+                                        'min' => __('common.error.min_value', ['min' => 1]),
+                                    ]),
                             ]),
                     ]),
 
@@ -273,11 +294,13 @@ class IntegrationForm
                                     ->viewData(function (Get $get, ?Integration $record) {
                                         $siteId = (string) ($get('config.site_id') ?: Arr::get($record?->config ?? [], 'site_id', ''));
                                         $base = rtrim(url('/'), '/');
+                                        $hasPersistedRecord = $record !== null && filled($record->getKey());
 
                                         return [
                                             'siteId' => $siteId,
-                                            'leadEndpoint' => $siteId !== '' ? $base . '/api/v2/website/' . $siteId . '/leads' : null,
-                                            'pingEndpoint' => $siteId !== '' ? $base . '/api/v2/website/' . $siteId . '/ping' : null,
+                                            'isSaved' => $hasPersistedRecord,
+                                            'leadEndpoint' => $hasPersistedRecord && $siteId !== '' ? $base . '/api/v2/website/' . $siteId . '/leads' : null,
+                                            'pingEndpoint' => $hasPersistedRecord && $siteId !== '' ? $base . '/api/v2/website/' . $siteId . '/ping' : null,
                                             'secret' => (string) ($get('config.webhook_secret') ?: Arr::get($record?->config ?? [], 'webhook_secret', '')),
                                         ];
                                     })

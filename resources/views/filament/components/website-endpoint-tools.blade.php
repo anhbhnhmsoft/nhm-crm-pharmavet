@@ -10,6 +10,7 @@ $headerValueText = $secret !== '' ? $authHeader.': '.$secret : $authHeader.': **
 <div
     wire:ignore
     x-data="{
+        isSaved: @js($isSaved ?? false),
         leadEndpoint: @js($leadEndpoint),
         pingEndpoint: @js($pingEndpoint),
         secret: @js($secret),
@@ -33,6 +34,14 @@ $headerValueText = $secret !== '' ? $authHeader.': '.$secret : $authHeader.': **
         },
 
         async ping() {
+            if (!this.isSaved) {
+                this.pingError = @js(__('filament.integration.notifications.ping_save_required'));
+                this.pingResult = null;
+                this.pingFieldErrors = {};
+                this.notify('warning', '{{ __('filament.integration.notifications.ping_failed') }}', this.pingError);
+                return;
+            }
+
             if (!this.pingEndpoint || !this.secret) {
                 this.pingError = @js(__('filament.integration.notifications.ping_missing_config'));
                 this.pingResult = null;
@@ -66,7 +75,10 @@ $headerValueText = $secret !== '' ? $authHeader.': '.$secret : $authHeader.': **
                     body: JSON.stringify(payload),
                 });
 
-                const json = await response.json();
+                const contentType = response.headers.get('content-type') || '';
+                const json = contentType.includes('application/json')
+                    ? await response.json()
+                    : { message: await response.text() };
 
                 if (response.ok) {
                     this.pingResult = json.message || '{{ __('filament.integration.notifications.ping_success') }}';
@@ -141,7 +153,7 @@ $headerValueText = $secret !== '' ? $authHeader.': '.$secret : $authHeader.': **
                 <button
                     type="button"
                     x-on:click="ping()"
-                    :disabled="pinging || !pingEndpoint"
+                    :disabled="pinging || !pingEndpoint || !isSaved"
                     class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                     <svg class="h-4 w-4" :class="{ 'animate-spin': pinging }" fill="none" viewBox="0 0 24 24" aria-hidden="true">
@@ -167,6 +179,12 @@ $headerValueText = $secret !== '' ? $authHeader.': '.$secret : $authHeader.': **
             {{ __('filament.integration.fields.auth_header_helper') }}
         </p>
     </div>
+
+    @if (!($isSaved ?? false))
+        <div class="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700">
+            <p class="font-semibold">{{ __('filament.integration.notifications.ping_save_required') }}</p>
+        </div>
+    @endif
 
     <template x-if="pingResult">
         <div class="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-700">

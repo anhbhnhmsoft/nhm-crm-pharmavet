@@ -10,6 +10,16 @@ class CreateIntegration extends CreateRecord
 {
     protected static string $resource = IntegrationResource::class;
 
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
+
+    protected function getCreatedNotificationTitle(): ?string
+    {
+        return __('filament.integration.notifications.create_success');
+    }
+
     public function mutateFormDataBeforeCreate(array $data): array
     {
         $data['organization_id'] = Auth::user()->organization_id;

@@ -77,7 +77,7 @@ class MarketingKpiDashboardPage extends Page implements HasForms
             'campaign' => '',
         ]);
 
-        $this->refreshDashboard();
+        $this->generateReport();
     }
 
     public function form(Schema $schema): Schema
@@ -86,26 +86,73 @@ class MarketingKpiDashboardPage extends Page implements HasForms
             ->schema([
                 Section::make(__('marketing.kpi.title'))
                     ->schema([
-                        DatePicker::make('from_date')->label(__('marketing.kpi.filters.from_date'))->required()->native(false)->live(),
-                        DatePicker::make('to_date')->label(__('marketing.kpi.filters.to_date'))->required()->native(false)->afterOrEqual('from_date')->live(),
-                        TextInput::make('channel')->label(__('marketing.kpi.filters.channel'))->maxLength(100)->live(debounce: 400),
-                        TextInput::make('campaign')->label(__('marketing.kpi.filters.campaign'))->maxLength(150)->live(debounce: 400),
+                        DatePicker::make('from_date')
+                            ->label(__('marketing.kpi.filters.from_date'))
+                            ->required()
+                            ->native(false)
+                            ->extraInputAttributes(['required' => false])
+                            ->validationMessages([
+                                'required' => __('validation.required', [
+                                    'attribute' => __('marketing.kpi.filters.from_date'),
+                                ]),
+                            ]),
+                        DatePicker::make('to_date')
+                            ->label(__('marketing.kpi.filters.to_date'))
+                            ->required()
+                            ->native(false)
+                            ->afterOrEqual('from_date')
+                            ->extraInputAttributes(['required' => false])
+                            ->validationMessages([
+                                'required' => __('validation.required', [
+                                    'attribute' => __('marketing.kpi.filters.to_date'),
+                                ]),
+                                'after_or_equal' => __('marketing.kpi.validation.invalid_date_range'),
+                            ]),
+                        TextInput::make('channel')
+                            ->label(__('marketing.kpi.filters.channel'))
+                            ->maxLength(100),
+                        TextInput::make('campaign')
+                            ->label(__('marketing.kpi.filters.campaign'))
+                            ->maxLength(150),
                     ])
                     ->columns(4),
             ])
             ->statePath('data');
     }
 
-    public function updatedData(): void
-    {
-        $this->refreshDashboard();
-    }
-
-    public function refreshDashboard(): void
+    public function generateReport(): void
     {
         /** @var User $user */
         $user = Auth::user();
 
-        $this->dashboard = $this->marketingKpiService->buildDashboard($this->form->getState(), $user);
+        $this->dashboard = $this->marketingKpiService->buildDashboard($this->getValidatedFilters(), $user);
+    }
+
+    protected function getValidatedFilters(): array
+    {
+        $validated = $this->validate(
+            [
+                'data.from_date' => ['bail', 'required', 'date'],
+                'data.to_date' => ['bail', 'required', 'date', 'after_or_equal:data.from_date'],
+                'data.channel' => ['nullable', 'string', 'max:100'],
+                'data.campaign' => ['nullable', 'string', 'max:150'],
+            ],
+            [
+                'data.to_date.after_or_equal' => __('marketing.kpi.validation.invalid_date_range'),
+            ],
+            $this->getValidationAttributes(),
+        );
+
+        return $validated['data'];
+    }
+
+    protected function getValidationAttributes(): array
+    {
+        return [
+            'data.from_date' => __('marketing.kpi.filters.from_date'),
+            'data.to_date' => __('marketing.kpi.filters.to_date'),
+            'data.channel' => __('marketing.kpi.filters.channel'),
+            'data.campaign' => __('marketing.kpi.filters.campaign'),
+        ];
     }
 }

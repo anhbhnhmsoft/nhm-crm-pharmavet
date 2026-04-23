@@ -73,7 +73,13 @@ class FanpageReport extends Page implements HasForms
                             ->required()
                             ->native(false)
                             ->displayFormat('d/m/Y')
-                            ->maxDate(now()),
+                            ->maxDate(now())
+                            ->extraInputAttributes(['required' => false])
+                            ->validationMessages([
+                                'required' => __('validation.required', [
+                                    'attribute' => __('marketing.report.from_date'),
+                                ]),
+                            ]),
 
                         DatePicker::make('to_date')
                             ->label(__('marketing.report.to_date'))
@@ -81,7 +87,14 @@ class FanpageReport extends Page implements HasForms
                             ->native(false)
                             ->displayFormat('d/m/Y')
                             ->maxDate(now())
-                            ->afterOrEqual('from_date'),
+                            ->afterOrEqual('from_date')
+                            ->extraInputAttributes(['required' => false])
+                            ->validationMessages([
+                                'required' => __('validation.required', [
+                                    'attribute' => __('marketing.report.to_date'),
+                                ]),
+                                'after_or_equal' => __('marketing.report.validation.invalid_date_range'),
+                            ]),
                     ])
                     ->columns(2),
             ])
@@ -90,7 +103,7 @@ class FanpageReport extends Page implements HasForms
 
     public function generateReport(FanpagePerformanceService $service): void
     {
-        $data = $this->form->getState();
+        $data = $this->getValidatedFilters();
         $organizationId = Auth::user()->organization_id;
 
         $fromDate = $data['from_date'];
@@ -123,6 +136,30 @@ class FanpageReport extends Page implements HasForms
                 ->title(__('marketing.report.success_generate'))
             ->send();
         }
+    }
+
+    protected function getValidatedFilters(): array
+    {
+        $validated = $this->validate(
+            [
+                'data.from_date' => ['bail', 'required', 'date'],
+                'data.to_date' => ['bail', 'required', 'date', 'after_or_equal:data.from_date'],
+            ],
+            [
+                'data.to_date.after_or_equal' => __('marketing.report.validation.invalid_date_range'),
+            ],
+            $this->getValidationAttributes(),
+        );
+
+        return $validated['data'];
+    }
+
+    protected function getValidationAttributes(): array
+    {
+        return [
+            'data.from_date' => __('marketing.report.from_date'),
+            'data.to_date' => __('marketing.report.to_date'),
+        ];
     }
 
     private function resolveViewModeByRole(): string

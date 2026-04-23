@@ -1,7 +1,15 @@
 <x-filament-panels::page>
     @vite(['resources/css/app.css'])
     <div class="space-y-6">
-        {{ $this->form }}
+        <form wire:submit="generateReport" class="space-y-4" novalidate>
+            {{ $this->form }}
+
+            <div class="flex justify-end">
+                <x-filament::button type="submit" color="primary">
+                    {{ __('marketing.report.generate_button') }}
+                </x-filament::button>
+            </div>
+        </form>
 
         <div class="grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-5">
             @foreach (($dashboard['cards'] ?? []) as $key => $card)
