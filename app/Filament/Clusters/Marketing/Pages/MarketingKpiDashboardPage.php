@@ -10,10 +10,12 @@ use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
+use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Auth;
+use Throwable;
 
 class MarketingKpiDashboardPage extends Page implements HasForms
 {
@@ -77,7 +79,7 @@ class MarketingKpiDashboardPage extends Page implements HasForms
             'campaign' => '',
         ]);
 
-        $this->generateReport();
+        $this->generateReport(false);
     }
 
     public function form(Schema $schema): Schema
@@ -120,12 +122,29 @@ class MarketingKpiDashboardPage extends Page implements HasForms
             ->statePath('data');
     }
 
-    public function generateReport(): void
+    public function generateReport(bool $shouldNotify = true): void
     {
-        /** @var User $user */
-        $user = Auth::user();
+        try {
+            /** @var User $user */
+            $user = Auth::user();
 
-        $this->dashboard = $this->marketingKpiService->buildDashboard($this->getValidatedFilters(), $user);
+            $this->dashboard = $this->marketingKpiService->buildDashboard($this->getValidatedFilters(), $user);
+
+            if ($shouldNotify) {
+                Notification::make()
+                    ->success()
+                    ->title(__('marketing.kpi.notifications.generate_success'))
+                    ->send();
+            }
+        } catch (Throwable $exception) {
+            report($exception);
+
+            Notification::make()
+                ->danger()
+                ->title(__('filament.common.error'))
+                ->body(__('marketing.kpi.notifications.generate_failed'))
+                ->send();
+        }
     }
 
     protected function getValidatedFilters(): array

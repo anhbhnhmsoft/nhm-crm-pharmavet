@@ -18,7 +18,7 @@ $headerValueText = $secret !== '' ? $authHeader.': '.$secret : $authHeader.': **
         pinging: false,
         pingResult: null,
         pingError: null,
-        pingFieldErrors: {},
+        pingFieldErrors: [],
 
         async copyToClipboard(value, fallbackMessage) {
             if (!value) {
@@ -37,7 +37,7 @@ $headerValueText = $secret !== '' ? $authHeader.': '.$secret : $authHeader.': **
             if (!this.isSaved) {
                 this.pingError = @js(__('filament.integration.notifications.ping_save_required'));
                 this.pingResult = null;
-                this.pingFieldErrors = {};
+                this.pingFieldErrors = [];
                 this.notify('warning', '{{ __('filament.integration.notifications.ping_failed') }}', this.pingError);
                 return;
             }
@@ -45,7 +45,7 @@ $headerValueText = $secret !== '' ? $authHeader.': '.$secret : $authHeader.': **
             if (!this.pingEndpoint || !this.secret) {
                 this.pingError = @js(__('filament.integration.notifications.ping_missing_config'));
                 this.pingResult = null;
-                this.pingFieldErrors = {};
+                this.pingFieldErrors = [];
                 this.notify('warning', '{{ __('filament.integration.notifications.ping_failed') }}', this.pingError);
                 return;
             }
@@ -53,14 +53,14 @@ $headerValueText = $secret !== '' ? $authHeader.': '.$secret : $authHeader.': **
             this.pinging = true;
             this.pingError = null;
             this.pingResult = null;
-            this.pingFieldErrors = {};
+            this.pingFieldErrors = [];
 
             const payload = {
                 request_id: `ui_ping_${Date.now()}`,
                 lead: {
                     name: 'Ping Test',
                     phone: '0900000000',
-                    email: 'ping@example.com',
+                    email: 'ping-test@crmquanly.nhmsoft.com',
                     source_detail: 'website_ping_test',
                 },
             };
@@ -81,19 +81,95 @@ $headerValueText = $secret !== '' ? $authHeader.': '.$secret : $authHeader.': **
                     : { message: await response.text() };
 
                 if (response.ok) {
-                    this.pingResult = json.message || '{{ __('filament.integration.notifications.ping_success') }}';
+                    this.pingResult = json.message && json.message !== 'OK'
+                        ? json.message
+                        : @js(__('filament.integration.notifications.ping_success'));
                     this.notify('success', '{{ __('filament.integration.notifications.ping_success') }}', this.pingResult);
                     return;
                 }
 
-                this.pingError = json.message || '{{ __('filament.integration.notifications.ping_failed') }}';
-                this.pingFieldErrors = json.errors || {};
+                const fieldMessages = this.extractPingFieldMessages(json.errors || {});
+                this.pingError = this.resolvePingErrorMessage(json.message, fieldMessages[0] ?? null);
+                this.pingFieldErrors = fieldMessages.slice(1);
                 this.notify('danger', '{{ __('filament.integration.notifications.ping_failed') }}', this.pingError);
             } catch (error) {
-                this.pingError = error?.message || '{{ __('filament.integration.notifications.ping_failed') }}';
+                this.pingError = @js(__('filament.integration.notifications.ping_network_error'));
+                this.pingFieldErrors = [];
                 this.notify('danger', '{{ __('filament.integration.notifications.ping_failed') }}', this.pingError);
             } finally {
                 this.pinging = false;
+            }
+        },
+
+        extractPingFieldMessages(errors) {
+            if (!errors || typeof errors !== 'object') {
+                return [];
+            }
+
+            return Object.values(errors)
+                .flatMap((messages) => Array.isArray(messages) ? messages : [messages])
+                .map((message) => this.humanizePingMessage(message))
+                .filter((message, index, items) => message && items.indexOf(message) === index);
+        },
+
+        resolvePingErrorMessage(message, firstFieldMessage = null) {
+            if (firstFieldMessage) {
+                return firstFieldMessage;
+            }
+
+            return this.normalizePingApiMessage(message);
+        },
+
+        normalizePingApiMessage(message) {
+            const normalized = typeof message === 'string' ? message.trim() : '';
+
+            if (this.isTechnicalPingMessage(normalized)) {
+                return @js(__('filament.integration.notifications.ping_generic_error'));
+            }
+
+            switch (normalized) {
+                case 'Unauthorized':
+                    return @js(__('filament.integration.notifications.ping_unauthorized'));
+                case 'Website integration not found':
+                    return @js(__('filament.integration.notifications.ping_not_found'));
+                case 'Invalid payload':
+                    return @js(__('filament.integration.notifications.ping_invalid_payload'));
+                default:
+                    if (normalized.startsWith('Unsupported ')) {
+                        return @js(__('filament.integration.notifications.ping_invalid_payload'));
+                    }
+
+                    return normalized || @js(__('filament.integration.notifications.ping_generic_error'));
+            }
+        },
+
+        isTechnicalPingMessage(message) {
+            if (!message) {
+                return false;
+            }
+
+            return message.startsWith('<')
+                || message.startsWith('{')
+                || message.startsWith('[')
+                || message.includes('SQLSTATE')
+                || message.includes('Stack trace')
+                || message.includes('<!DOCTYPE html')
+                || message.length > 240;
+        },
+
+        humanizePingMessage(message) {
+            const normalized = typeof message === 'string' ? message.trim() : '';
+
+            switch (normalized) {
+                case 'Email appears to be a placeholder.':
+                    return @js(__('filament.integration.notifications.ping_email_placeholder'));
+                case 'Name is required.':
+                    return @js(__('filament.integration.notifications.ping_name_required'));
+                case 'Phone number must contain 9-11 digits.':
+                case 'Phone number is not valid.':
+                    return @js(__('filament.integration.notifications.ping_phone_invalid'));
+                default:
+                    return this.normalizePingApiMessage(normalized);
             }
         },
 
@@ -198,13 +274,10 @@ $headerValueText = $secret !== '' ? $authHeader.': '.$secret : $authHeader.': **
         </div>
     </template>
 
-    <template x-if="Object.keys(pingFieldErrors).length > 0">
+    <template x-if="pingFieldErrors.length > 0">
         <div class="space-y-1 rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-700">
-            <template x-for="(messages, field) in pingFieldErrors" :key="field">
-                <p>
-                    <span class="font-semibold" x-text="field"></span>:
-                    <span x-text="Array.isArray(messages) ? messages.join(', ') : messages"></span>
-                </p>
+            <template x-for="(message, index) in pingFieldErrors" :key="index">
+                <p x-text="message"></p>
             </template>
         </div>
     </template>

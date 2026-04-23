@@ -179,6 +179,10 @@ return [
         'validation' => [
             'invalid_date_range' => 'Khoảng ngày không hợp lệ.',
         ],
+        'notifications' => [
+            'generate_success' => 'Tạo báo cáo thành công',
+            'generate_failed' => 'Có lỗi xảy ra khi tạo báo cáo',
+        ],
         'cards' => [
             'total_spend' => 'Tổng chi tiêu',
             'valid_leads' => 'Lead hợp lệ',

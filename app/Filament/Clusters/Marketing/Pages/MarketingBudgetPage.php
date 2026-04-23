@@ -77,7 +77,6 @@ class MarketingBudgetPage extends Page implements HasForms
     public function mount(): void
     {
         $this->form->fill([
-            'date' => now()->toDateString(),
             'from_date' => now()->startOfMonth()->toDateString(),
             'to_date' => now()->toDateString(),
             'channel' => '',
@@ -98,16 +97,6 @@ class MarketingBudgetPage extends Page implements HasForms
             ->schema([
                 Section::make(__('marketing.budget.title'))
                     ->schema([
-                        DatePicker::make('date')
-                            ->label(__('marketing.budget.form.date'))
-                            ->required()
-                            ->native(false)
-                            ->extraInputAttributes(['required' => false])
-                            ->validationMessages([
-                                'required' => __('validation.required', [
-                                    'attribute' => __('marketing.budget.form.date'),
-                                ]),
-                            ]),
                         DatePicker::make('from_date')
                             ->label(__('marketing.budget.filters.from_date'))
                             ->required()
@@ -233,9 +222,13 @@ class MarketingBudgetPage extends Page implements HasForms
         /** @var User $user */
         $user = Auth::user();
         $validatedState = $this->form->getState();
+        $saveDate = $this->resolveSaveDate($validatedState);
 
-        $marketingBudgetService->upsertDailyBudget($validatedState, $user);
-        $this->syncReportFiltersToSavedDate((string) ($validatedState['date'] ?? now()->toDateString()));
+        $marketingBudgetService->upsertDailyBudget([
+            ...$validatedState,
+            'date' => $saveDate,
+        ], $user);
+        $this->syncReportFiltersToSavedDate($saveDate);
 
         Notification::make()
             ->title(__('marketing.common.updated_success'))
@@ -270,7 +263,6 @@ class MarketingBudgetPage extends Page implements HasForms
     protected function getReportFilters(): array
     {
         return [
-            'date' => $this->data['date'] ?? now()->toDateString(),
             'from_date' => $this->data['from_date'] ?? now()->startOfMonth()->toDateString(),
             'to_date' => $this->data['to_date'] ?? now()->toDateString(),
             'channel' => (string) ($this->data['channel'] ?? ''),
@@ -325,6 +317,11 @@ class MarketingBudgetPage extends Page implements HasForms
         }
 
         return true;
+    }
+
+    protected function resolveSaveDate(array $state): string
+    {
+        return (string) ($state['to_date'] ?? $state['from_date'] ?? now()->toDateString());
     }
 
     protected function syncReportFiltersToSavedDate(string $savedDate): void

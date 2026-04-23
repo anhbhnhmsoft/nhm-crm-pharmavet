@@ -2,6 +2,7 @@
 
 namespace App\Services\Accounting;
 
+use App\Common\Constants\Organization\FundTransactionStatus;
 use App\Common\Constants\Organization\FundTransactionType;
 use App\Models\FundTransaction;
 use App\Repositories\FundTransactionAttachmentRepository;
@@ -85,6 +86,7 @@ class FundLedgerReportService
         }
 
         $query
+            ->where('status', FundTransactionStatus::COMPLETED->value)
             ->whereNotNull('transaction_date')
             ->whereBetween('transaction_date', [$fromDate, $toDate]);
 
@@ -93,10 +95,22 @@ class FundLedgerReportService
         }
 
         if ($counterparty !== '') {
-            $query->where('counterparty_name', 'like', '%' . $counterparty . '%');
+            $query->where('counterparty_name', $this->getLikeOperator($query), $this->wrapLike($counterparty));
         }
 
         return $query;
+    }
+
+    protected function getLikeOperator(Builder $query): string
+    {
+        return $query->getConnection()->getDriverName() === 'pgsql'
+            ? 'ilike'
+            : 'like';
+    }
+
+    protected function wrapLike(string $search): string
+    {
+        return '%' . trim($search) . '%';
     }
 
     protected function variancePercent(float $current, float $previous): float

@@ -16,13 +16,20 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
+use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Illuminate\Database\Query\Builder as QueryBuilder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 
 class FundLedgerReportPage extends Page implements HasForms
 {
@@ -126,48 +133,66 @@ class FundLedgerReportPage extends Page implements HasForms
 
     public function generateReport(): void
     {
-        $filters = $this->getValidatedFilters();
-        /** @var FundLedgerReportService $service */
-        $service = app(FundLedgerReportService::class);
+        try {
+            $filters = $this->getValidatedFilters();
+            /** @var FundLedgerReportService $service */
+            $service = app(FundLedgerReportService::class);
 
-        $collection = $service->getLedger($filters);
-        $this->rows = $this->formatLedgerRows($collection);
-        $this->summary = $service->getSummary($filters);
-        $this->compare = $service->getCompareWithPreviousPeriod($filters);
+            $collection = $service->getLedger($filters);
+            $this->rows = $this->formatLedgerRows($collection);
+            $this->summary = $service->getSummary($filters);
+            $this->compare = $service->getCompareWithPreviousPeriod($filters);
+        } catch (ValidationException $exception) {
+            $this->notifyValidationFailure($exception);
+
+            throw $exception;
+        }
     }
 
     public function exportExcel()
     {
-        $filters = $this->getValidatedFilters();
-        /** @var FundLedgerReportService $service */
-        $service = app(FundLedgerReportService::class);
-        $rows = $service->getLedger($filters);
+        try {
+            $filters = $this->getValidatedFilters();
+            /** @var FundLedgerReportService $service */
+            $service = app(FundLedgerReportService::class);
+            $rows = $service->getLedger($filters);
 
-        return Excel::download(new FundLedgerExport($rows), 'fund-ledger-' . now()->format('YmdHis') . '.xlsx');
+            return Excel::download(new FundLedgerExport($rows), 'fund-ledger-' . now()->format('YmdHis') . '.xlsx');
+        } catch (ValidationException $exception) {
+            $this->notifyValidationFailure($exception);
+
+            throw $exception;
+        }
     }
 
     public function exportPdf(ExportService $exportService)
     {
-        $filters = $this->getValidatedFilters();
-        $payload = $this->buildPdfPayload($filters);
-        $pdfContent = $exportService->generatePdfContent(
-            'exports.fund-ledger-pdf',
-            [
-                'rows' => $payload['rows'],
-                'summary' => $payload['summary'],
-                'filters' => $filters,
-            ],
-            'a4',
-            'landscape'
-        );
+        try {
+            $filters = $this->getValidatedFilters();
+            $payload = $this->buildPdfPayload($filters);
+            $pdfContent = $exportService->generatePdfContent(
+                'exports.fund-ledger-pdf',
+                [
+                    'rows' => $payload['rows'],
+                    'summary' => $payload['summary'],
+                    'filters' => $filters,
+                ],
+                'a4',
+                'landscape'
+            );
 
-        return response()->streamDownload(
-            fn () => print($pdfContent),
-            'fund-ledger-' . now()->format('YmdHis') . '.pdf',
-            [
-                'Content-Type' => 'application/pdf',
-            ]
-        );
+            return response()->streamDownload(
+                fn () => print($pdfContent),
+                'fund-ledger-' . now()->format('YmdHis') . '.pdf',
+                [
+                    'Content-Type' => 'application/pdf',
+                ]
+            );
+        } catch (ValidationException $exception) {
+            $this->notifyValidationFailure($exception);
+
+            throw $exception;
+        }
     }
 
     protected function getHeaderActions(): array
@@ -209,59 +234,81 @@ class FundLedgerReportPage extends Page implements HasForms
 
     protected function getValidatedFilters(): array
     {
-        $validated = $this->validate(
+        $this->resetValidation();
+
+        $data = is_array($this->data) ? $this->data : [];
+        $organizationId = (int) Auth::user()->organization_id;
+
+        $validator = Validator::make(
+            $data,
             [
-                'data.from_date' => ['bail', 'required', 'date'],
-                'data.to_date' => ['bail', 'required', 'date', 'after_or_equal:data.from_date'],
-                'data.fund_id' => ['nullable'],
-                'data.counterparty_name' => ['nullable', 'string'],
+                'from_date' => ['bail', 'required', 'date'],
+                'to_date' => ['bail', 'required', 'date'],
+                'fund_id' => [
+                    'nullable',
+                    'integer',
+                    Rule::exists('funds', 'id')->where(fn (QueryBuilder $query) => $query->where('organization_id', $organizationId)),
+                ],
+                'counterparty_name' => ['nullable', 'string', 'max:255'],
             ],
             [
-                'data.to_date.after_or_equal' => __('accounting.fund_ledger.validation.invalid_date_range'),
+                'from_date.required' => __('validation.required', [
+                    'attribute' => __('accounting.report.from_date'),
+                ]),
+                'to_date.required' => __('validation.required', [
+                    'attribute' => __('accounting.report.to_date'),
+                ]),
+                'from_date.date' => __('accounting.fund_ledger.validation.invalid_date_range'),
+                'to_date.date' => __('accounting.fund_ledger.validation.invalid_date_range'),
+                'fund_id.exists' => __('common.error.in'),
             ],
-            $this->getValidationAttributes(),
+            [
+                'from_date' => __('accounting.report.from_date'),
+                'to_date' => __('accounting.report.to_date'),
+                'fund_id' => __('accounting.fund.label'),
+                'counterparty_name' => __('accounting.fund_transaction.counterparty_name'),
+            ],
         );
 
-        $data = $validated['data'];
+        $validator->after(function ($validator) use ($data): void {
+            $fromDate = $data['from_date'] ?? null;
+            $toDate = $data['to_date'] ?? null;
+
+            if (blank($fromDate) || blank($toDate)) {
+                return;
+            }
+
+            try {
+                $from = Carbon::parse((string) $fromDate)->startOfDay();
+                $to = Carbon::parse((string) $toDate)->startOfDay();
+            } catch (Throwable) {
+                $validator->errors()->add('to_date', __('accounting.fund_ledger.validation.invalid_date_range'));
+
+                return;
+            }
+
+            if ($to->lt($from)) {
+                $validator->errors()->add('to_date', __('accounting.fund_ledger.validation.invalid_date_range'));
+            }
+        });
+
+        if ($validator->fails()) {
+            throw ValidationException::withMessages(
+                collect($validator->errors()->messages())
+                    ->mapWithKeys(fn (array $messages, string $field): array => ["data.{$field}" => $messages])
+                    ->all()
+            );
+        }
+
+        $validated = $validator->validated();
 
         return [
-            'organization_id' => (int) Auth::user()->organization_id,
+            'organization_id' => $organizationId,
             'from_date' => (string) $data['from_date'],
             'to_date' => (string) $data['to_date'],
-            'fund_id' => (int) ($data['fund_id'] ?? 0),
-            'counterparty_name' => trim((string) ($data['counterparty_name'] ?? '')),
+            'fund_id' => (int) ($validated['fund_id'] ?? 0),
+            'counterparty_name' => trim((string) ($validated['counterparty_name'] ?? '')),
         ];
-    }
-
-    protected function getValidationAttributes(): array
-    {
-        return [
-            'data.from_date' => __('accounting.report.from_date'),
-            'data.to_date' => __('accounting.report.to_date'),
-            'data.fund_id' => __('accounting.fund.label'),
-            'data.counterparty_name' => __('accounting.fund_transaction.counterparty_name'),
-        ];
-    }
-
-    protected function getFundOptions(): array
-    {
-        $organizationId = (int) (Auth::user()->organization_id ?? 0);
-
-        return Fund::query()
-            ->where('organization_id', $organizationId)
-            ->orderBy('fund_type')
-            ->orderBy('currency')
-            ->orderBy('id')
-            ->get(['id', 'fund_type', 'currency'])
-            ->mapWithKeys(function (Fund $fund): array {
-                $fundType = __('accounting.fund.fund_types.' . ($fund->fund_type ?: 'cash'));
-                $currency = strtoupper((string) ($fund->currency ?: 'VND'));
-
-                return [
-                    $fund->id => "{$fundType} - {$currency} (#{$fund->id})",
-                ];
-            })
-            ->all();
     }
 
     protected function formatLedgerRows(Collection $collection): array
@@ -278,5 +325,53 @@ class FundLedgerReportPage extends Page implements HasForms
                 'description' => (string) ($row->description ?? ''),
             ])
             ->all();
+    }
+
+    protected function getFundOptions(): array
+    {
+        $organizationId = (int) (Auth::user()->organization_id ?? 0);
+
+        return Fund::query()
+            ->where('organization_id', $organizationId)
+            ->orderBy('fund_type')
+            ->orderBy('currency')
+            ->orderBy('id')
+            ->get()
+            ->mapWithKeys(fn (Fund $fund): array => [
+                $fund->id => $this->formatFundOptionLabel($fund),
+            ])
+            ->all();
+    }
+
+    protected function formatFundOptionLabel(Fund $fund): string
+    {
+        $fundType = (string) ($fund->fund_type ?: 'cash');
+        $fundTypeLabel = __('accounting.fund.fund_types.' . $fundType);
+
+        return sprintf(
+            '%s #%d (%s %s)',
+            $fundTypeLabel,
+            (int) $fund->id,
+            number_format((float) $fund->balance, 2),
+            (string) ($fund->currency ?? 'VND'),
+        );
+    }
+
+    protected function notifyValidationFailure(ValidationException $exception): void
+    {
+        $firstError = collect($exception->errors())
+            ->flatten()
+            ->filter(fn ($message) => filled($message))
+            ->first();
+
+        if (!is_string($firstError) || trim($firstError) === '') {
+            $firstError = __('common.error.validation_failed');
+        }
+
+        Notification::make()
+            ->danger()
+            ->title(__('accounting.report.error_title'))
+            ->body($firstError)
+            ->send();
     }
 }

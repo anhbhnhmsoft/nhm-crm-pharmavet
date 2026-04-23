@@ -4,6 +4,7 @@ namespace App\Filament\Clusters\Marketing\Resources\Integrations\Pages;
 
 use App\Common\Constants\Marketing\IntegrationType;
 use App\Common\Constants\User\UserRole;
+use App\Core\ServiceReturn;
 use App\Filament\Clusters\Marketing\Resources\Integrations\IntegrationResource;
 use App\Services\Integrations\MetaBusinessService;
 use App\Services\Marketing\WebsiteLeadIngestService;
@@ -78,21 +79,15 @@ class EditIntegration extends EditRecord
                         'lead' => [
                             'name' => 'Ping Test',
                             'phone' => '0900000000',
-                            'email' => 'ping@example.com',
+                            'email' => 'ping-test@crmquanly.nhmsoft.com',
                             'source_detail' => 'website_ping_test',
                         ],
                     ], $secret);
 
                     if ($result->isError()) {
-                        $errorData = $result->getData();
-                        $errorDetail = data_get($errorData, 'errors');
-                        $errorBody = is_array($errorDetail)
-                            ? json_encode($errorDetail, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
-                            : $result->getMessage();
-
                         Notification::make()
                             ->title(__('filament.integration.notifications.ping_failed'))
-                            ->body($errorBody)
+                            ->body($this->formatPingErrorMessage($result))
                             ->danger()
                             ->send();
 
@@ -115,5 +110,78 @@ class EditIntegration extends EditRecord
         $data['organization_id'] = Auth::user()->organization_id;
         $data['updated_by'] = Auth::user()->id;
         return parent::mutateFormDataBeforeFill($data);
+    }
+
+    protected function formatPingErrorMessage(ServiceReturn $result): string
+    {
+        $fieldMessages = $this->extractPingFieldMessages((array) data_get($result->getData(), 'errors', []));
+
+        if ($fieldMessages !== []) {
+            return $fieldMessages[0];
+        }
+
+        return $this->normalizePingApiMessage($result->getMessage());
+    }
+
+    protected function extractPingFieldMessages(array $errors): array
+    {
+        $messages = [];
+
+        foreach ($errors as $fieldMessages) {
+            $items = is_array($fieldMessages) ? $fieldMessages : [$fieldMessages];
+
+            foreach ($items as $message) {
+                $humanizedMessage = $this->humanizePingMessage($message);
+
+                if ($humanizedMessage !== '' && !in_array($humanizedMessage, $messages, true)) {
+                    $messages[] = $humanizedMessage;
+                }
+            }
+        }
+
+        return $messages;
+    }
+
+    protected function humanizePingMessage(mixed $message): string
+    {
+        $normalized = is_string($message) ? trim($message) : '';
+
+        return match ($normalized) {
+            'Email appears to be a placeholder.' => __('filament.integration.notifications.ping_email_placeholder'),
+            'Name is required.' => __('filament.integration.notifications.ping_name_required'),
+            'Phone number must contain 9-11 digits.',
+            'Phone number is not valid.' => __('filament.integration.notifications.ping_phone_invalid'),
+            default => $this->normalizePingApiMessage($normalized),
+        };
+    }
+
+    protected function normalizePingApiMessage(?string $message): string
+    {
+        $normalized = trim((string) $message);
+
+        return match (true) {
+            $this->isTechnicalPingMessage($normalized) => __('filament.integration.notifications.ping_generic_error'),
+            $normalized === 'Unauthorized' => __('filament.integration.notifications.ping_unauthorized'),
+            $normalized === 'Website integration not found' => __('filament.integration.notifications.ping_not_found'),
+            $normalized === 'Invalid payload' => __('filament.integration.notifications.ping_invalid_payload'),
+            str_starts_with($normalized, 'Unsupported ') => __('filament.integration.notifications.ping_invalid_payload'),
+            $normalized !== '' => $normalized,
+            default => __('filament.integration.notifications.ping_generic_error'),
+        };
+    }
+
+    protected function isTechnicalPingMessage(string $message): bool
+    {
+        if ($message === '') {
+            return false;
+        }
+
+        return str_starts_with($message, '<')
+            || str_starts_with($message, '{')
+            || str_starts_with($message, '[')
+            || str_contains($message, 'SQLSTATE')
+            || str_contains($message, 'Stack trace')
+            || str_contains($message, '<!DOCTYPE html')
+            || strlen($message) > 240;
     }
 }

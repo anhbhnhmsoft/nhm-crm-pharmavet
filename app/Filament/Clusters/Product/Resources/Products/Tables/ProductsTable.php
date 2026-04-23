@@ -3,9 +3,9 @@
 namespace App\Filament\Clusters\Product\Resources\Products\Tables;
 
 use App\Common\Constants\Organization\ProductField;
-use App\Exports\ProductsExport;
-use App\Imports\ProductsImport;
+use App\Exports\SimpleArrayExport;
 use App\Models\CategoryProduct;
+use App\Services\ProductExcelService;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
@@ -24,7 +24,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -166,8 +166,26 @@ class ProductsTable
                     ->label(__('common.action.export_excel'))
                     ->icon('heroicon-o-arrow-down-tray')
                     ->color('success')
-                    ->action(function () {
-                        return Excel::download(new ProductsExport, 'products_' . now()->format('Ymd_His') . '.xlsx');
+                    ->action(function (ProductExcelService $service) {
+                        $organizationId = Auth::user()->organization_id;
+                        $products = $service->getExportProducts($organizationId);
+
+                        if ($products->isEmpty()) {
+                            Notification::make()
+                                ->warning()
+                                ->title(__('filament.product.export_empty'))
+                                ->send();
+
+                            return null;
+                        }
+
+                        return Excel::download(
+                            new SimpleArrayExport(
+                                $service->headings(),
+                                $service->exportRows($products),
+                            ),
+                            'products_' . now()->format('Ymd_His') . '.xlsx'
+                        );
                     }),
 
                 Action::make('import')
@@ -184,9 +202,13 @@ class ProductsTable
                                     ->label(__('common.action.download_template'))
                                     ->icon('heroicon-o-arrow-down-tray')
                                     ->color('gray')
-                                    ->action(function () {
-                                        return response()->download(
-                                            Storage::path('templates/products_template.xlsx')
+                                    ->action(function (ProductExcelService $service) {
+                                        return Excel::download(
+                                            new SimpleArrayExport(
+                                                $service->headings(),
+                                                $service->templateRows((int) Auth::user()->organization_id),
+                                            ),
+                                            'products_template.xlsx'
                                         );
                                     })
                             )
@@ -196,24 +218,42 @@ class ProductsTable
                                 'application/vnd.ms-excel',
                             ]),
                     ])
-                    ->action(function (array $data) {
+                    ->action(function (array $data, ProductExcelService $service) {
                         /** @var TemporaryUploadedFile $file */
                         $file = $data['file'];
                         try {
-                            Excel::import(new ProductsImport, $file);
+                            $count = $service->importFile($file, (int) Auth::user()->organization_id);
 
                             Notification::make()
                                 ->title(__('filament.product.import_success'))
+                                ->body(__('filament.product.import_success_body', ['count' => $count]))
                                 ->success()
                                 ->send();
-                        } catch (\Exception $e) {
+                        } catch (ValidationException $exception) {
                             Notification::make()
                                 ->title(__('filament.product.import_failed'))
-                                ->body($e->getMessage())
+                                ->body(self::formatImportErrorMessage($exception))
+                                ->danger()
+                                ->send();
+                        } catch (\Throwable $exception) {
+                            Notification::make()
+                                ->title(__('filament.product.import_failed'))
+                                ->body(__('filament.product.import_unexpected_error'))
                                 ->danger()
                                 ->send();
                         }
                     })
             ]);
+    }
+
+    protected static function formatImportErrorMessage(ValidationException $exception): string
+    {
+        $messages = collect($exception->errors())
+            ->flatten()
+            ->filter(fn ($message) => filled($message))
+            ->unique()
+            ->values();
+
+        return $messages->take(3)->implode(PHP_EOL) ?: __('filament.product.import_failed');
     }
 }

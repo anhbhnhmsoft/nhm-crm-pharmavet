@@ -109,7 +109,15 @@ class IntegrationForm
                                     ->minValue(1)
                                     ->default(1)
                                     ->required()
-                                    ->extraInputAttributes(['required' => false])
+                                    ->validationAttribute(__('filament.integration.fields.distribution_limit'))
+                                    ->extraInputAttributes([
+                                        'type' => 'text',
+                                        'inputmode' => 'numeric',
+                                        'required' => false,
+                                        'min' => null,
+                                        'max' => null,
+                                        'step' => null,
+                                    ])
                                     ->helperText(__('filament.integration.fields.distribution_limit_helper'))
                                     ->rules(['integer', 'min:1'])
                                     ->validationMessages([
