@@ -66,6 +66,8 @@ class InventoryTicketLogsRelationManager extends RelationManager
                     ->default('-')
                     ->wrap(),
             ])
+            ->emptyStateHeading(__('warehouse.ticket.logs.empty_state_heading'))
+            ->emptyStateDescription(__('warehouse.ticket.logs.empty_state_description'))
             ->defaultSort('created_at', 'desc');
     }
 }

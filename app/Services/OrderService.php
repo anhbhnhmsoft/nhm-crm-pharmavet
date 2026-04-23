@@ -74,10 +74,9 @@ class OrderService
 
             $order->save();
 
-            // Dispatch job to process GHN order
-            ProcessGHNOrderJob::dispatch($order, 'post', $data)->onQueue('post_ghn_order');
+            $this->processPostOrder($order);
 
-            return ServiceReturn::success(__('order.message.post_order_queued'));
+            return ServiceReturn::success(message: __('order.notification.post_order_success'));
         } catch (\Exception $e) {
             return ServiceReturn::error($e->getMessage());
         }
@@ -86,10 +85,9 @@ class OrderService
     public function cancelOrder(Order $order): ServiceReturn
     {
         try {
-            // Dispatch job to cancel GHN order
-            ProcessGHNOrderJob::dispatch($order, 'cancel')->onQueue('cancel_ghn_order');
+            $this->processCancelOrder($order);
 
-            return ServiceReturn::success(__('order.message.cancel_order_queued'));
+            return ServiceReturn::success(message: __('order.notification.cancel_order_success'));
         } catch (\Exception $e) {
             return ServiceReturn::error($e->getMessage());
         }

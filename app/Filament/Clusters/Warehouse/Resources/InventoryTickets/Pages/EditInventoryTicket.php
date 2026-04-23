@@ -294,27 +294,33 @@ class EditInventoryTicket extends EditRecord
             }
         }
 
-        $record->logs()->create([
-            'action' => 'update',
-            'note' => $record->note,
-            'old_status' => $originalSnapshot['status'],
-            'new_status' => $record->status,
-            'metadata_json' => [
-                'before' => $originalSnapshot,
-                'after' => [
-                    'type' => $record->type,
-                    'status' => $record->status,
-                    'warehouse_id' => $record->warehouse_id,
-                    'source_warehouse_id' => $record->source_warehouse_id,
-                    'target_warehouse_id' => $record->target_warehouse_id,
-                    'note' => $record->note,
-                    'details_count' => count($details),
+        $record->loadMissing('details');
+
+        foreach ($record->details as $detail) {
+            $record->logs()->create([
+                'product_id' => (int) $detail->product_id,
+                'action' => 'update',
+                'note' => $record->note,
+                'old_status' => $originalSnapshot['status'],
+                'new_status' => $record->status,
+                'metadata_json' => [
+                    'before' => $originalSnapshot,
+                    'after' => [
+                        'type' => $record->type,
+                        'status' => $record->status,
+                        'warehouse_id' => $record->warehouse_id,
+                        'source_warehouse_id' => $record->source_warehouse_id,
+                        'target_warehouse_id' => $record->target_warehouse_id,
+                        'note' => $record->note,
+                        'details_count' => $record->details->count(),
+                    ],
+                    'quantity' => (int) $detail->quantity,
                 ],
-            ],
-            'user_id' => Auth::id(),
-            'created_by' => Auth::id(),
-            'updated_by' => Auth::id(),
-        ]);
+                'user_id' => Auth::id(),
+                'created_by' => Auth::id(),
+                'updated_by' => Auth::id(),
+            ]);
+        }
 
         return $record;
     }

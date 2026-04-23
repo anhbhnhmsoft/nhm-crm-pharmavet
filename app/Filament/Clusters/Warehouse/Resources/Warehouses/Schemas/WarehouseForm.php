@@ -25,6 +25,7 @@ class WarehouseForm
         return $schema
             ->components([
                 Section::make(__('warehouse.form.unit_warehouse'))
+                    ->description('Thong tin nhan dien va trang thai hoat dong cua kho.')
                     ->schema([
                         TextInput::make('name')
                             ->label(__('warehouse.form.name'))
@@ -76,21 +77,29 @@ class WarehouseForm
                             ->tel()
                             ->required()
                             ->extraInputAttributes(['required' => false, 'maxlength' => null, 'type' => 'text', 'inputmode' => 'tel'])
-                            ->maxLength(255)
+                            ->maxLength(15)
+                            ->rules([
+                                'regex:/^(0|(\+84))[35789][0-9]{8}$/',
+                            ])
                             ->validationMessages([
                                 'required' => __('common.error.required'),
-                                'max' => __('common.error.max_length', ['max' => 255]),
+                                'regex' => __('common.error.phone_invalid'),
+                                'max' => __('common.error.max_length', ['max' => 15]),
                             ]),
                         Textarea::make('note')
                             ->label(__('warehouse.form.note'))
+                            ->rows(3)
                             ->columnSpanFull(),
                         Toggle::make('is_active')
                             ->label(__('warehouse.form.is_active'))
                             ->default(true)
                             ->disabled(fn($livewire) => $livewire instanceof CreateRecord),
-                    ])->columns(2),
+                    ])
+                    ->columns(['default' => 1, 'md' => 2])
+                    ->columnSpan(['default' => 1, 'xl' => 6]),
 
                 Section::make(__('warehouse.form.address'))
+                    ->description('Dia chi xuat kho va khu vuc phuc vu mac dinh.')
                     ->schema([
                         Select::make('province_id')
                             ->label(__('warehouse.form.province'))
@@ -147,9 +156,12 @@ class WarehouseForm
                                 'required' => __('common.error.required'),
                                 'max' => __('common.error.max_length', ['max' => 255]),
                             ]),
-                    ])->columns(3),
+                    ])
+                    ->columns(['default' => 1, 'md' => 3])
+                    ->columnSpan(['default' => 1, 'xl' => 6]),
 
                 Section::make(__('warehouse.navigation.delivery'))
+                    ->description('Chon cac tinh thanh ma kho nay se phu trach giao hang.')
                     ->schema([
                         Select::make('deliveryProvinces')
                             ->label(__('warehouse.navigation.delivery_provinces'))
@@ -166,9 +178,11 @@ class WarehouseForm
                                 'required' => __('common.error.required'),
                             ])
                             ->columnSpanFull(),
-                    ]),
+                    ])
+                    ->columnSpan(['default' => 1, 'xl' => 6]),
 
                 Section::make(__('warehouse.navigation.management'))
+                    ->description('Thong tin quan ly kho va noi dung in tren don giao.')
                     ->schema([
                         Select::make('manager')
                             ->label(__('warehouse.navigation.manager'))
@@ -185,10 +199,14 @@ class WarehouseForm
                             ->tel()
                             ->required()
                             ->extraInputAttributes(['required' => false, 'maxlength' => null, 'type' => 'text', 'inputmode' => 'tel'])
-                            ->maxLength(255)
+                            ->maxLength(15)
+                            ->rules([
+                                'regex:/^(0|(\+84))[35789][0-9]{8}$/',
+                            ])
                             ->validationMessages([
                                 'required' => __('common.error.required'),
-                                'max' => __('common.error.max_length', ['max' => 255]),
+                                'regex' => __('common.error.phone_invalid'),
+                                'max' => __('common.error.max_length', ['max' => 15]),
                             ]),
                         TextInput::make('sender_name')
                             ->label(__('warehouse.navigation.sender_name'))
@@ -203,15 +221,21 @@ class WarehouseForm
                             ->label(__('warehouse.navigation.sender_info'))
                             ->required()
                             ->extraInputAttributes(['required' => false])
+                            ->rows(3)
                             ->columnSpanFull()
                             ->validationMessages([
                                 'required' => __('common.error.required'),
                             ]),
-                    ])->columns(2),
-                Section::make()
+                    ])
+                    ->columns(['default' => 1, 'md' => 2])
+                    ->columnSpan(['default' => 1, 'xl' => 6]),
+
+                Section::make(__('warehouse.navigation.product'))
+                    ->description('Khoi tao ton dau va so luong cho xu ly theo tung san pham.')
                     ->schema([
                         Repeater::make('productWarehouses')
                             ->label(__('warehouse.navigation.product'))
+                            ->hiddenLabel()
                             ->relationship(
                                 name: 'productWarehouses',
                                 modifyQueryUsing: fn($query) =>
@@ -285,8 +309,9 @@ class WarehouseForm
                             ->minItems(1)
                             ->maxItems(10)
                             ->required()
-
-                    ]),
-            ]);
+                    ])
+                    ->columnSpanFull(),
+            ])
+            ->columns(['default' => 1, 'xl' => 12]);
     }
 }

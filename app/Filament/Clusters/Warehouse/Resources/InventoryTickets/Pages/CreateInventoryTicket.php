@@ -100,18 +100,24 @@ class CreateInventoryTicket extends CreateRecord
 
     protected function afterCreate(): void
     {
-        $this->record->logs()->create([
-            'action' => 'create',
-            'note' => $this->record->note,
-            'new_status' => $this->record->status,
-            'metadata_json' => [
-                'type' => $this->record->type,
-                'details_count' => $this->record->details()->count(),
-            ],
-            'user_id' => Auth::id(),
-            'created_by' => Auth::id(),
-            'updated_by' => Auth::id(),
-        ]);
+        $this->record->loadMissing('details');
+
+        foreach ($this->record->details as $detail) {
+            $this->record->logs()->create([
+                'product_id' => (int) $detail->product_id,
+                'action' => 'create',
+                'note' => $this->record->note,
+                'new_status' => $this->record->status,
+                'metadata_json' => [
+                    'type' => $this->record->type,
+                    'quantity' => (int) $detail->quantity,
+                    'details_count' => $this->record->details->count(),
+                ],
+                'user_id' => Auth::id(),
+                'created_by' => Auth::id(),
+                'updated_by' => Auth::id(),
+            ]);
+        }
     }
 
     protected function getRedirectUrl(): string

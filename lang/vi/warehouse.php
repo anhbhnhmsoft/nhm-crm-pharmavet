@@ -46,7 +46,7 @@ return [
         'product' => 'Sản phẩm',
         'product_name' => 'Tên sản phẩm',
         'product_quantity' => 'Số lượng sản phẩm',
-        'product_pending_quantity' => 'Số lượng sản phẩm chờ',
+        'product_pending_quantity' => 'Đơn đang giữ hàng',
     ],
     'messages' => [
         'error' => [
@@ -76,10 +76,12 @@ return [
             'updated_at' => 'Ngày cập nhật',
             'product' => 'Sản phẩm',
             'quantity' => 'Số lượng',
-            'current_quantity' => 'Tồn kho hiện tại',
+            'current_quantity' => 'Tồn hiện tại',
+            'pending_quantity_display' => 'Đơn đang giữ hàng',
             'order_id' => 'Đơn hàng liên quan (Nhập hoàn)',
             'is_sales'=> 'Nhập hoàn',
             'is_sales_return' => 'Xác nhận Nhập hoàn',
+            'is_sales_return_helper_text' => 'Đánh dấu đây là hàng bán bị trả lại để tính Doanh thu Thuần',
             'is_return_helper_text' => 'Đánh dấu đây là hàng bán bị trả lại để tính Doanh thu Thuần',
             'order' => 'Đơn hàng',
             'product_quantity' => 'Số SP',
@@ -143,6 +145,8 @@ return [
             'old_status' => 'Trạng thái cũ',
             'new_status' => 'Trạng thái mới',
             'user' => 'Người thực hiện',
+            'empty_state_heading' => 'Không có nhật ký thao tác nào',
+            'empty_state_description' => 'Nhật ký sẽ hiển thị tại đây khi phiếu nhập/xuất có thay đổi.',
             'actions' => [
                 'create' => 'Tạo phiếu',
                 'update' => 'Cập nhật phiếu',

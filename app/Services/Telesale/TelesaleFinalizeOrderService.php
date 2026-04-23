@@ -368,6 +368,25 @@ class TelesaleFinalizeOrderService
         }
     }
 
+    protected function notifyFinalizeOrderValidationException(ValidationException $exception): void
+    {
+        $message = collect($exception->errors())
+            ->filter(fn(array $messages, string $key) => str_starts_with($key, 'items.') && str_ends_with($key, '.quantity'))
+            ->flatten()
+            ->filter(fn($value) => is_string($value) && filled($value))
+            ->map(fn(string $value) => trim($value))
+            ->first();
+
+        if (! $message) {
+            return;
+        }
+
+        Notification::make()
+            ->title($message)
+            ->danger()
+            ->send();
+    }
+
     public function handleFinalizeAction(array $data, $record, OrderService $orderService): void
     {
         Log::info('finalize_order: Action triggered', [
@@ -382,7 +401,13 @@ class TelesaleFinalizeOrderService
         $data['created_by'] = Auth::id();
         $data['updated_by'] = Auth::id();
 
-        $this->validateFinalizeOrderData($data, $record);
+        try {
+            $this->validateFinalizeOrderData($data, $record);
+        } catch (ValidationException $exception) {
+            $this->notifyFinalizeOrderValidationException($exception);
+
+            throw $exception;
+        }
 
         $result = $orderService->finalizeOrder($data);
 

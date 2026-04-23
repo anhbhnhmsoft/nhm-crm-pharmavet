@@ -97,13 +97,6 @@ class OrdersTable
                     ->toggleable()
                     ->placeholder(__('order.table.not_posted')),
 
-                TextColumn::make('ghn_status')
-                    ->label(__('order.table.ghn_status'))
-                    ->badge()
-                    ->color(fn(?string $state): string => GhnOrderStatus::color($state))
-                    ->toggleable()
-                    ->placeholder(__('order.table.not_posted')),
-
                 TextColumn::make('shipping_exception_reason_code')
                     ->label(__('warehouse.order.form.reason_code'))
                     ->toggleable(isToggledHiddenByDefault: true),
@@ -164,11 +157,6 @@ class OrdersTable
                     ->relationship('warehouse', 'name')
                     ->searchable()
                     ->preload(),
-
-                SelectFilter::make('ghn_status')
-                    ->label(__('order.filter.ghn_status'))
-                    ->options(GhnOrderStatus::toOptions())
-                    ->multiple(),
 
                 SelectFilter::make('organization_id')
                     ->label(__('order.filter.organization'))
@@ -237,6 +225,7 @@ class OrdersTable
             ->visible(fn(Order $record) => $record->status == OrderStatus::CONFIRMED->value)
             ->disabled(fn(Order $record): bool => AccountingPeriodGuard::isClosedForRecord($record, 'created_at'))
             ->tooltip(fn(Order $record): ?string => AccountingPeriodGuard::isClosedForRecord($record, 'created_at') ? __('accounting.accounting_period.period_closed') : null)
+            ->modalSubmitAction(fn(Action $action) => $action->extraAttributes(['formnovalidate' => true]))
             ->schema([
                 Grid::make(2)
                     ->schema([
@@ -247,6 +236,14 @@ class OrdersTable
                             ->default(fn(Order $record) => $record->shipping_fee)
                             ->prefix('VND')
                             ->minValue(1000)
+                            ->extraInputAttributes([
+                                'type' => 'text',
+                                'inputmode' => 'decimal',
+                                'required' => false,
+                                'min' => null,
+                                'max' => null,
+                                'step' => null,
+                            ])
                             ->validationMessages([
                                 'required' => __('common.error.required'),
                                 'numeric' => __('common.error.numeric'),
@@ -292,8 +289,15 @@ class OrdersTable
                             ->numeric()
                             ->default(fn(Order $record) => $record->weight ?? 200)
                             ->suffix('gram')
+                            ->extraInputAttributes([
+                                'type' => 'text',
+                                'inputmode' => 'numeric',
+                                'required' => false,
+                                'min' => null,
+                                'max' => null,
+                                'step' => null,
+                            ])
                             ->validationMessages([
-                                'required' => __('common.error.required'),
                                 'numeric' => __('common.error.numeric'),
                             ]),
 
@@ -302,8 +306,10 @@ class OrdersTable
                             ->options(ServiceType::toOptions())
                             ->default(fn(Order $record) => $record->ghn_service_type_id ?? 2)
                             ->required()
+                            ->extraInputAttributes(['required' => false])
                             ->validationMessages([
                                 'required' => __('common.error.required'),
+                                'in' => __('common.error.in', ['attribute' => __('order.form.ghn_service_type')]),
                             ]),
 
                         Select::make('ghn_payment_type_id')
@@ -311,8 +317,10 @@ class OrdersTable
                             ->options(PaymentType::toOptions())
                             ->default(fn(Order $record) => $record->ghn_payment_type_id ?? 2)
                             ->required()
+                            ->extraInputAttributes(['required' => false])
                             ->validationMessages([
                                 'required' => __('common.error.required'),
+                                'in' => __('common.error.in', ['attribute' => __('order.form.ghn_payment_type')]),
                             ]),
 
                         Select::make('required_note')
@@ -320,8 +328,10 @@ class OrdersTable
                             ->options(RequiredNote::getOptions())
                             ->default(fn(Order $record) => $record->required_note ?? RequiredNote::ALLOW_VIEWING_NOT_TRIAL->value)
                             ->required()
+                            ->extraInputAttributes(['required' => false])
                             ->validationMessages([
                                 'required' => __('common.error.required'),
+                                'in' => __('common.error.in', ['attribute' => __('order.form.required_note')]),
                             ]),
 
                         TextInput::make('insurance_value')
@@ -329,21 +339,32 @@ class OrdersTable
                             ->numeric()
                             ->default(fn(Order $record) => $record->insurance_value)
                             ->prefix('VND')
+                            ->extraInputAttributes([
+                                'type' => 'text',
+                                'inputmode' => 'decimal',
+                                'required' => false,
+                                'min' => null,
+                                'max' => null,
+                                'step' => null,
+                            ])
                             ->validationMessages([
-                                'required' => __('common.error.required'),
                                 'numeric' => __('common.error.numeric'),
                             ]),
                     ]),
             ])
-            ->action(function (Order $record, array $data) {
+            ->action(function (Order $record, array $data, $livewire) {
                 $orderService = app(OrderService::class);
                 $result = $orderService->postOrder($record, $data);
 
                 if ($result->isSuccess()) {
+                    $record->refresh();
+
                     Notification::make()
-                        ->title(__('order.notification.post_order_queued'))
+                        ->title($result->getMessage())
                         ->success()
                         ->send();
+
+                    $livewire->dispatch('$refresh');
                 } else {
                     Notification::make()
                         ->title(__('order.notification.post_order_failed'))
@@ -368,15 +389,19 @@ class OrdersTable
             ->modalHeading(__('order.modal.cancel_post_title'))
             ->modalDescription(__('order.modal.cancel_post_description'))
             ->modalSubmitActionLabel(__('order.action.confirm_cancel'))
-            ->action(function (Order $record) {
+            ->action(function (Order $record, $livewire) {
                 $orderService = app(OrderService::class);
                 $result = $orderService->cancelOrder($record);
 
                 if ($result->isSuccess()) {
+                    $record->refresh();
+
                     Notification::make()
-                        ->title(__('order.notification.cancel_order_queued'))
+                        ->title($result->getMessage())
                         ->success()
                         ->send();
+
+                    $livewire->dispatch('$refresh');
                 } else {
                     Notification::make()
                         ->title(__('order.notification.cancel_order_failed'))
