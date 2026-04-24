@@ -116,12 +116,14 @@ class BadDebtsTable
                                 'max' => null,
                                 'step' => null,
                             ])
+                            ->minValue(1)
                             ->maxValue(fn (Order $record) => $record->remaining_debt)
                             ->label(__('accounting.expense.amount'))
                             ->validationMessages([
                                 'required' => __('common.error.required'),
                                 'numeric' => __('common.error.numeric'),
-                                'max' => __('common.error.max_value', ['max' => ':max']),
+                                'min' => __('common.error.min_value', ['min' => 1]),
+                                'max' => __('accounting.bad_debt.provision_exceeds_debt'),
                             ]),
                         Textarea::make('note')
                             ->label(__('accounting.expense.note')),
@@ -129,7 +131,7 @@ class BadDebtsTable
                     ->action(function (Order $record, array $data, DebtService $service) {
                         $result = $service->provisionDebt($record, (float)$data['amount'], $data['note'] ?? '');
                         if ($result->isSuccess()) {
-                            Notification::make()->success()->title(__('common.add_success'))->send();
+                            Notification::make()->success()->title(__('common.success.add_success'))->send();
                         } else {
                             Notification::make()->danger()->title($result->getMessage())->send();
                         }

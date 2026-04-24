@@ -79,14 +79,30 @@ class TopSaleRankingReport extends Page implements HasForms
                         DatePicker::make('from_date')
                             ->label(__('telesale.filters.from_date'))
                             ->required()
+                            ->extraInputAttributes(['required' => false])
                             ->native(false)
-                            ->displayFormat('d/m/Y'),
+                            ->displayFormat('d/m/Y')
+                            ->validationMessages([
+                                'required' => __('validation.required', [
+                                    'attribute' => __('telesale.filters.from_date'),
+                                ]),
+                            ]),
                         DatePicker::make('to_date')
                             ->label(__('telesale.filters.to_date'))
                             ->required()
+                            ->extraInputAttributes(['required' => false])
                             ->native(false)
                             ->displayFormat('d/m/Y')
-                            ->afterOrEqual('from_date'),
+                            ->afterOrEqual('from_date')
+                            ->validationMessages([
+                                'required' => __('validation.required', [
+                                    'attribute' => __('telesale.filters.to_date'),
+                                ]),
+                                'after_or_equal' => __('validation.after_or_equal', [
+                                    'attribute' => __('telesale.filters.to_date'),
+                                    'date' => __('telesale.filters.from_date'),
+                                ]),
+                            ]),
                         Select::make('staff_id')
                             ->label(__('telesale.reports.staff'))
                             ->options(fn() => $this->getStaffOptions(app(TelesaleReportScopeService::class)))

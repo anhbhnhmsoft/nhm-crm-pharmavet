@@ -39,6 +39,8 @@ use Filament\Actions\BulkAction;
 
 class ReconciliationsTable
 {
+    private const SHIPPING_STATUS_NOT_POSTED = '__not_posted__';
+
     protected static function getOrganizationId(): ?int
     {
         return auth()->user()?->organization_id;
@@ -303,6 +305,77 @@ class ReconciliationsTable
                                 FROM json_array_elements(COALESCE(ghn_items, '[]'::json)) AS item) >= ?",
                             [$minimumQuantity]
                         );
+                });
+        });
+    }
+
+    protected static function getShippingStatusFilterOptions(): array
+    {
+        return [
+            self::SHIPPING_STATUS_NOT_POSTED => __('order.table.not_posted'),
+        ] + GhnOrderStatus::toOptions();
+    }
+
+    protected static function getShippingStatusFilterValues(?string $selectedStatus): array
+    {
+        $status = GhnOrderStatus::normalize($selectedStatus);
+
+        if ($status === null) {
+            return [];
+        }
+
+        $values = [$status];
+
+        if ($status === GhnOrderStatus::CANCEL->value) {
+            $values[] = GhnOrderStatus::LEGACY_CANCELLED;
+        }
+
+        return array_values(array_unique($values));
+    }
+
+    protected static function applyShippingStatusFilter(Builder $query, ?string $selectedStatus): Builder
+    {
+        if (blank($selectedStatus)) {
+            return $query;
+        }
+
+        if ($selectedStatus === self::SHIPPING_STATUS_NOT_POSTED) {
+            return $query->where(function (Builder $statusQuery): void {
+                $statusQuery
+                    ->where(function (Builder $reconciliationStatusQuery): void {
+                        $reconciliationStatusQuery
+                            ->whereNull('reconciliations.ghn_status')
+                            ->orWhere('reconciliations.ghn_status', '');
+                    })
+                    ->whereHas('order', function (Builder $orderQuery): void {
+                        $orderQuery
+                            ->where(function (Builder $orderStatusQuery): void {
+                                $orderStatusQuery
+                                    ->whereNull('orders.ghn_status')
+                                    ->orWhere('orders.ghn_status', '');
+                            })
+                            ->whereNull('orders.ghn_posted_at');
+                    });
+            });
+        }
+
+        $statusValues = self::getShippingStatusFilterValues($selectedStatus);
+
+        if ($statusValues === []) {
+            return $query;
+        }
+
+        return $query->where(function (Builder $statusQuery) use ($statusValues): void {
+            $statusQuery
+                ->whereIn('reconciliations.ghn_status', $statusValues)
+                ->orWhere(function (Builder $fallbackQuery) use ($statusValues): void {
+                    $fallbackQuery
+                        ->where(function (Builder $reconciliationStatusQuery): void {
+                            $reconciliationStatusQuery
+                                ->whereNull('reconciliations.ghn_status')
+                                ->orWhere('reconciliations.ghn_status', '');
+                        })
+                        ->whereHas('order', fn (Builder $orderQuery): Builder => $orderQuery->whereIn('orders.ghn_status', $statusValues));
                 });
         });
     }
@@ -685,8 +758,8 @@ class ReconciliationsTable
                             ])
                             ->fillForm(fn ($record) => [
                                 'order_code_display' => $record->order?->code ?? $record->ghn_order_code ?? '-',
-                                'customer_name_display' => $record->order?->customer?->username ?? $record->ghn_to_name ?? '-',
-                                'customer_phone_display' => $record->order?->customer?->phone ?? $record->ghn_to_phone ?? '-',
+                                'customer_name_display' => $record->ghn_to_name ?? $record->order?->customer?->username ?? '-',
+                                'customer_phone_display' => $record->ghn_to_phone ?? $record->order?->customer?->phone ?? '-',
                                 'shipping_provider_display' => $record->order?->provider_shipping ?? $record->order?->shipping_method ?? 'GHN',
                                 'ghn_order_code_display' => $record->ghn_order_code ?? $record->order?->ghn_order_code ?? '-',
                                 'current_care_status_display' => self::getCareStatusLabel($record->order?->care_status),
@@ -1008,8 +1081,8 @@ class ReconciliationsTable
                         '</div>'))
                     ->html()
                     ->formatStateUsing(function ($state, $record) {
-                        $name = e($record->order?->customer?->username ?? $record->ghn_to_name ?? '-');
-                        $phone = e($record->order?->customer?->phone ?? $record->ghn_to_phone ?? '');
+                        $name = e($record->ghn_to_name ?? $record->order?->customer?->username ?? '-');
+                        $phone = e($record->ghn_to_phone ?? $record->order?->customer?->phone ?? '');
 
                         return "
                             <div class='text-xs font-semibold text-center'>{$name}</div>
@@ -1026,7 +1099,7 @@ class ReconciliationsTable
                         '</div>'))
                     ->html()
                     ->formatStateUsing(function ($state, $record) {
-                        $address = e($record->order?->shipping_address ?? $record->ghn_to_address ?? '-');
+                        $address = e($record->ghn_to_address ?? $record->order?->shipping_address ?? '-');
                         $note = e($record->order?->note ?? '-');
 
                         return "
@@ -1165,6 +1238,13 @@ class ReconciliationsTable
                     ->options(ProviderShipping::getOptions())
                     ->query(fn($query, $data) => $query->when($data['value'], fn($q, $val) => $q->whereHas('order', fn($o) => $o->where('provider_shipping', $val)))),
 
+                SelectFilter::make('shipping_status')
+                    ->label(__('accounting.reconciliation.filter_shipping_status'))
+                    ->placeholder(__('accounting.reconciliation.filter_shipping_status_placeholder'))
+                    ->options(fn (): array => self::getShippingStatusFilterOptions())
+                    ->query(fn (Builder $query, array $data): Builder => self::applyShippingStatusFilter($query, $data['value'] ?? null))
+                    ->searchable(),
+
                 SelectFilter::make('warehouse_id')
                     ->label(__('accounting.reconciliation.filter_warehouse'))
                     ->options(function () {
@@ -1255,6 +1335,7 @@ class ReconciliationsTable
                     ->color('info')
                     ->modalHeading(__('accounting.reconciliation.order_detail_modal_title'))
                     ->modalWidth('4xl')
+                    ->modalSubmitAction(fn (Action $action) => $action->extraAttributes(['formnovalidate' => true]))
                     ->mountUsing(function ($form, $record, ReconciliationService $service) {
                         $result = $service->getOrderDetailFromGHN($record->id);
 
@@ -1338,12 +1419,14 @@ class ReconciliationsTable
                                 TextInput::make('to_name')
                                     ->label(__('accounting.reconciliation.to_name'))
                                     ->required()
+                                    ->extraInputAttributes(['required' => false])
                                     ->validationMessages([
                                         'required' => __('common.error.required'),
                                     ]),
                                 TextInput::make('to_phone')
                                     ->label(__('accounting.reconciliation.to_phone'))
                                     ->required()
+                                    ->extraInputAttributes(['required' => false, 'type' => 'text', 'inputmode' => 'tel'])
                                     ->validationMessages([
                                         'required' => __('common.error.required'),
                                     ]),
@@ -1351,6 +1434,7 @@ class ReconciliationsTable
                                     ->label(__('accounting.reconciliation.to_address'))
                                     ->rows(2)
                                     ->required()
+                                    ->extraInputAttributes(['required' => false])
                                     ->validationMessages([
                                         'required' => __('common.error.required'),
                                     ]),
@@ -1367,6 +1451,14 @@ class ReconciliationsTable
                                     ->maxValue(20000)
                                     ->suffix('g')
                                     ->helperText(__('accounting.reconciliation.weight_help'))
+                                    ->extraInputAttributes([
+                                        'type' => 'text',
+                                        'inputmode' => 'numeric',
+                                        'required' => false,
+                                        'min' => null,
+                                        'max' => null,
+                                        'step' => null,
+                                    ])
                                     ->validationMessages([
                                         'required' => __('common.error.required'),
                                         'numeric' => __('common.error.numeric'),
@@ -1380,6 +1472,14 @@ class ReconciliationsTable
                                     ->minValue(1)
                                     ->maxValue(200)
                                     ->suffix('cm')
+                                    ->extraInputAttributes([
+                                        'type' => 'text',
+                                        'inputmode' => 'numeric',
+                                        'required' => false,
+                                        'min' => null,
+                                        'max' => null,
+                                        'step' => null,
+                                    ])
                                     ->validationMessages([
                                         'required' => __('common.error.required'),
                                         'numeric' => __('common.error.numeric'),
@@ -1393,6 +1493,14 @@ class ReconciliationsTable
                                     ->minValue(1)
                                     ->maxValue(200)
                                     ->suffix('cm')
+                                    ->extraInputAttributes([
+                                        'type' => 'text',
+                                        'inputmode' => 'numeric',
+                                        'required' => false,
+                                        'min' => null,
+                                        'max' => null,
+                                        'step' => null,
+                                    ])
                                     ->validationMessages([
                                         'required' => __('common.error.required'),
                                         'numeric' => __('common.error.numeric'),
@@ -1406,6 +1514,14 @@ class ReconciliationsTable
                                     ->minValue(1)
                                     ->maxValue(200)
                                     ->suffix('cm')
+                                    ->extraInputAttributes([
+                                        'type' => 'text',
+                                        'inputmode' => 'numeric',
+                                        'required' => false,
+                                        'min' => null,
+                                        'max' => null,
+                                        'step' => null,
+                                    ])
                                     ->validationMessages([
                                         'required' => __('common.error.required'),
                                         'numeric' => __('common.error.numeric'),
@@ -1428,6 +1544,7 @@ class ReconciliationsTable
                                     ->options(RequiredNote::getOptions())
                                     ->native(false)
                                     ->required()
+                                    ->extraInputAttributes(['required' => false])
                                     ->validationMessages([
                                         'required' => __('common.error.required'),
                                         'in' => __('common.error.in'),
@@ -1442,6 +1559,14 @@ class ReconciliationsTable
                                     ->numeric()
                                     ->required()
                                     ->minValue(0)
+                                    ->extraInputAttributes([
+                                        'type' => 'text',
+                                        'inputmode' => 'decimal',
+                                        'required' => false,
+                                        'min' => null,
+                                        'max' => null,
+                                        'step' => null,
+                                    ])
                                     ->validationMessages([
                                         'required' => __('common.error.required'),
                                         'numeric' => __('common.error.numeric'),
@@ -1454,6 +1579,7 @@ class ReconciliationsTable
                                     ->native(false)
                                     ->required()
                                     ->helperText(__('accounting.reconciliation.payment_type_help'))
+                                    ->extraInputAttributes(['required' => false])
                                     ->validationMessages([
                                         'required' => __('common.error.required'),
                                         'in' => __('common.error.in'),
@@ -1537,15 +1663,20 @@ class ReconciliationsTable
 
                         if ($result->isError()) {
                             Notification::make()
-                                ->title(__('accounting.reconciliation.order_update_failed'))
-                                ->body($result->getMessage())
+                                ->title($result->getMessage())
                                 ->danger()
                                 ->send();
                         } else {
-                            Notification::make()
-                                ->title(__('accounting.reconciliation.order_updated'))
-                                ->success()
-                                ->send();
+                            $notification = Notification::make()
+                                ->title($result->getMessage());
+
+                            if (($result->getData()['local_sync_warnings'] ?? []) !== []) {
+                                $notification->warning();
+                            } else {
+                                $notification->success();
+                            }
+
+                            $notification->send();
                         }
                     }),
                 Action::make('confirm')
