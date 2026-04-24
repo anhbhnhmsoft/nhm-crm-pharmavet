@@ -27,12 +27,9 @@ class CustomerInteractionTimelineBuilder
             $type = InteractionType::tryFrom((int) $interaction->type) ?? InteractionType::NOTE;
             $metadata = $interaction->metadata ?? [];
             $reason = $matchedStatusLog?->reason ?? data_get($metadata, 'reason');
-            $statusValue = (int) ($interaction->status ?? data_get($metadata, 'to_status', 0));
 
             return [
-                'title' => $statusValue > 0
-                    ? InteractionStatus::getLabel($statusValue)
-                    : InteractionType::getLabel($type->value),
+                'title' => $this->resolveInteractionTitle($interaction, $type),
                 'icon' => $type->getIcon(),
                 'actor' => $interaction->user?->name ?? __('telesale.messages.system'),
                 'occurred_at' => $interaction->interacted_at ?? $interaction->created_at,
@@ -79,6 +76,38 @@ class CustomerInteractionTimelineBuilder
             ->filter(fn (array $entry) => filled($entry['occurred_at']))
             ->sortByDesc(fn (array $entry) => $entry['occurred_at'])
             ->values();
+    }
+
+    protected function resolveInteractionTitle(CustomerInteraction $interaction, InteractionType $type): string
+    {
+        $fromStatus = (int) data_get($interaction->metadata ?? [], 'from_status', 0);
+
+        if ($fromStatus > 0) {
+            return InteractionStatus::getLabel($fromStatus);
+        }
+
+        if (($interaction->attempt_no ?? 0) > 0) {
+            return match ((int) $interaction->attempt_no) {
+                1 => InteractionStatus::getLabel(InteractionStatus::FIRST_CALL->value),
+                2 => InteractionStatus::getLabel(InteractionStatus::SECOND_CALL->value),
+                3 => InteractionStatus::getLabel(InteractionStatus::THIRD_CALL->value),
+                4 => InteractionStatus::getLabel(InteractionStatus::FOURTH_CALL->value),
+                5 => InteractionStatus::getLabel(InteractionStatus::FIFTH_CALL->value),
+                6 => InteractionStatus::getLabel(InteractionStatus::SIXTH_CALL->value),
+                default => __('enum.interaction_type.call') . ' #' . (int) $interaction->attempt_no,
+            };
+        }
+
+        if (($interaction->care_no ?? 0) > 0) {
+            return match ((int) $interaction->care_no) {
+                1 => InteractionStatus::getLabel(InteractionStatus::USER_MANUAL->value),
+                2 => InteractionStatus::getLabel(InteractionStatus::SECOND_CARE->value),
+                3 => InteractionStatus::getLabel(InteractionStatus::THIRD_CARE->value),
+                default => __('enum.interaction_type.note') . ' #' . (int) $interaction->care_no,
+            };
+        }
+
+        return InteractionType::getLabel($type->value);
     }
 
     protected function takeMatchingStatusLog(CustomerInteraction $interaction, Collection &$statusLogs): ?CustomerStatusLog

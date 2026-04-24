@@ -191,16 +191,23 @@ class TelesaleInteractionWorkflowService
             InteractionStatus::FOURTH_CALL->value => 4,
             InteractionStatus::FIFTH_CALL->value => 5,
             InteractionStatus::SIXTH_CALL->value => 6,
-            default => null,
+            default => 1,
         };
     }
 
     protected function resolveCareNo(int $currentStatus): ?int
     {
         return match ($currentStatus) {
+            InteractionStatus::FIRST_CALL->value,
+            InteractionStatus::SECOND_CALL->value,
+            InteractionStatus::THIRD_CALL->value,
+            InteractionStatus::FOURTH_CALL->value,
+            InteractionStatus::FIFTH_CALL->value,
+            InteractionStatus::SIXTH_CALL->value,
+            InteractionStatus::USER_MANUAL->value => 1,
             InteractionStatus::SECOND_CARE->value => 2,
             InteractionStatus::THIRD_CARE->value => 3,
-            default => null,
+            default => 1,
         };
     }
 }
