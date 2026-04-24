@@ -24,6 +24,8 @@ class Login extends BaseLogin
     {
         parent::mount();
         $locale = session('locale', Language::VI->value);
+        $locale = $locale === 'la' ? Language::LO->value : $locale;
+        session(['locale' => $locale]);
         App::setLocale($locale);
     }
 

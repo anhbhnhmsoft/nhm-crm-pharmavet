@@ -86,9 +86,11 @@ class EditInventoryTicket extends EditRecord
                 ->icon('heroicon-o-arrow-up-tray')
                 ->color('info')
                 ->visible(fn() => $this->record->status === StatusTicket::DRAFT->value)
+                ->modalDescription(__('warehouse.ticket.excel.import_description'))
                 ->form([
                     FileUpload::make('file')
                         ->label(__('warehouse.ticket.excel.file'))
+                        ->helperText(__('warehouse.ticket.excel.import_file_helper'))
                         ->required()
                         ->acceptedFileTypes([
                             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

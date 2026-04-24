@@ -71,8 +71,8 @@ class CustomerInteractionTimelineBuilder
             ];
         });
 
-        return $interactionEntries
-            ->merge($legacyStatusEntries)
+        return collect($interactionEntries->all())
+            ->merge($legacyStatusEntries->all())
             ->filter(fn (array $entry) => filled($entry['occurred_at']))
             ->sortByDesc(fn (array $entry) => $entry['occurred_at'])
             ->values();

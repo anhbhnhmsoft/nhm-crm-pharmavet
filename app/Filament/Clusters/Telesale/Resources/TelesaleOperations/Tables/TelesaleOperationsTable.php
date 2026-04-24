@@ -345,6 +345,7 @@ class TelesaleOperationsTable
                         ->modalDescription(__('common.modal.force_delete_confirm'))
                         ->modalSubmitActionLabel(__('common.action.confirm_delete')),
                 ]),
-            ]);
+            ])
+            ->defaultSort('created_at', 'desc');
     }
 }
