@@ -39,4 +39,9 @@ class EditWarehouse extends EditRecord
     {
         return __('common.success.update_success');
     }
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
 }
