@@ -81,7 +81,7 @@ class LeadDistributionConfigService
                     'updated_by' => Auth::id(),
                 ]);
 
-                if (!empty($data['rules'])) {
+                if (array_key_exists('rules', $data) && ! empty($data['rules'])) {
                     $ruleIds = collect($data['rules'])->pluck('id')->filter()->toArray();
 
                     $config->rules()->whereNotIn('id', $ruleIds)->delete();
@@ -114,7 +114,7 @@ class LeadDistributionConfigService
                             $attributes,
                         );
                     }
-                } else {
+                } elseif (! $config->rules()->exists()) {
                     $this->createDefaultRules($config);
                 }
 

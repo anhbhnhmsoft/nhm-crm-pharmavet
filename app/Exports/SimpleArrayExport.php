@@ -5,8 +5,9 @@ namespace App\Exports;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithHeadings;
+use Maatwebsite\Excel\Concerns\WithStrictNullComparison;
 
-class SimpleArrayExport implements FromArray, ShouldAutoSize, WithHeadings
+class SimpleArrayExport implements FromArray, ShouldAutoSize, WithHeadings, WithStrictNullComparison
 {
     public function __construct(
         protected array $headings,

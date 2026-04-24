@@ -370,7 +370,16 @@ class LeadDistributionConfig extends Page
 
     public function save(): void
     {
-        $data = $this->form->getState();
+        $data = $this->form->getRawState();
+        unset($data['rules']);
+
+        if (empty($data['name'])) {
+            Notification::make()
+                ->warning()
+                ->title(__('common.error.validation_failed'))
+                ->send();
+            return;
+        }
 
         /** @var LeadDistributionConfigService $service */
         $service = app(LeadDistributionConfigService::class);

@@ -22,12 +22,12 @@
                  class="w-6 h-4 rounded-sm object-cover" />
             <span class="font-medium text-sm">EN</span>
         </button>
-        <button wire:click="switchLanguage('la')" type="button" @class([
+        <button wire:click="switchLanguage('lo')" type="button" @class([
             'flex items-center gap-2 text-gray-700  px-3 py-2 rounded-lg transition-all duration-200 border',
-            app()->getLocale() === 'la'
+            app()->getLocale() === 'lo'
                 ? 'bg-primary-600 shadow-lg scale-105 border-blue-500'
                 : 'bg-primary border-gray-200 hover:bg-gray-50 hover:border-primary-300',
-        ]) title="{{ __('common.english') }}">
+        ]) title="{{ __('common.laos') }}">
             <img src="{{ asset('images/laos.png') }}" alt="Laos flag"
                  class="w-6 h-4 rounded-sm object-cover" />
             <span class="font-medium text-sm">LA</span>
@@ -57,4 +57,3 @@
         scopes: $this->getRenderHookScopes(),
     ) }}
 </x-filament-panels::page.simple>
-

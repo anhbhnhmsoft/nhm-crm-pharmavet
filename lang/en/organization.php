@@ -1,0 +1,47 @@
+<?php
+
+return [
+    'label' => 'Organization',
+    'cluster_label' => 'Organization',
+    'table' => [
+        'product_field' => 'Product Field',
+        'quantity_members' => 'Quantity Members',
+        'list_member' => 'List Member',
+        'is_foreign' => 'Is Foreign',
+    ],
+    'form' => [
+        'general_info' => 'General Info',
+        'general_info_desc' => 'General Info Description.',
+        'name' => 'Organization',
+        'name_placeholder' => 'Name Placeholder',
+        'code' => 'Code',
+        'code_placeholder' => 'Code Placeholder',
+        'phone' => 'Phone',
+        'phone_placeholder' => 'Phone Placeholder',
+        'address' => 'Address',
+        'address_placeholder' => 'Address Placeholder',
+        'product_field' => 'Product Field',
+        'maximum_employees' => 'Maximum Employees',
+        'description' => 'Description.',
+        'description_placeholder' => 'Description Placeholder.',
+        'disable' => 'Disable',
+        'business_info' => 'Business Info',
+        'status' => 'Status',
+        'disable_action' => 'Disable Action',
+        'enable' => 'Enable',
+        'is_foreign' => 'Is Foreign',
+        'confirm_change' => 'Confirm Change',
+        'disable_warning' => 'Disable Warning?',
+        'enable_warning' => 'Enable Warning?',
+        'code_auto_note' => 'Code Auto Note',
+    ],
+    'error' => [
+        'unique_code' => 'Unique Code',
+        'invalid_code' => 'Invalid Code',
+    ],
+    'category_products' => [
+        'label' => 'Category Products',
+        'description' => 'Description.',
+        'total_products' => 'Total Products',
+    ],
+];

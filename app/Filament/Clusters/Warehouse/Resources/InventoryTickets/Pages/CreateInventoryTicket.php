@@ -67,9 +67,11 @@ class CreateInventoryTicket extends CreateRecord
                 ->label(__('warehouse.ticket.excel.import'))
                 ->icon('heroicon-o-arrow-up-tray')
                 ->color('info')
+                ->modalDescription(__('warehouse.ticket.excel.import_description'))
                 ->form([
                     FileUpload::make('file')
                         ->label(__('warehouse.ticket.excel.file'))
+                        ->helperText(__('warehouse.ticket.excel.import_file_helper'))
                         ->required()
                         ->acceptedFileTypes([
                             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

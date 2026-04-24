@@ -1,0 +1,47 @@
+<?php
+
+return [
+    'label' => 'ອົງກອນ',
+    'cluster_label' => 'ອົງກອນ',
+    'table' => [
+        'product_field' => 'ສິນຄ້າ Field',
+        'quantity_members' => 'ຈຳນວນ Members',
+        'list_member' => 'ລາຍການ Member',
+        'is_foreign' => 'Is Foreign',
+    ],
+    'form' => [
+        'general_info' => 'General Info',
+        'general_info_desc' => 'General Info ລາຍລະອຽດ.',
+        'name' => 'ອົງກອນ',
+        'name_placeholder' => 'ຊື່ Placeholder',
+        'code' => 'ລະຫັດ',
+        'code_placeholder' => 'ລະຫັດ Placeholder',
+        'phone' => 'ໂທລະສັບ',
+        'phone_placeholder' => 'ໂທລະສັບ Placeholder',
+        'address' => 'ທີ່ຢູ່',
+        'address_placeholder' => 'ທີ່ຢູ່ Placeholder',
+        'product_field' => 'ສິນຄ້າ Field',
+        'maximum_employees' => 'Maximum ພະນັກງານs',
+        'description' => 'ລາຍລະອຽດ.',
+        'description_placeholder' => 'ລາຍລະອຽດ Placeholder.',
+        'disable' => 'Disable',
+        'business_info' => 'Business Info',
+        'status' => 'ສະຖານະ',
+        'disable_action' => 'Disable ການກະທຳ',
+        'enable' => 'Enable',
+        'is_foreign' => 'Is Foreign',
+        'confirm_change' => 'Confirm Change',
+        'disable_warning' => 'Disable ຄຳເຕືອນ?',
+        'enable_warning' => 'Enable ຄຳເຕືອນ?',
+        'code_auto_note' => 'ລະຫັດ Auto ໝາຍເຫດ',
+    ],
+    'error' => [
+        'unique_code' => 'Unique ລະຫັດ',
+        'invalid_code' => 'ບໍ່ຖືກຕ້ອງ ລະຫັດ',
+    ],
+    'category_products' => [
+        'label' => 'Category ສິນຄ້າs',
+        'description' => 'ລາຍລະອຽດ.',
+        'total_products' => 'ລວມ ສິນຄ້າs',
+    ],
+];

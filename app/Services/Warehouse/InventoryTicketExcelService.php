@@ -10,6 +10,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Enumerable;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Maatwebsite\Excel\Facades\Excel;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
@@ -18,24 +19,36 @@ class InventoryTicketExcelService
 {
     public function templateHeadings(): array
     {
-        $headings = ['sku', 'quantity'];
+        $headings = [
+            __('warehouse.ticket.excel.columns.product'),
+            __('warehouse.navigation.product_name'),
+            __('warehouse.ticket.form.quantity'),
+        ];
 
         if ($this->usesAdvancedInventoryColumns()) {
-            $headings = array_merge($headings, ['unit_price', 'batch_no', 'expired_at']);
+            $headings = array_merge($headings, [
+                __('warehouse.order.form.price'),
+                __('warehouse.ticket.form.batch_no'),
+                __('warehouse.ticket.form.expired_at'),
+            ]);
         }
 
-        return $headings;
+        return array_merge($headings, [
+            __('warehouse.ticket.form.current_quantity'),
+            __('warehouse.ticket.form.pending_quantity_display'),
+            __('warehouse.reports.available_stock'),
+        ]);
     }
 
     public function templateRows(): array
     {
-        $row = ['SKU-001', 1];
+        $row = ['SKU-001', __('warehouse.ticket.excel.sample_product_name'), 1];
 
         if ($this->usesAdvancedInventoryColumns()) {
             $row = array_merge($row, [0, '', '']);
         }
 
-        return [$row];
+        return [array_merge($row, [0, 0, 0])];
     }
 
     public function buildExportRows(array $details): array
@@ -67,6 +80,8 @@ class InventoryTicketExcelService
                 $row[] = (string) ($detail['expired_at'] ?? '');
             }
 
+            $row[] = (float) ($detail['stock_quantity_display'] ?? 0);
+            $row[] = (float) ($detail['pending_quantity_display'] ?? 0);
             $row[] = (float) ($detail['current_quantity'] ?? 0);
 
             return $row;
@@ -76,20 +91,24 @@ class InventoryTicketExcelService
     public function exportHeadings(): array
     {
         $headings = [
-            'sku',
-            'product_name',
-            'quantity',
+            __('warehouse.ticket.excel.columns.product'),
+            __('warehouse.navigation.product_name'),
+            __('warehouse.ticket.form.quantity'),
         ];
 
         if ($this->usesAdvancedInventoryColumns()) {
             $headings = array_merge($headings, [
-                'unit_price',
-                'batch_no',
-                'expired_at',
+                __('warehouse.order.form.price'),
+                __('warehouse.ticket.form.batch_no'),
+                __('warehouse.ticket.form.expired_at'),
             ]);
         }
 
-        $headings[] = 'available_stock';
+        $headings = array_merge($headings, [
+            __('warehouse.ticket.form.current_quantity'),
+            __('warehouse.ticket.form.pending_quantity_display'),
+            __('warehouse.reports.available_stock'),
+        ]);
 
         return $headings;
     }
@@ -165,7 +184,7 @@ class InventoryTicketExcelService
             ]);
         }
 
-        if (in_array($type, [TypeTicket::EXPORT->value, TypeTicket::TRANSFER->value], true) && $warehouseId <= 0) {
+        if ($warehouseId <= 0) {
             throw ValidationException::withMessages([
                 'file' => __('warehouse.ticket.excel.errors.warehouse_required_before_import'),
             ]);
@@ -180,6 +199,8 @@ class InventoryTicketExcelService
             }
 
             $sku = trim((string) ($rowValues['sku'] ?? ''));
+            $productName = trim((string) ($rowValues['product_name'] ?? ''));
+            $productIdentifier = $sku !== '' ? $sku : $productName;
             $rawQuantity = $rowValues['quantity'] ?? null;
             $quantity = $this->normalizeNumeric($rawQuantity);
             $rawUnitPrice = $rowValues['unit_price'] ?? 0;
@@ -189,8 +210,8 @@ class InventoryTicketExcelService
 
             $rowErrors = [];
 
-            if ($sku === '') {
-                $rowErrors[] = 'SKU';
+            if ($productIdentifier === '') {
+                $rowErrors[] = __('warehouse.ticket.form.product');
             }
 
             if ($this->isBlankValue($rawQuantity) || $quantity === null || $quantity <= 0) {
@@ -210,21 +231,19 @@ class InventoryTicketExcelService
                 ]);
             }
 
-            $product = Product::query()
-                ->where('organization_id', $organizationId)
-                ->where('sku', $sku)
-                ->first();
+            $product = $this->resolveProduct($productIdentifier, $organizationId, $rowNumber);
 
             if (! $product) {
                 throw ValidationException::withMessages([
                     'file' => __('warehouse.ticket.excel.errors.product_not_found', [
                         'row' => $rowNumber,
-                        'sku' => $sku,
+                        'sku' => $productIdentifier,
                     ]),
                 ]);
             }
 
-            $currentQuantity = $this->resolveCurrentQuantity((int) $product->id, $warehouseId);
+            $stockSnapshot = $this->resolveStockSnapshot((int) $product->id, $warehouseId);
+            $currentQuantity = $stockSnapshot['available'];
 
             if (
                 in_array($type, [TypeTicket::EXPORT->value, TypeTicket::TRANSFER->value], true)
@@ -233,7 +252,7 @@ class InventoryTicketExcelService
                 throw ValidationException::withMessages([
                     'file' => __('warehouse.ticket.excel.errors.insufficient_stock', [
                         'row' => $rowNumber,
-                        'sku' => $sku,
+                        'sku' => $product->sku ?: $productIdentifier,
                         'stock' => $currentQuantity,
                     ]),
                 ]);
@@ -245,6 +264,8 @@ class InventoryTicketExcelService
                 'unit_price' => $unitPrice,
                 'batch_no' => $batchNo !== '' ? $batchNo : null,
                 'expired_at' => $expiredAt,
+                'stock_quantity_display' => $stockSnapshot['quantity'],
+                'pending_quantity_display' => $stockSnapshot['pending'],
                 'current_quantity' => $currentQuantity,
             ];
         }
@@ -342,7 +363,7 @@ class InventoryTicketExcelService
 
     protected function validateAndBuildHeaderMap(array $headerRow): array
     {
-        $acceptedColumns = $this->acceptedImportColumns();
+        $columnAliases = $this->importColumnAliases();
         $headerMap = [];
         $invalidColumns = collect();
 
@@ -359,13 +380,15 @@ class InventoryTicketExcelService
                 continue;
             }
 
-            if (! $acceptedColumns->contains($normalizedHeading)) {
+            $canonicalColumn = $columnAliases[$normalizedHeading] ?? null;
+
+            if ($canonicalColumn === null) {
                 $invalidColumns->push($originalHeading);
 
                 continue;
             }
 
-            $headerMap[$normalizedHeading] = $index;
+            $headerMap[$canonicalColumn] ??= $index;
         }
 
         $messages = [];
@@ -479,6 +502,8 @@ class InventoryTicketExcelService
             'batch_no',
             'expired_at',
             'product_name',
+            'stock_quantity_display',
+            'pending_quantity_display',
             'available_stock',
         ]);
     }
@@ -486,21 +511,46 @@ class InventoryTicketExcelService
     protected function resolveColumnLabel(string $column): string
     {
         return match ($column) {
-            'sku' => 'SKU',
+            'sku' => __('warehouse.ticket.form.product'),
             'quantity' => __('warehouse.ticket.form.quantity'),
             'unit_price' => __('warehouse.order.form.price'),
             'batch_no' => __('warehouse.ticket.form.batch_no'),
             'expired_at' => __('warehouse.ticket.form.expired_at'),
+            'product_name' => __('warehouse.navigation.product_name'),
+            'stock_quantity_display' => __('warehouse.ticket.form.current_quantity'),
+            'pending_quantity_display' => __('warehouse.ticket.form.pending_quantity_display'),
+            'available_stock' => __('warehouse.reports.available_stock'),
             default => $column,
         };
     }
 
     protected function normalizeHeading(string $heading): string
     {
-        $normalized = strtolower(trim($heading));
-        $normalized = str_replace(['-', ' '], '_', $normalized);
+        $normalized = Str::ascii(Str::lower(trim($heading)));
+        $normalized = str_replace(['-', ' ', '/', '\\'], '_', $normalized);
 
         return preg_replace('/[^a-z0-9_]+/', '', $normalized) ?? '';
+    }
+
+    protected function importColumnAliases(): array
+    {
+        $aliases = [];
+
+        foreach ($this->acceptedImportColumns() as $column) {
+            $aliases[$this->normalizeHeading($column)] = $column;
+            $aliases[$this->normalizeHeading($this->resolveColumnLabel($column))] = $column;
+        }
+
+        $aliases[$this->normalizeHeading(__('warehouse.ticket.excel.columns.product'))] = 'sku';
+        $aliases[$this->normalizeHeading('SKU')] = 'sku';
+        $aliases[$this->normalizeHeading('product_sku')] = 'sku';
+        $aliases[$this->normalizeHeading('product_code')] = 'sku';
+        $aliases[$this->normalizeHeading('stock_quantity')] = 'stock_quantity_display';
+        $aliases[$this->normalizeHeading('current_stock')] = 'stock_quantity_display';
+        $aliases[$this->normalizeHeading('pending_quantity')] = 'pending_quantity_display';
+        $aliases[$this->normalizeHeading('current_quantity')] = 'available_stock';
+
+        return $aliases;
     }
 
     protected function resolveWarehouseId(array $ticketState): int
@@ -513,10 +563,43 @@ class InventoryTicketExcelService
         };
     }
 
-    protected function resolveCurrentQuantity(int $productId, int $warehouseId): float
+    protected function resolveProduct(string $identifier, int $organizationId, int $rowNumber): ?Product
+    {
+        $product = Product::query()
+            ->where('organization_id', $organizationId)
+            ->where('sku', $identifier)
+            ->first();
+
+        if ($product) {
+            return $product;
+        }
+
+        $matches = Product::query()
+            ->where('organization_id', $organizationId)
+            ->where('name', $identifier)
+            ->limit(2)
+            ->get();
+
+        if ($matches->count() > 1) {
+            throw ValidationException::withMessages([
+                'file' => __('warehouse.ticket.excel.errors.product_ambiguous', [
+                    'row' => $rowNumber,
+                    'product' => $identifier,
+                ]),
+            ]);
+        }
+
+        return $matches->first();
+    }
+
+    protected function resolveStockSnapshot(int $productId, int $warehouseId): array
     {
         if ($warehouseId <= 0) {
-            return 0;
+            return [
+                'quantity' => 0,
+                'pending' => 0,
+                'available' => 0,
+            ];
         }
 
         $stock = ProductWarehouse::query()
@@ -524,10 +607,14 @@ class InventoryTicketExcelService
             ->where('product_id', $productId)
             ->first(['quantity', 'pending_quantity']);
 
-        return (float) max(
-            0,
-            (int) ($stock?->quantity ?? 0) - (int) ($stock?->pending_quantity ?? 0)
-        );
+        $quantity = (int) ($stock?->quantity ?? 0);
+        $pending = (int) ($stock?->pending_quantity ?? 0);
+
+        return [
+            'quantity' => $quantity,
+            'pending' => $pending,
+            'available' => max(0, $quantity - $pending),
+        ];
     }
 
     protected function usesAdvancedInventoryColumns(): bool
