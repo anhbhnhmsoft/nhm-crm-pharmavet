@@ -33,7 +33,7 @@ class InteractionStepActions
     public static function reasonField(string $name = 'reason'): Select
     {
         return Select::make($name)
-            ->options(ReasonInteraction::options())
+            ->options(self::interactionReasonOptions())
             ->label(__('common.table.result'))
             ->required()
             ->live()
@@ -48,6 +48,13 @@ class InteractionStepActions
             ->validationMessages([
                 'required' => __('common.error.required'),
             ]);
+    }
+
+    protected static function interactionReasonOptions(): array
+    {
+        return collect(ReasonInteraction::options())
+            ->except(ReasonInteraction::CLOSING_ORDER->value)
+            ->all();
     }
 
     public static function nextActionField(string $reasonField = 'reason', string $name = 'next_action_at'): DateTimePicker
@@ -111,9 +118,13 @@ class InteractionStepActions
         } catch (ValidationException $exception) {
             throw $exception;
         } catch (Throwable $exception) {
+            report($exception);
+
             Log::error('Telesale interaction action error', [
                 'customer_id' => $record->id,
+                'exception' => $exception::class,
                 'message' => $exception->getMessage(),
+                'trace' => $exception->getTraceAsString(),
             ]);
 
             Notification::make()

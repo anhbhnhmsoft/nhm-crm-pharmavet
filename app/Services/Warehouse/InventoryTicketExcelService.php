@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\ProductWarehouse;
 use Carbon\Carbon;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 use Maatwebsite\Excel\Facades\Excel;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
@@ -80,17 +81,27 @@ class InventoryTicketExcelService
         $headerRow = array_shift($rows) ?? [];
         $headerMap = $this->buildHeaderMap($headerRow);
 
-        foreach (['sku', 'quantity'] as $requiredColumn) {
-            if (! array_key_exists($requiredColumn, $headerMap)) {
-                throw ValidationException::withMessages([
-                    'file' => __('warehouse.ticket.excel.errors.missing_column', ['column' => $requiredColumn]),
-                ]);
-            }
+        $missingColumns = collect(['sku', 'quantity'])
+            ->reject(fn(string $requiredColumn): bool => array_key_exists($requiredColumn, $headerMap))
+            ->values();
+
+        if ($missingColumns->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'file' => __('warehouse.ticket.excel.errors.missing_columns', [
+                    'columns' => $this->formatColumnLabels($missingColumns),
+                ]),
+            ]);
         }
 
         $resolvedRows = [];
         $type = (int) ($ticketState['type'] ?? 0);
         $warehouseId = $this->resolveWarehouseId($ticketState);
+
+        if ($type <= 0) {
+            throw ValidationException::withMessages([
+                'file' => __('warehouse.ticket.excel.errors.type_required_before_import'),
+            ]);
+        }
 
         if (in_array($type, [TypeTicket::EXPORT->value, TypeTicket::TRANSFER->value], true) && $warehouseId <= 0) {
             throw ValidationException::withMessages([
@@ -107,26 +118,33 @@ class InventoryTicketExcelService
             }
 
             $sku = trim((string) ($rowValues['sku'] ?? ''));
-            $quantity = $this->normalizeNumeric($rowValues['quantity'] ?? null);
-            $unitPrice = $this->normalizeNumeric($rowValues['unit_price'] ?? 0);
+            $rawQuantity = $rowValues['quantity'] ?? null;
+            $quantity = $this->normalizeNumeric($rawQuantity);
+            $rawUnitPrice = $rowValues['unit_price'] ?? 0;
+            $unitPrice = $this->normalizeNumeric($rawUnitPrice);
             $batchNo = trim((string) ($rowValues['batch_no'] ?? ''));
-            $expiredAt = $this->normalizeDate($rowValues['expired_at'] ?? null);
+            $expiredAt = $this->normalizeDate($rowValues['expired_at'] ?? null, $rowNumber);
+
+            $rowErrors = [];
 
             if ($sku === '') {
-                throw ValidationException::withMessages([
-                    'file' => __('warehouse.ticket.excel.errors.sku_required', ['row' => $rowNumber]),
-                ]);
+                $rowErrors[] = 'SKU';
             }
 
-            if ($quantity === null || $quantity <= 0) {
-                throw ValidationException::withMessages([
-                    'file' => __('warehouse.ticket.excel.errors.quantity_invalid', ['row' => $rowNumber]),
-                ]);
+            if ($this->isBlankValue($rawQuantity) || $quantity === null || $quantity <= 0) {
+                $rowErrors[] = __('warehouse.ticket.form.quantity');
             }
 
-            if ($unitPrice === null || $unitPrice < 0) {
+            if (! $this->isBlankValue($rawUnitPrice) && ($unitPrice === null || $unitPrice < 0)) {
+                $rowErrors[] = __('warehouse.order.form.price');
+            }
+
+            if ($rowErrors !== []) {
                 throw ValidationException::withMessages([
-                    'file' => __('warehouse.ticket.excel.errors.unit_price_invalid', ['row' => $rowNumber]),
+                    'file' => __('warehouse.ticket.excel.errors.row_invalid_fields', [
+                        'row' => $rowNumber,
+                        'fields' => implode(', ', array_unique($rowErrors)),
+                    ]),
                 ]);
             }
 
@@ -170,6 +188,27 @@ class InventoryTicketExcelService
         }
 
         return $resolvedRows;
+    }
+
+    public function formatImportException(\Throwable $exception): string
+    {
+        if ($exception instanceof ValidationException) {
+            $messages = collect($exception->errors())
+                ->flatten()
+                ->filter(fn(mixed $message): bool => is_string($message) && filled(trim($message)))
+                ->unique()
+                ->values();
+
+            if ($messages->isNotEmpty()) {
+                return $messages->implode(' | ');
+            }
+        }
+
+        $message = trim((string) $exception->getMessage());
+
+        return $message !== ''
+            ? $message
+            : __('warehouse.ticket.excel.errors.import_unexpected');
     }
 
     protected function buildHeaderMap(array $headerRow): array
@@ -220,9 +259,9 @@ class InventoryTicketExcelService
         return is_numeric($normalized) ? (float) $normalized : null;
     }
 
-    protected function normalizeDate(mixed $value): ?string
+    protected function normalizeDate(mixed $value, int $rowNumber): ?string
     {
-        if ($value === null || $value === '') {
+        if ($this->isBlankValue($value)) {
             return null;
         }
 
@@ -234,9 +273,33 @@ class InventoryTicketExcelService
             return Carbon::parse((string) $value)->format('Y-m-d');
         } catch (\Throwable) {
             throw ValidationException::withMessages([
-                'file' => __('warehouse.ticket.excel.errors.expired_at_invalid'),
+                'file' => __('warehouse.ticket.excel.errors.expired_at_invalid', ['row' => $rowNumber]),
             ]);
         }
+    }
+
+    protected function isBlankValue(mixed $value): bool
+    {
+        return $value === null || trim((string) $value) === '';
+    }
+
+    protected function formatColumnLabels(Collection $columns): string
+    {
+        return $columns
+            ->map(fn(string $column): string => $this->resolveColumnLabel($column))
+            ->implode(', ');
+    }
+
+    protected function resolveColumnLabel(string $column): string
+    {
+        return match ($column) {
+            'sku' => 'SKU',
+            'quantity' => __('warehouse.ticket.form.quantity'),
+            'unit_price' => __('warehouse.order.form.price'),
+            'batch_no' => __('warehouse.ticket.form.batch_no'),
+            'expired_at' => __('warehouse.ticket.form.expired_at'),
+            default => $column,
+        };
     }
 
     protected function resolveWarehouseId(array $ticketState): int
