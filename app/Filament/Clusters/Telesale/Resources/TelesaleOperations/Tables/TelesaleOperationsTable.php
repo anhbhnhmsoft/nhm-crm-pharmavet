@@ -8,6 +8,7 @@ use App\Common\Constants\Marketing\IntegrationType;
 use App\Common\Constants\User\UserRole;
 use App\Models\Customer;
 use App\Models\User;
+use App\Utils\DateRangeGuard;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -147,7 +148,10 @@ class TelesaleOperationsTable
                             ->beforeOrEqual('to_date')
                             ->extraInputAttributes(['required' => false])
                             ->validationMessages([
-                                'before_or_equal' => __('common.error.date_before', ['date' => __('telesale.filters.to_date')]),
+                                'before_or_equal' => __('validation.before_or_equal', [
+                                    'attribute' => __('telesale.filters.from_date'),
+                                    'date' => __('telesale.filters.to_date'),
+                                ]),
                             ]),
                         DatePicker::make('to_date')
                             ->label(__('telesale.filters.to_date'))
@@ -155,10 +159,25 @@ class TelesaleOperationsTable
                             ->afterOrEqual('from_date')
                             ->extraInputAttributes(['required' => false])
                             ->validationMessages([
-                                'after_or_equal' => __('common.error.date_after', ['date' => __('telesale.filters.from_date')]),
+                                'after_or_equal' => __('validation.after_or_equal', [
+                                    'attribute' => __('telesale.filters.to_date'),
+                                    'date' => __('telesale.filters.from_date'),
+                                ]),
                             ]),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
+                        if (DateRangeGuard::hasInvalidRange($data['from_date'] ?? null, $data['to_date'] ?? null)) {
+                            DateRangeGuard::notifyInvalidRange(
+                                __CLASS__ . ':date_received',
+                                __('validation.after_or_equal', [
+                                    'attribute' => __('telesale.filters.to_date'),
+                                    'date' => __('telesale.filters.from_date'),
+                                ]),
+                            );
+
+                            return $query;
+                        }
+
                         return $query
                             ->when($data['from_date'] ?? null, fn(Builder $q, $date) => $q->whereDate('created_at', '>=', $date))
                             ->when($data['to_date'] ?? null, fn(Builder $q, $date) => $q->whereDate('created_at', '<=', $date));

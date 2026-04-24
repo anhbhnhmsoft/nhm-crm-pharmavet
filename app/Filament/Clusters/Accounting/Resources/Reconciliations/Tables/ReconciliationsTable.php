@@ -11,6 +11,7 @@ use App\Common\Constants\Shipping\ProviderShipping;
 use App\Common\Constants\Shipping\RequiredNote;
 use App\Core\Caching;
 use App\Services\ReconciliationService;
+use App\Utils\DateRangeGuard;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Forms\Components\RichEditor;
@@ -239,18 +240,7 @@ class ReconciliationsTable
 
     protected static function hasInvalidDateRange(array $data): bool
     {
-        $from = $data['from'] ?? null;
-        $to = $data['to'] ?? null;
-
-        if (blank($from) || blank($to)) {
-            return false;
-        }
-
-        try {
-            return Carbon::parse($from)->gt(Carbon::parse($to));
-        } catch (\Throwable) {
-            return false;
-        }
+        return DateRangeGuard::hasInvalidRange($data['from'] ?? null, $data['to'] ?? null);
     }
 
     protected static function getProductFilterOptions(): array
@@ -1136,6 +1126,11 @@ class ReconciliationsTable
                     ])
                     ->query(function (Builder $query, array $data, $livewire): Builder {
                         if (self::hasInvalidDateRange($data)) {
+                            DateRangeGuard::notifyInvalidRange(
+                                __CLASS__ . ':date_range',
+                                __('accounting.reconciliation.filter_date_invalid_range'),
+                            );
+
                             return $query;
                         }
 

@@ -169,14 +169,30 @@ class HonorBoardPage extends Page implements HasForms
                             ->required()
                             ->native(false)
                             ->displayFormat('d/m/Y')
-                            ->live(),
+                            ->live()
+                            ->extraInputAttributes(['required' => false])
+                            ->validationMessages([
+                                'required' => __('validation.required', [
+                                    'attribute' => __('marketing.honor_board.filters.from_date'),
+                                ]),
+                            ]),
                         DatePicker::make('to_date')
                             ->label(__('marketing.honor_board.filters.to_date'))
                             ->required()
                             ->native(false)
                             ->displayFormat('d/m/Y')
                             ->afterOrEqual('from_date')
-                            ->live(),
+                            ->live()
+                            ->extraInputAttributes(['required' => false])
+                            ->validationMessages([
+                                'required' => __('validation.required', [
+                                    'attribute' => __('marketing.honor_board.filters.to_date'),
+                                ]),
+                                'after_or_equal' => __('validation.after_or_equal', [
+                                    'attribute' => __('marketing.honor_board.filters.to_date'),
+                                    'date' => __('marketing.honor_board.filters.from_date'),
+                                ]),
+                            ]),
                         TextInput::make('q')
                             ->label(__('marketing.honor_board.filters.search'))
                             ->placeholder(__('marketing.honor_board.filters.search_placeholder'))
@@ -197,6 +213,10 @@ class HonorBoardPage extends Page implements HasForms
             $this->applyDatePreset((string) $value);
         }
 
+        if (! $this->validateDateFilters()) {
+            return;
+        }
+
         $this->refreshBoard();
     }
 
@@ -214,6 +234,10 @@ class HonorBoardPage extends Page implements HasForms
 
     private function refreshBoard(): void
     {
+        if (! $this->validateDateFilters()) {
+            return;
+        }
+
         /** @var \App\Models\User $viewer */
         $viewer = Auth::user();
 
@@ -231,6 +255,46 @@ class HonorBoardPage extends Page implements HasForms
         $this->suggestions = $result['suggestions'];
 
         session()->put($this->getSessionKey(), $result['filters']);
+    }
+
+    private function validateDateFilters(): bool
+    {
+        $this->resetValidation(['data.from_date', 'data.to_date']);
+
+        $validator = validator(
+            [
+                'from_date' => $this->data['from_date'] ?? null,
+                'to_date' => $this->data['to_date'] ?? null,
+            ],
+            [
+                'from_date' => ['bail', 'required', 'date'],
+                'to_date' => ['bail', 'required', 'date', 'after_or_equal:from_date'],
+            ],
+            [
+                'from_date.required' => __('validation.required', [
+                    'attribute' => __('marketing.honor_board.filters.from_date'),
+                ]),
+                'to_date.required' => __('validation.required', [
+                    'attribute' => __('marketing.honor_board.filters.to_date'),
+                ]),
+                'to_date.after_or_equal' => __('validation.after_or_equal', [
+                    'attribute' => __('marketing.honor_board.filters.to_date'),
+                    'date' => __('marketing.honor_board.filters.from_date'),
+                ]),
+            ],
+        );
+
+        if ($validator->fails()) {
+            foreach ($validator->errors()->messages() as $field => $messages) {
+                foreach ($messages as $message) {
+                    $this->addError('data.' . $field, $message);
+                }
+            }
+
+            return false;
+        }
+
+        return true;
     }
 
     private function defaultFilters(): array

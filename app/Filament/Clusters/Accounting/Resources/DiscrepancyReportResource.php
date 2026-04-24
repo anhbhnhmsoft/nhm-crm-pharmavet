@@ -7,6 +7,7 @@ use App\Common\Constants\User\UserRole;
 use App\Filament\Clusters\Accounting\AccountingCluster;
 use App\Filament\Clusters\Accounting\Resources\DiscrepancyReportResource\Pages\ListDiscrepancyReports;
 use App\Services\Accounting\DiscrepancyReportService;
+use App\Utils\DateRangeGuard;
 use App\Models\Order;
 use Filament\Forms\Components\DatePicker;
 use Filament\Resources\Resource;
@@ -117,10 +118,42 @@ class DiscrepancyReportResource extends Resource
             ->filters([
                 \Filament\Tables\Filters\Filter::make('date')
                     ->form([
-                        DatePicker::make('from')->label(__('common.from_date')),
-                        DatePicker::make('to')->label(__('common.to_date')),
+                        DatePicker::make('from')
+                            ->label(__('common.from_date'))
+                            ->live()
+                            ->beforeOrEqual('to')
+                            ->extraInputAttributes(['required' => false])
+                            ->validationMessages([
+                                'before_or_equal' => __('validation.before_or_equal', [
+                                    'attribute' => __('common.from_date'),
+                                    'date' => __('common.to_date'),
+                                ]),
+                            ]),
+                        DatePicker::make('to')
+                            ->label(__('common.to_date'))
+                            ->live()
+                            ->afterOrEqual('from')
+                            ->extraInputAttributes(['required' => false])
+                            ->validationMessages([
+                                'after_or_equal' => __('validation.after_or_equal', [
+                                    'attribute' => __('common.to_date'),
+                                    'date' => __('common.from_date'),
+                                ]),
+                            ]),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
+                        if (DateRangeGuard::hasInvalidRange($data['from'] ?? null, $data['to'] ?? null)) {
+                            DateRangeGuard::notifyInvalidRange(
+                                __CLASS__ . ':date',
+                                __('validation.after_or_equal', [
+                                    'attribute' => __('common.to_date'),
+                                    'date' => __('common.from_date'),
+                                ]),
+                            );
+
+                            return $query;
+                        }
+
                         return $query
                             ->when($data['from'], fn (Builder $query, $date): Builder => $query->whereDate('created_at', '>=', $date))
                             ->when($data['to'], fn (Builder $query, $date): Builder => $query->whereDate('created_at', '<=', $date));

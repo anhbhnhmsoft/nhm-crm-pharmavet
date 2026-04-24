@@ -3,6 +3,7 @@
 namespace App\Filament\Clusters\Accounting\Resources\Revenues\Tables;
 
 use App\Models\Revenue;
+use App\Utils\DateRangeGuard;
 use App\Utils\AccountingPeriodGuard;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -48,10 +49,42 @@ class RevenuesTable
             ->filters([
                 Filter::make('revenue_date')
                     ->form([
-                        DatePicker::make('from')->label(__('accounting.reconciliation.from_date')),
-                        DatePicker::make('until')->label(__('accounting.reconciliation.to_date')),
+                        DatePicker::make('from')
+                            ->label(__('accounting.reconciliation.from_date'))
+                            ->live()
+                            ->beforeOrEqual('until')
+                            ->extraInputAttributes(['required' => false])
+                            ->validationMessages([
+                                'before_or_equal' => __('validation.before_or_equal', [
+                                    'attribute' => __('accounting.reconciliation.from_date'),
+                                    'date' => __('accounting.reconciliation.to_date'),
+                                ]),
+                            ]),
+                        DatePicker::make('until')
+                            ->label(__('accounting.reconciliation.to_date'))
+                            ->live()
+                            ->afterOrEqual('from')
+                            ->extraInputAttributes(['required' => false])
+                            ->validationMessages([
+                                'after_or_equal' => __('validation.after_or_equal', [
+                                    'attribute' => __('accounting.reconciliation.to_date'),
+                                    'date' => __('accounting.reconciliation.from_date'),
+                                ]),
+                            ]),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
+                        if (DateRangeGuard::hasInvalidRange($data['from'] ?? null, $data['until'] ?? null)) {
+                            DateRangeGuard::notifyInvalidRange(
+                                __CLASS__ . ':revenue_date',
+                                __('validation.after_or_equal', [
+                                    'attribute' => __('accounting.reconciliation.to_date'),
+                                    'date' => __('accounting.reconciliation.from_date'),
+                                ]),
+                            );
+
+                            return $query;
+                        }
+
                         return $query
                             ->when(
                                 $data['from'],
