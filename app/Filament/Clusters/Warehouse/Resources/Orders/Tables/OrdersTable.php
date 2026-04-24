@@ -33,6 +33,21 @@ use App\Common\Constants\User\UserRole;
 use Illuminate\Support\Facades\Auth;
 class OrdersTable
 {
+    protected static function refreshTableAfterStatusChange(object $livewire, Order $record): void
+    {
+        $record->refresh();
+
+        if (method_exists($livewire, 'resetTable')) {
+            $livewire->resetTable();
+
+            return;
+        }
+
+        if (method_exists($livewire, 'dispatch')) {
+            $livewire->dispatch('$refresh');
+        }
+    }
+
     public static function configure(Table $table): Table
     {
         return $table
@@ -357,14 +372,12 @@ class OrdersTable
                 $result = $orderService->postOrder($record, $data);
 
                 if ($result->isSuccess()) {
-                    $record->refresh();
-
                     Notification::make()
                         ->title($result->getMessage())
                         ->success()
                         ->send();
 
-                    $livewire->dispatch('$refresh');
+                    self::refreshTableAfterStatusChange($livewire, $record);
                 } else {
                     Notification::make()
                         ->title(__('order.notification.post_order_failed'))
@@ -394,14 +407,12 @@ class OrdersTable
                 $result = $orderService->cancelOrder($record);
 
                 if ($result->isSuccess()) {
-                    $record->refresh();
-
                     Notification::make()
                         ->title($result->getMessage())
                         ->success()
                         ->send();
 
-                    $livewire->dispatch('$refresh');
+                    self::refreshTableAfterStatusChange($livewire, $record);
                 } else {
                     Notification::make()
                         ->title(__('order.notification.cancel_order_failed'))
