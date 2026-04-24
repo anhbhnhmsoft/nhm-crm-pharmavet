@@ -146,6 +146,7 @@ class LeadDistributionConfig extends Page
 
                 Section::make(__('filament.lead.rule.title'))
                     ->icon('heroicon-o-clipboard-document-list')
+                    ->hidden()
                     ->schema([
                         Repeater::make('rules')
                             ->label(__('filament.lead.rule.label'))

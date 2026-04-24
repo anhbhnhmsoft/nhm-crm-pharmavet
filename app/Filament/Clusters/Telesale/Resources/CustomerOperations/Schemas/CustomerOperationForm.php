@@ -3,13 +3,12 @@
 namespace App\Filament\Clusters\Telesale\Resources\CustomerOperations\Schemas;
 
 use App\Common\Constants\Customer\CustomerType;
-use App\Common\Constants\Interaction\InteractionStatus;
 use App\Common\Constants\Marketing\IntegrationType;
-use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\ViewField;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
@@ -71,21 +70,9 @@ class CustomerOperationForm
                     ->label(__('telesale.form.detailed_address'))
                     ->columnSpanFull(),
 
-                Repeater::make('customerStatusLog')
+                ViewField::make('interactions_timeline')
                     ->label(__('telesale.form.call_history'))
-                    ->relationship('customerStatusLog')
-                    ->schema([
-                        Select::make('to_status')
-                            ->label(__('telesale.table.interaction_status'))
-                            ->options(InteractionStatus::options())
-                            ->disabled(),
-                        Textarea::make('note')
-                            ->label(__('common.table.note'))
-                            ->disabled(),
-                        TextInput::make('created_at')
-                            ->label(__('common.table.created_at'))
-                            ->disabled(),
-                    ])
+                    ->view('filament.components.customer-interactions-timeline')
                     ->columnSpanFull(),
             ]);
     }

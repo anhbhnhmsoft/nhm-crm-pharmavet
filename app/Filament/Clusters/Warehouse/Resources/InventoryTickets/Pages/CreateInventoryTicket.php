@@ -34,8 +34,11 @@ class CreateInventoryTicket extends CreateRecord
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('success')
                 ->action(function (InventoryTicketExcelService $service) {
-                    $state = $this->form->getState();
-                    $details = $state['details'] ?? [];
+                    $state = $this->form->getRawState();
+                    $details = collect($state['details'] ?? [])
+                        ->filter(fn(array $detail): bool => filled($detail['product_id'] ?? null))
+                        ->values()
+                        ->all();
 
                     if ($details === []) {
                         Notification::make()
@@ -66,7 +69,7 @@ class CreateInventoryTicket extends CreateRecord
                 ])
                 ->action(function (array $data, InventoryTicketExcelService $service) {
                     try {
-                        $state = $this->form->getState();
+                        $state = $this->form->getRawState();
                         $state['details'] = $service->importRows(
                             $data['file'],
                             $state,
@@ -83,7 +86,7 @@ class CreateInventoryTicket extends CreateRecord
                         Notification::make()
                             ->danger()
                             ->title(__('warehouse.ticket.excel.import_failed'))
-                            ->body($exception->getMessage())
+                            ->body($service->formatImportException($exception))
                             ->send();
                     }
                 }),
