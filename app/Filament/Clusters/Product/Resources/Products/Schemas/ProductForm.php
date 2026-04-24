@@ -125,9 +125,11 @@ class ProductForm
 	                        TextInput::make('barcode')
 	                            ->label(__('filament.product.barcode'))
                             ->unique(ignoreRecord: true)
-                            ->minLength(8)
-                            ->maxLength(100)
-                            ->extraInputAttributes(['minlength' => null, 'maxlength' => null])
+                            ->dehydrateStateUsing(fn ($state) => filled($state)
+                                ? preg_replace('/\s+/', '', trim((string) $state))
+                                : null)
+                            ->rules(['nullable', 'digits:13'])
+                            ->extraInputAttributes(['minlength' => null, 'maxlength' => null, 'inputmode' => 'numeric'])
                             ->placeholder(__('filament.product.barcode_tooltip'))
                             ->suffixAction(
                                 Action::make('generateBarcode')
@@ -141,8 +143,7 @@ class ProductForm
                             ->helperText(__('filament.product.barcode_helper'))
 	                            ->validationMessages([
 	                                'unique' => __('common.error.unique'),
-	                                'min' => __('common.error.min_length', ['min' => 8]),
-	                                'max' => __('common.error.max_length', ['max' => 100]),
+	                                'digits' => __('filament.product.validation.barcode_ean_13'),
 	                            ]),
 
 	                        Select::make('category_product_id')

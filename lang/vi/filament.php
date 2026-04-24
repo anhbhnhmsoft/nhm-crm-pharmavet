@@ -174,6 +174,9 @@ return [
         'generate_sku' => 'Tạo mã SKU tự động',
         'generate_barcode' => 'Tạo mã vạch tự động',
         'barcode_helper' => 'Mã vạch chuẩn EAN-13 (13 chữ số)',
+        'validation' => [
+            'barcode_ean_13' => 'Mã vạch phải đúng định dạng EAN-13 gồm 13 chữ số.',
+        ],
 
         'no_vat_applied' => 'Không áp dụng VAT',
         'vat_inclusive_info' => 'Giá chưa VAT: :price ₫ | VAT: :vat ₫',
