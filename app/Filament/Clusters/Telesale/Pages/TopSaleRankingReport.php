@@ -149,9 +149,11 @@ class TopSaleRankingReport extends Page implements HasForms
         /** @var TelesaleReportDataService $reportDataService */
         $reportDataService = app(TelesaleReportDataService::class);
 
+        $filters = $this->validateFilters();
+
         $this->rows = $reportDataService->buildTopSaleRankingRows(
             user: Auth::user(),
-            filters: $this->form->getState(),
+            filters: $filters,
         );
     }
 
@@ -159,7 +161,7 @@ class TopSaleRankingReport extends Page implements HasForms
     {
         /** @var TelesaleReportDataService $reportDataService */
         $reportDataService = app(TelesaleReportDataService::class);
-        $filters = $this->form->getState();
+        $filters = $this->validateFilters();
         $rows = $reportDataService->buildTopSaleRankingRows(Auth::user(), $filters);
 
         $job = $exportService->enqueueExport(
@@ -174,5 +176,42 @@ class TopSaleRankingReport extends Page implements HasForms
             ->body(__('telesale.reports.export_history_hint'))
             ->success()
             ->send();
+    }
+
+    protected function validateFilters(): array
+    {
+        $validated = $this->validate(
+            [
+                'data.from_date' => ['bail', 'required', 'date'],
+                'data.to_date' => ['bail', 'required', 'date', 'after_or_equal:data.from_date'],
+                'data.staff_id' => ['nullable'],
+                'data.pushsale_rule_set_id' => ['nullable'],
+            ],
+            [
+                'data.from_date.required' => __('validation.required', [
+                    'attribute' => __('telesale.filters.from_date'),
+                ]),
+                'data.to_date.required' => __('validation.required', [
+                    'attribute' => __('telesale.filters.to_date'),
+                ]),
+                'data.to_date.after_or_equal' => __('validation.after_or_equal', [
+                    'attribute' => __('telesale.filters.to_date'),
+                    'date' => __('telesale.filters.from_date'),
+                ]),
+            ],
+            [
+                'data.from_date' => __('telesale.filters.from_date'),
+                'data.to_date' => __('telesale.filters.to_date'),
+                'data.staff_id' => __('telesale.reports.staff'),
+                'data.pushsale_rule_set_id' => __('telesale.reports.pushsale_rule_set'),
+            ],
+        );
+
+        return [
+            'from_date' => (string) $validated['data']['from_date'],
+            'to_date' => (string) $validated['data']['to_date'],
+            'staff_id' => $validated['data']['staff_id'] ?? null,
+            'pushsale_rule_set_id' => $validated['data']['pushsale_rule_set_id'] ?? null,
+        ];
     }
 }

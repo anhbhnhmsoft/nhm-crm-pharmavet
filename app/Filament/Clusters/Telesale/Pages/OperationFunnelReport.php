@@ -78,14 +78,30 @@ class OperationFunnelReport extends Page implements HasForms
                         DatePicker::make('from_date')
                             ->label(__('telesale.filters.from_date'))
                             ->required()
+                            ->extraInputAttributes(['required' => false])
                             ->native(false)
-                            ->displayFormat('d/m/Y'),
+                            ->displayFormat('d/m/Y')
+                            ->validationMessages([
+                                'required' => __('validation.required', [
+                                    'attribute' => __('telesale.filters.from_date'),
+                                ]),
+                            ]),
                         DatePicker::make('to_date')
                             ->label(__('telesale.filters.to_date'))
                             ->required()
+                            ->extraInputAttributes(['required' => false])
                             ->native(false)
                             ->displayFormat('d/m/Y')
-                            ->afterOrEqual('from_date'),
+                            ->afterOrEqual('from_date')
+                            ->validationMessages([
+                                'required' => __('validation.required', [
+                                    'attribute' => __('telesale.filters.to_date'),
+                                ]),
+                                'after_or_equal' => __('validation.after_or_equal', [
+                                    'attribute' => __('telesale.filters.to_date'),
+                                    'date' => __('telesale.filters.from_date'),
+                                ]),
+                            ]),
                         Select::make('staff_id')
                             ->label(__('telesale.reports.staff'))
                             ->options(fn (): array => $this->getStaffOptions())
@@ -108,10 +124,11 @@ class OperationFunnelReport extends Page implements HasForms
     {
         /** @var TelesaleReportDataService $reportDataService */
         $reportDataService = app(TelesaleReportDataService::class);
+        $filters = $this->validateFilters();
 
         $this->rows = $reportDataService->buildOperationFunnelRows(
             user: Auth::user(),
-            filters: $this->form->getState(),
+            filters: $filters,
         );
     }
 
@@ -119,7 +136,7 @@ class OperationFunnelReport extends Page implements HasForms
     {
         /** @var TelesaleReportDataService $reportDataService */
         $reportDataService = app(TelesaleReportDataService::class);
-        $filters = $this->form->getState();
+        $filters = $this->validateFilters();
         $rows = $reportDataService->buildOperationFunnelRows(Auth::user(), $filters);
 
         $job = $exportService->enqueueExport(
@@ -134,6 +151,46 @@ class OperationFunnelReport extends Page implements HasForms
             ->body(__('telesale.reports.export_history_hint'))
             ->success()
             ->send();
+    }
+
+    protected function validateFilters(): array
+    {
+        $validated = $this->validate(
+            [
+                'data.from_date' => ['bail', 'required', 'date'],
+                'data.to_date' => ['bail', 'required', 'date', 'after_or_equal:data.from_date'],
+                'data.staff_id' => ['nullable'],
+                'data.selected_steps' => ['nullable', 'array'],
+                'data.unlimited_close_date' => ['nullable', 'boolean'],
+            ],
+            [
+                'data.from_date.required' => __('validation.required', [
+                    'attribute' => __('telesale.filters.from_date'),
+                ]),
+                'data.to_date.required' => __('validation.required', [
+                    'attribute' => __('telesale.filters.to_date'),
+                ]),
+                'data.to_date.after_or_equal' => __('validation.after_or_equal', [
+                    'attribute' => __('telesale.filters.to_date'),
+                    'date' => __('telesale.filters.from_date'),
+                ]),
+            ],
+            [
+                'data.from_date' => __('telesale.filters.from_date'),
+                'data.to_date' => __('telesale.filters.to_date'),
+                'data.staff_id' => __('telesale.reports.staff'),
+                'data.selected_steps' => __('telesale.reports.step'),
+                'data.unlimited_close_date' => __('telesale.reports.unlimited_close_date'),
+            ],
+        );
+
+        return [
+            'from_date' => (string) $validated['data']['from_date'],
+            'to_date' => (string) $validated['data']['to_date'],
+            'staff_id' => $validated['data']['staff_id'] ?? null,
+            'selected_steps' => $validated['data']['selected_steps'] ?? [],
+            'unlimited_close_date' => (bool) ($validated['data']['unlimited_close_date'] ?? false),
+        ];
     }
 
     protected function getStaffOptions(): array

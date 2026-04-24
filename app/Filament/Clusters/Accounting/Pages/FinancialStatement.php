@@ -98,6 +98,10 @@ class FinancialStatement extends Page implements HasForms
                             ->extraInputAttributes(['required' => false])
                             ->validationMessages([
                                 'required' => __('common.error.required'),
+                                'after_or_equal' => __('validation.after_or_equal', [
+                                    'attribute' => __('accounting.report.to_date'),
+                                    'date' => __('accounting.report.from_date'),
+                                ]),
                             ])
                             ->native(false)
                             ->displayFormat('d/m/Y')
@@ -169,8 +173,27 @@ class FinancialStatement extends Page implements HasForms
         $toDate = null;
 
         if ($type === 'day') {
-            $fromDate = $data['from_date'];
-            $toDate = $data['to_date'];
+            $validated = $this->validate(
+                [
+                    'data.from_date' => ['bail', 'required', 'date'],
+                    'data.to_date' => ['bail', 'required', 'date', 'after_or_equal:data.from_date'],
+                ],
+                [
+                    'data.from_date.required' => __('common.error.required'),
+                    'data.to_date.required' => __('common.error.required'),
+                    'data.to_date.after_or_equal' => __('validation.after_or_equal', [
+                        'attribute' => __('accounting.report.to_date'),
+                        'date' => __('accounting.report.from_date'),
+                    ]),
+                ],
+                [
+                    'data.from_date' => __('accounting.report.from_date'),
+                    'data.to_date' => __('accounting.report.to_date'),
+                ],
+            );
+
+            $fromDate = $validated['data']['from_date'];
+            $toDate = $validated['data']['to_date'];
         } else {
             $fromMonth = str_pad($data['from_month'], 2, '0', STR_PAD_LEFT);
             $fromDate = "{$data['from_year']}-{$fromMonth}-01";
