@@ -45,6 +45,21 @@ class TelesaleFinalizeOrderService
         return $this->getLatestOrder($record)?->status;
     }
 
+    public function getEditableOrder($record): ?Order
+    {
+        return Order::query()
+            ->with('items')
+            ->where('customer_id', $record->id)
+            ->whereIn('status', [OrderStatus::PENDING->value, OrderStatus::CONFIRMED->value])
+            ->latest()
+            ->first();
+    }
+
+    public function hasEditableOrder($record): bool
+    {
+        return (bool) $this->getEditableOrder($record);
+    }
+
     public function isFinalizeOrderLockedForSale($record): bool
     {
         if ((int) (Auth::user()?->role ?? 0) !== UserRole::SALE->value) {
@@ -60,12 +75,7 @@ class TelesaleFinalizeOrderService
 
     public function mountForm($form, $record): void
     {
-        $order = Order::query()
-            ->with('items')
-            ->where('customer_id', $record->id)
-            ->whereIn('status', [OrderStatus::PENDING->value, OrderStatus::CONFIRMED->value])
-            ->latest()
-            ->first();
+        $order = $this->getEditableOrder($record);
 
         if ($order) {
             $data = $order->toArray();
@@ -409,6 +419,7 @@ class TelesaleFinalizeOrderService
             throw $exception;
         }
 
+        $isUpdatingOrder = $this->hasEditableOrder($record);
         $result = $orderService->finalizeOrder($data);
 
         Log::info('finalize_order: Service result', [
@@ -417,7 +428,10 @@ class TelesaleFinalizeOrderService
         ]);
 
         if ($result->isSuccess()) {
-            Notification::make()->title(__('common.success.update_success'))->success()->send();
+            Notification::make()
+                ->title(__($isUpdatingOrder ? 'telesale_action.update_order_success' : 'telesale_action.finalize_order_success'))
+                ->success()
+                ->send();
             return;
         }
 

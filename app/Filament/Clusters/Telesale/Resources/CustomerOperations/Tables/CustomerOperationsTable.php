@@ -88,6 +88,15 @@ class CustomerOperationsTable
         ];
     }
 
+    protected static function normalizePositiveNumber(mixed $value): float
+    {
+        if (! is_numeric($value)) {
+            return 0;
+        }
+
+        return max(0, (float) $value);
+    }
+
     protected static function getLatestOrder($record)
     {
         return app(TelesaleFinalizeOrderService::class)->getLatestOrder($record);
@@ -115,18 +124,19 @@ class CustomerOperationsTable
     {
         $items = $get('items') ?? [];
         $productTotal = collect($items)->sum(function ($item) {
-            return ($item['quantity'] ?? 0) * ($item['price'] ?? 0);
+            return self::normalizePositiveNumber($item['quantity'] ?? 0)
+                * self::normalizePositiveNumber($item['price'] ?? 0);
         });
 
         return [
             'product_total' => $productTotal,
-            'discount' => $get('discount') ?? 0,
-            'ck1' => $get('ck1') ?? 0,
-            'ck2' => $get('ck2') ?? 0,
-            'shipping_fee' => $get('shipping_fee') ?? 0,
-            'cod_fee' => $get('cod_fee') ?? 0,
-            'deposit' => $depositOverride ?? ($get('deposit') ?? 0),
-            'cod_support_amount' => $get('cod_support_amount') ?? 0,
+            'discount' => self::normalizePositiveNumber($get('discount')),
+            'ck1' => self::normalizePositiveNumber($get('ck1')),
+            'ck2' => self::normalizePositiveNumber($get('ck2')),
+            'shipping_fee' => self::normalizePositiveNumber($get('shipping_fee')),
+            'cod_fee' => self::normalizePositiveNumber($get('cod_fee')),
+            'deposit' => $depositOverride ?? self::normalizePositiveNumber($get('deposit')),
+            'cod_support_amount' => self::normalizePositiveNumber($get('cod_support_amount')),
         ];
     }
 
@@ -580,7 +590,9 @@ class CustomerOperationsTable
             ->recordActions([
                 ActionGroup::make([
                     Action::make('finalize_order')
-                        ->label(__('telesale_action.edit_warehouse'))
+                        ->label(fn($record): string => app(TelesaleFinalizeOrderService::class)->hasEditableOrder($record)
+                            ? __('telesale_action.update_order')
+                            : __('telesale_action.finalize_order'))
                         ->icon('heroicon-o-shopping-cart')
                         ->color('success')
                         ->disabled(fn($record): bool => self::isFinalizeOrderLockedForSale($record))
@@ -1124,6 +1136,7 @@ class CustomerOperationsTable
                                 throw $exception;
                             }
 
+                            $isUpdatingOrder = app(TelesaleFinalizeOrderService::class)->hasEditableOrder($record);
                             $result = $orderService->finalizeOrder($data);
 
                             Log::info('finalize_order: Service result', [
@@ -1133,7 +1146,7 @@ class CustomerOperationsTable
 
                             if ($result->isSuccess()) {
                                 Notification::make()
-                                    ->title(__('telesale_action.edit_warehouse_success'))
+                                    ->title(__($isUpdatingOrder ? 'telesale_action.update_order_success' : 'telesale_action.finalize_order_success'))
                                     ->success()
                                     ->send();
 

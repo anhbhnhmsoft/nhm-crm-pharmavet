@@ -35,6 +35,20 @@ class TelesaleOperationForm
         return $schema->components(self::getComponents());
     }
 
+    protected static function normalizePositiveNumber(mixed $value): float
+    {
+        if (! is_numeric($value)) {
+            return 0;
+        }
+
+        return max(0, (float) $value);
+    }
+
+    protected static function normalizePercentage(mixed $value): float
+    {
+        return min(100, self::normalizePositiveNumber($value));
+    }
+
     public static function getComponents(): array
     {
         $today = now()->startOfDay();
@@ -42,14 +56,17 @@ class TelesaleOperationForm
 
         $calculateTotal = function (Get $get, Set $set) {
             $items = $get('order_items') ?? [];
-            $subtotal = collect($items)->sum(fn($item) => ($item['quantity'] ?? 0) * ($item['price'] ?? 0));
+            $subtotal = collect($items)->sum(function (array $item): float {
+                return self::normalizePositiveNumber($item['quantity'] ?? 0)
+                    * self::normalizePositiveNumber($item['price'] ?? 0);
+            });
 
-            $shippingFee = (float) ($get('shipping_fee') ?? 0);
-            $codFee = (float) ($get('cod_fee') ?? 0);
-            $deposit = (float) ($get('deposit') ?? 0);
-            $discount = (float) ($get('discount') ?? 0);
-            $ck1 = (float) ($get('ck1') ?? 0);
-            $ck2 = (float) ($get('ck2') ?? 0);
+            $shippingFee = self::normalizePositiveNumber($get('shipping_fee'));
+            $codFee = self::normalizePositiveNumber($get('cod_fee'));
+            $deposit = self::normalizePositiveNumber($get('deposit'));
+            $discount = self::normalizePositiveNumber($get('discount'));
+            $ck1 = self::normalizePercentage($get('ck1'));
+            $ck2 = self::normalizePercentage($get('ck2'));
 
             // Calculate discounts
             $discountCk1 = $subtotal * ($ck1 / 100);
@@ -242,6 +259,7 @@ class TelesaleOperationForm
                                                             TextInput::make('price')
                                                                 ->label(__('telesale.form.unit_price'))
                                                                 ->numeric()
+                                                                ->rule('decimal:0,2')
                                                                 ->minValue(0)
                                                                 ->extraInputAttributes([
                                                                     'type' => 'text',
@@ -256,6 +274,7 @@ class TelesaleOperationForm
                                                                 ->validationMessages([
                                                                     'required' => __('common.error.required'),
                                                                     'numeric' => __('common.error.numeric'),
+                                                                    'decimal' => __('common.error.numeric'),
                                                                     'min' => __('common.error.min_value', ['min' => 0]),
                                                                 ]),
                                                         ]),

@@ -33,7 +33,9 @@ class FinalizeOrderActionForm
     public static function make(): Action
     {
         return Action::make('finalize_order')
-            ->label(__('telesale_action.edit_warehouse'))
+            ->label(fn($record): string => app(TelesaleFinalizeOrderService::class)->hasEditableOrder($record)
+                ? __('telesale_action.update_order')
+                : __('telesale_action.finalize_order'))
             ->icon('heroicon-o-shopping-cart')
             ->color('success')
             ->disabled(fn($record): bool => app(TelesaleFinalizeOrderService::class)->isFinalizeOrderLockedForSale($record))
