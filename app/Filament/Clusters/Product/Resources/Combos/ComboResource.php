@@ -3,7 +3,7 @@
 namespace App\Filament\Clusters\Product\Resources\Combos;
 
 use App\Common\Constants\User\UserRole;
-use App\Filament\Clusters\Product\ProductCluster;
+use App\Filament\Clusters\Organization\OrganizationCluster;
 use App\Filament\Clusters\Product\Resources\Combos\Pages\CreateCombo;
 use App\Filament\Clusters\Product\Resources\Combos\Pages\EditCombo;
 use App\Filament\Clusters\Product\Resources\Combos\Pages\ListCombos;
@@ -23,15 +23,11 @@ use Illuminate\Support\Facades\Auth;
 class ComboResource extends Resource
 {
     protected static ?string $model = Combo::class;
+    protected static ?string $cluster = OrganizationCluster::class;
 
     protected static string|BackedEnum|null $navigationIcon = '';
 
     protected static ?string $recordTitleAttribute = 'Combo';
-
-    public static function getNavigationParentItem(): ?string
-    {
-        return __('filament.navigation.unit_administration');
-    }
 
     public static function getModelLabel(): string
     {
@@ -40,12 +36,12 @@ class ComboResource extends Resource
 
     public static function getPluralModelLabel(): string
     {
-        return __('filament.combo.label');
+        return __('filament.combo.plural_label');
     }
 
     public static function getNavigationLabel(): string
     {
-        return __('filament.combo.label');
+        return __('filament.combo.navigation_label');
     }
 
     public static function form(Schema $schema): Schema
