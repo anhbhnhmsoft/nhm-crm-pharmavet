@@ -658,6 +658,16 @@ class CustomerOperationsTable
                                         ->schema([
                                             TextInput::make('username')->label(__('warehouse.order.form.username'))->formatStateUsing(fn($record) => $record->username)->disabled(),
                                             TextInput::make('phone')->label(__('warehouse.order.form.phone'))->formatStateUsing(fn($record) => $record->phone)->disabled(),
+                                            Select::make('shipping_method')
+                                                ->label(__('warehouse.order.form.shipping_method'))
+                                                ->options(ProviderShipping::getOptions())
+                                                ->live()
+                                                ->required()
+                                                ->extraInputAttributes(['required' => false])
+                                                ->validationMessages([
+                                                    'required' => __('common.error.required'),
+                                                    'in' => __('common.error.in', ['attribute' => __('warehouse.order.form.shipping_method')]),
+                                                ]),
                                             Select::make('province_id')
                                                 ->label(__('warehouse.order.form.province'))
                                                 ->options(Province::all()->pluck('name', 'id'))
@@ -695,6 +705,8 @@ class CustomerOperationsTable
                                     }
                                 })
                                                 ->searchable()
+                                                ->preload()
+                                                ->native(false)
                                                 ->live()
                                                 ->visible(fn(Get $get) => $get('shipping_method') === ProviderShipping::GHN->value)
                                                 ->afterStateUpdated(function (Set $set) {
@@ -718,6 +730,8 @@ class CustomerOperationsTable
                                     }
                                 })
                                                 ->searchable()
+                                                ->preload()
+                                                ->native(false)
                                                 ->live()
                                                 ->visible(fn(Get $get) => $get('shipping_method') === ProviderShipping::GHN->value)
                                                 ->afterStateUpdated(fn(Set $set) => $set('ghn_ward_code', null))
@@ -738,6 +752,8 @@ class CustomerOperationsTable
                                     }
                                 })
                                                 ->searchable()
+                                                ->preload()
+                                                ->native(false)
                                                 ->visible(fn(Get $get) => $get('shipping_method') === ProviderShipping::GHN->value)
                                                 ->required(fn(Get $get) => $get('shipping_method') === ProviderShipping::GHN->value),
 
@@ -797,16 +813,6 @@ class CustomerOperationsTable
                                         },
                                     ];
                                 }),
-                                            Select::make('shipping_method')
-                                                ->label(__('warehouse.order.form.shipping_method'))
-                                                ->options(ProviderShipping::getOptions())
-                                                ->live()
-                                                ->required()
-                                                ->extraInputAttributes(['required' => false])
-                                                ->validationMessages([
-                                                    'required' => __('common.error.required'),
-                                                    'in' => __('common.error.in', ['attribute' => __('warehouse.order.form.shipping_method')]),
-                                                ]),
                                             Select::make('required_note')
                                                 ->label(__('warehouse.order.form.required_note'))
                                                 ->options(RequiredNote::getOptions())
