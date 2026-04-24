@@ -11,6 +11,7 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 
 class CallMetricsReportPage extends Page implements HasForms
@@ -97,12 +98,11 @@ class CallMetricsReportPage extends Page implements HasForms
     public function generateReport(): void
     {
         $state = $this->getValidatedFilters();
+        $from = $this->resolveDateBoundary($state['from_date'] ?? now()->startOfMonth()->toDateString(), true);
+        $to = $this->resolveDateBoundary($state['to_date'] ?? now()->toDateString(), false);
 
         $query = CustomerInteraction::query()
-            ->whereBetween('interacted_at', [
-                ($state['from_date'] ?? now()->startOfMonth()->toDateString()) . ' 00:00:00',
-                ($state['to_date'] ?? now()->toDateString()) . ' 23:59:59',
-            ])
+            ->whereBetween('interacted_at', [$from, $to])
             ->where('type', 1);
 
         $totalCalls = (clone $query)->count();
@@ -142,5 +142,14 @@ class CallMetricsReportPage extends Page implements HasForms
         );
 
         return $validated['data'];
+    }
+
+    protected function resolveDateBoundary(string $value, bool $isStart): string
+    {
+        $date = Carbon::parse($value);
+
+        return $isStart
+            ? $date->startOfDay()->toDateTimeString()
+            : $date->endOfDay()->toDateTimeString();
     }
 }
