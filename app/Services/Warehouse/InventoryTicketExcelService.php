@@ -16,14 +16,24 @@ class InventoryTicketExcelService
 {
     public function templateHeadings(): array
     {
-        return ['sku', 'quantity', 'unit_price', 'batch_no', 'expired_at'];
+        $headings = ['sku', 'quantity'];
+
+        if ($this->usesAdvancedInventoryColumns()) {
+            $headings = array_merge($headings, ['unit_price', 'batch_no', 'expired_at']);
+        }
+
+        return $headings;
     }
 
     public function templateRows(): array
     {
-        return [
-            ['SKU-001', 1, 0, '', ''],
-        ];
+        $row = ['SKU-001', 1];
+
+        if ($this->usesAdvancedInventoryColumns()) {
+            $row = array_merge($row, [0, '', '']);
+        }
+
+        return [$row];
     }
 
     public function buildExportRows(array $details): array
@@ -43,29 +53,43 @@ class InventoryTicketExcelService
         return collect($details)->map(function (array $detail) use ($products): array {
             $product = $products->get((int) ($detail['product_id'] ?? 0));
 
-            return [
+            $row = [
                 $product?->sku ?? '',
                 $product?->name ?? '',
                 (float) ($detail['quantity'] ?? 0),
-                (float) ($detail['unit_price'] ?? 0),
-                (string) ($detail['batch_no'] ?? ''),
-                (string) ($detail['expired_at'] ?? ''),
-                (float) ($detail['current_quantity'] ?? 0),
             ];
+
+            if ($this->usesAdvancedInventoryColumns()) {
+                $row[] = (float) ($detail['unit_price'] ?? 0);
+                $row[] = (string) ($detail['batch_no'] ?? '');
+                $row[] = (string) ($detail['expired_at'] ?? '');
+            }
+
+            $row[] = (float) ($detail['current_quantity'] ?? 0);
+
+            return $row;
         })->all();
     }
 
     public function exportHeadings(): array
     {
-        return [
+        $headings = [
             'sku',
             'product_name',
             'quantity',
-            'unit_price',
-            'batch_no',
-            'expired_at',
-            'available_stock',
         ];
+
+        if ($this->usesAdvancedInventoryColumns()) {
+            $headings = array_merge($headings, [
+                'unit_price',
+                'batch_no',
+                'expired_at',
+            ]);
+        }
+
+        $headings[] = 'available_stock';
+
+        return $headings;
     }
 
     public function importRows(mixed $file, array $ticketState, int $organizationId): array
@@ -75,23 +99,13 @@ class InventoryTicketExcelService
         $rows = $sheets[0] ?? [];
 
         if ($rows === []) {
-            return [];
+            throw ValidationException::withMessages([
+                'file' => __('warehouse.ticket.excel.errors.no_rows_to_import'),
+            ]);
         }
 
         $headerRow = array_shift($rows) ?? [];
-        $headerMap = $this->buildHeaderMap($headerRow);
-
-        $missingColumns = collect(['sku', 'quantity'])
-            ->reject(fn(string $requiredColumn): bool => array_key_exists($requiredColumn, $headerMap))
-            ->values();
-
-        if ($missingColumns->isNotEmpty()) {
-            throw ValidationException::withMessages([
-                'file' => __('warehouse.ticket.excel.errors.missing_columns', [
-                    'columns' => $this->formatColumnLabels($missingColumns),
-                ]),
-            ]);
-        }
+        $headerMap = $this->validateAndBuildHeaderMap($headerRow);
 
         $resolvedRows = [];
         $type = (int) ($ticketState['type'] ?? 0);
@@ -187,6 +201,12 @@ class InventoryTicketExcelService
             ];
         }
 
+        if ($resolvedRows === []) {
+            throw ValidationException::withMessages([
+                'file' => __('warehouse.ticket.excel.errors.no_rows_to_import'),
+            ]);
+        }
+
         return $resolvedRows;
     }
 
@@ -216,7 +236,7 @@ class InventoryTicketExcelService
         $map = [];
 
         foreach ($headerRow as $index => $heading) {
-            $normalized = strtolower(trim((string) $heading));
+            $normalized = $this->normalizeHeading((string) $heading);
 
             if ($normalized !== '') {
                 $map[$normalized] = $index;
@@ -224,6 +244,60 @@ class InventoryTicketExcelService
         }
 
         return $map;
+    }
+
+    protected function validateAndBuildHeaderMap(array $headerRow): array
+    {
+        $acceptedColumns = $this->acceptedImportColumns();
+        $headerMap = [];
+        $invalidColumns = collect();
+
+        foreach ($headerRow as $index => $heading) {
+            $originalHeading = trim((string) $heading);
+
+            if ($originalHeading === '') {
+                continue;
+            }
+
+            $normalizedHeading = $this->normalizeHeading($originalHeading);
+
+            if ($normalizedHeading === '') {
+                continue;
+            }
+
+            if (! $acceptedColumns->contains($normalizedHeading)) {
+                $invalidColumns->push($originalHeading);
+
+                continue;
+            }
+
+            $headerMap[$normalizedHeading] = $index;
+        }
+
+        $messages = [];
+        $missingColumns = $this->requiredImportColumns()
+            ->reject(fn(string $requiredColumn): bool => array_key_exists($requiredColumn, $headerMap))
+            ->values();
+
+        if ($missingColumns->isNotEmpty()) {
+            $messages[] = __('warehouse.ticket.excel.errors.missing_columns', [
+                'columns' => $this->formatColumnLabels($missingColumns),
+            ]);
+        }
+
+        if ($invalidColumns->isNotEmpty()) {
+            $messages[] = __('warehouse.ticket.excel.errors.invalid_columns', [
+                'columns' => $this->formatRawColumnNames($invalidColumns),
+            ]);
+        }
+
+        if ($messages !== []) {
+            throw ValidationException::withMessages([
+                'file' => $messages,
+            ]);
+        }
+
+        return $headerMap;
     }
 
     protected function extractRowValues(array $row, array $headerMap): array
@@ -290,6 +364,31 @@ class InventoryTicketExcelService
             ->implode(', ');
     }
 
+    protected function formatRawColumnNames(Collection $columns): string
+    {
+        return $columns
+            ->map(fn(string $column): string => '"' . trim($column) . '"')
+            ->implode(', ');
+    }
+
+    protected function requiredImportColumns(): Collection
+    {
+        return collect(['sku', 'quantity']);
+    }
+
+    protected function acceptedImportColumns(): Collection
+    {
+        return collect([
+            'sku',
+            'quantity',
+            'unit_price',
+            'batch_no',
+            'expired_at',
+            'product_name',
+            'available_stock',
+        ]);
+    }
+
     protected function resolveColumnLabel(string $column): string
     {
         return match ($column) {
@@ -300,6 +399,14 @@ class InventoryTicketExcelService
             'expired_at' => __('warehouse.ticket.form.expired_at'),
             default => $column,
         };
+    }
+
+    protected function normalizeHeading(string $heading): string
+    {
+        $normalized = strtolower(trim($heading));
+        $normalized = str_replace(['-', ' '], '_', $normalized);
+
+        return preg_replace('/[^a-z0-9_]+/', '', $normalized) ?? '';
     }
 
     protected function resolveWarehouseId(array $ticketState): int
@@ -327,5 +434,10 @@ class InventoryTicketExcelService
             0,
             (int) ($stock?->quantity ?? 0) - (int) ($stock?->pending_quantity ?? 0)
         );
+    }
+
+    protected function usesAdvancedInventoryColumns(): bool
+    {
+        return (bool) config('warehouse.features.advanced_inventory_v1', false);
     }
 }

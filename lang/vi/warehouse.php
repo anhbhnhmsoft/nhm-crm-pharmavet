@@ -133,11 +133,13 @@ return [
             'errors' => [
                 'missing_column' => 'Thiếu cột bắt buộc ":column" trong file import.',
                 'missing_columns' => 'File import đang thiếu các cột bắt buộc: :columns.',
+                'invalid_columns' => 'File import có cột sai tên hoặc không hợp lệ: :columns.',
                 'type_required_before_import' => 'Vui lòng chọn Loại phiếu trước khi import dòng sản phẩm.',
                 'warehouse_required_before_import' => 'Vui lòng chọn kho trước khi import dòng sản phẩm cho phiếu xuất/chuyển kho.',
                 'sku_required' => 'Dòng :row chưa nhập SKU sản phẩm.',
                 'quantity_invalid' => 'Dòng :row có số lượng không hợp lệ.',
                 'unit_price_invalid' => 'Dòng :row có đơn giá không hợp lệ.',
+                'no_rows_to_import' => 'File import chưa có dòng sản phẩm hợp lệ để xử lý.',
                 'row_invalid_fields' => 'Dòng :row đang thiếu hoặc sai dữ liệu ở các cột: :fields.',
                 'product_not_found' => 'Dòng :row không tìm thấy sản phẩm với SKU ":sku".',
                 'insufficient_stock' => 'Dòng :row vượt tồn kho hiện có của SKU ":sku". Tồn hiện tại: :stock.',
