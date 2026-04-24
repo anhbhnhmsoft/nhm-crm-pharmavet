@@ -27,6 +27,8 @@ use App\Models\Warehouse;
 use App\Services\OrderService;
 use App\Services\Telesale\OrderFinanceService;
 use App\Services\Telesale\TelesaleFinalizeOrderService;
+use App\Services\Telesale\TelesaleInteractionCommand;
+use App\Services\Telesale\TelesaleInteractionWorkflowService;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
@@ -473,25 +475,22 @@ class CustomerOperationsTable
             ]);
     }
 
-    protected static function handleInteractionAction($record, array $data): void
+    protected static function handleInteractionAction($record, array $data, ?object $livewire = null): void
     {
         try {
-            $reason = (int) $data['reason'];
-            $currentStatus = (int) $record->interaction_status;
-            $nextStatus = ReasonInteraction::getNextStatus($reason, $currentStatus);
+            app(TelesaleInteractionWorkflowService::class)->execute(
+                TelesaleInteractionCommand::fromArray($record, $data, (int) Auth::id(), 'table_action')
+            );
 
-            $record->customerStatusLog()->create([
-                'from_status' => $currentStatus,
-                'to_status' => $nextStatus,
-                'reason' => $reason,
-                'user_id' => Auth::id(),
-            ]);
+            if ($record && method_exists($record, 'refresh')) {
+                $record->refresh();
+            }
 
-            $record->interaction_status = $nextStatus;
-            $record->next_action_at = ReasonInteraction::requiresScheduling($reason)
-                ? ($data['next_action_at'] ?? null)
-                : null;
-            $record->save();
+            if ($livewire && method_exists($livewire, 'resetTable')) {
+                $livewire->resetTable();
+            } elseif ($livewire && method_exists($livewire, 'dispatch')) {
+                $livewire->dispatch('$refresh');
+            }
 
             Notification::make()
                 ->title(__('common.success.update_success'))

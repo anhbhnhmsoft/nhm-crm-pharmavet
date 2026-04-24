@@ -23,6 +23,23 @@ use Throwable;
 
 class InteractionStepActions
 {
+    protected static function refreshInteractionUi(object $livewire, mixed $record = null): void
+    {
+        if ($record && method_exists($record, 'refresh')) {
+            $record->refresh();
+        }
+
+        if (method_exists($livewire, 'resetTable')) {
+            $livewire->resetTable();
+
+            return;
+        }
+
+        if (method_exists($livewire, 'dispatch')) {
+            $livewire->dispatch('$refresh');
+        }
+    }
+
     public static function make(): array
     {
         return collect(self::configs())
@@ -97,19 +114,23 @@ class InteractionStepActions
                     self::noteField(),
                 ]),
             ])
-            ->action(fn(array $data, $record) => self::handleAction($record, $data))
+            ->action(fn(array $data, $record, $livewire) => self::handleAction($record, $data, $livewire))
             ->modalHeading(InteractionStatus::getLabel($status))
             ->modalDescription(fn($record) => self::modalDescription($record))
             ->modalSubmitActionLabel(__('common.action.save'))
             ->visible(fn($record): bool => (int) $record->interaction_status === $status);
     }
 
-    protected static function handleAction($record, array $data): void
+    protected static function handleAction($record, array $data, ?object $livewire = null): void
     {
         try {
             app(TelesaleInteractionWorkflowService::class)->execute(
                 TelesaleInteractionCommand::fromArray($record, $data, (int) Auth::id(), 'table_action')
             );
+
+            if ($livewire) {
+                self::refreshInteractionUi($livewire, $record);
+            }
 
             Notification::make()
                 ->title(__('common.success.update_success'))

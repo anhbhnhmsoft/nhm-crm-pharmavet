@@ -87,11 +87,10 @@ class EditTelesaleOperation extends EditRecord
 
             $this->record->refresh();
 
-            $this->form->fill([
+            $this->fillFormWithDataAndCallHooks($this->record, [
                 'interaction_reason' => null,
                 'interaction_note' => null,
                 'interaction_next_action_at' => null,
-                'next_action_at' => $this->record->next_action_at,
             ]);
 
             Notification::make()

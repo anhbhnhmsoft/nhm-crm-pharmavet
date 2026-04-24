@@ -883,6 +883,7 @@ class ReconciliationService
             return ServiceReturn::success(
                 data: [
                     'reconciliation' => $reconciliation->fresh(),
+                    'order_detail' => $orderDetail,
                     'updated_fields' => $updatedFields,
                     'local_sync_warnings' => $localSyncWarnings,
                 ],

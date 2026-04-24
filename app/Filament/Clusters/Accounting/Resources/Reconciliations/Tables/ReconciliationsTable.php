@@ -42,6 +42,27 @@ class ReconciliationsTable
 {
     private const SHIPPING_STATUS_NOT_POSTED = '__not_posted__';
 
+    protected static function refreshTableAfterMutation(object $livewire, ?object $record = null, bool $deselectRecords = false): void
+    {
+        if ($record && method_exists($record, 'refresh')) {
+            $record->refresh();
+        }
+
+        if ($deselectRecords && method_exists($livewire, 'deselectAllTableRecords')) {
+            $livewire->deselectAllTableRecords();
+        }
+
+        if (method_exists($livewire, 'resetTable')) {
+            $livewire->resetTable();
+
+            return;
+        }
+
+        if (method_exists($livewire, 'dispatch')) {
+            $livewire->dispatch('$refresh');
+        }
+    }
+
     protected static function getOrganizationId(): ?int
     {
         return auth()->user()?->organization_id;
@@ -1611,7 +1632,7 @@ class ReconciliationsTable
                             ->disabled()
                             ->visible(fn($get) => !empty($get('error'))),
                     ])
-                    ->action(function ($record, array $data, ReconciliationService $service) {
+                    ->action(function ($record, array $data, ReconciliationService $service, $livewire) {
                         $orderDetail = Caching::getCache(CacheKey::GHN_ORDER_DETAIL, (string) $record->id);
 
                         $fields = [
@@ -1662,16 +1683,28 @@ class ReconciliationsTable
                                 ->danger()
                                 ->send();
                         } else {
+                            $payload = $result->getData();
+
+                            if (is_array($payload['order_detail'] ?? null)) {
+                                Caching::setCache(
+                                    CacheKey::GHN_ORDER_DETAIL,
+                                    $payload['order_detail'],
+                                    (string) $record->id,
+                                    15
+                                );
+                            }
+
                             $notification = Notification::make()
                                 ->title($result->getMessage());
 
-                            if (($result->getData()['local_sync_warnings'] ?? []) !== []) {
+                            if (($payload['local_sync_warnings'] ?? []) !== []) {
                                 $notification->warning();
                             } else {
                                 $notification->success();
                             }
 
                             $notification->send();
+                            self::refreshTableAfterMutation($livewire, $record);
                         }
                     }),
                 Action::make('confirm')
@@ -1684,7 +1717,7 @@ class ReconciliationsTable
                     ->tooltip(fn($record) => ! self::canConfirmRecord($record)
                         ? __('accounting.reconciliation.confirm_requires_final_shipping_status')
                         : null)
-                    ->action(function ($record, ReconciliationService $service) {
+                    ->action(function ($record, ReconciliationService $service, $livewire) {
                         $result = $service->confirmReconciliation($record->id);
 
                         if ($result->isError()) {
@@ -1698,6 +1731,8 @@ class ReconciliationsTable
                                 ->success()
                                 ->title(__('accounting.reconciliation.confirmed'))
                                 ->send();
+
+                            self::refreshTableAfterMutation($livewire, $record);
                         }
                     }),
                 Action::make('print_order')
@@ -1730,8 +1765,9 @@ class ReconciliationsTable
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
                     ->requiresConfirmation()
+                    ->deselectRecordsAfterCompletion()
                     ->visible(fn($livewire) => $livewire->activeTab === strtolower(ReconciliationStatus::PENDING->name) || $livewire->activeTab === 'all')
-                    ->action(function (Collection $records, ReconciliationService $service) {
+                    ->action(function (Collection $records, ReconciliationService $service, $livewire) {
                         $count = 0;
                         $skipped = 0;
 
@@ -1757,6 +1793,7 @@ class ReconciliationsTable
                         }
 
                         $notification->send();
+                        self::refreshTableAfterMutation($livewire, deselectRecords: true);
                     }),
                 BulkAction::make('bulk_pay')
                     ->label(__('accounting.reconciliation.batch_pay'))
