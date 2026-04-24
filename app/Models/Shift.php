@@ -36,4 +36,9 @@ class Shift extends Model
             'user_id'
         )->withTimestamps();
     }
+
+    public function hasAssignedUsers(): bool
+    {
+        return $this->users()->exists();
+    }
 }

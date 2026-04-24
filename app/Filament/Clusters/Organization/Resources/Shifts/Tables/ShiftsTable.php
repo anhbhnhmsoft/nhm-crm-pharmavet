@@ -2,7 +2,7 @@
 
 namespace App\Filament\Clusters\Organization\Resources\Shifts\Tables;
 
-use Filament\Actions\ActionGroup;
+use App\Common\Constants\User\UserRole;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -14,6 +14,7 @@ use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Auth;
 
 class ShiftsTable
 {
@@ -25,15 +26,16 @@ class ShiftsTable
                     ->label(__('common.table.name'))
                     ->sortable(),
                 TextColumn::make('organization.name')
-                    ->label(__('.organization.label'))
-                    ->sortable(),
+                    ->label(__('filament.organization.label'))
+                    ->sortable()
+                    ->visible(fn () => Auth::user()?->role === UserRole::SUPER_ADMIN->value),
                 TextColumn::make('start_time')
                     ->label(__('filament.shift.table.start_time'))
-                    ->time()
+                    ->time('H:i')
                     ->sortable(),
                 TextColumn::make('end_time')
                     ->label(__('filament.shift.table.end_time'))
-                    ->time()
+                    ->time('H:i')
                     ->sortable(),
                 TextColumn::make('created_at')
                     ->label(__('common.table.created_at'))
@@ -75,7 +77,7 @@ class ShiftsTable
                         ->modalDescription(__('common.modal.delete_confirm'))
                         ->modalSubmitActionLabel(__('common.action.confirm_delete'))
                         ->before(function ($record, DeleteAction $action) {
-                            if ($record->users()->count() > 0) {
+                            if ($record->hasAssignedUsers()) {
                                 \Filament\Notifications\Notification::make()
                                     ->danger()
                                     ->title(__('filament.shift.notifications.delete_failed.title'))
@@ -102,7 +104,7 @@ class ShiftsTable
                         ->modalSubmitActionLabel(__('common.action.confirm_delete'))
                         ->before(function (\Illuminate\Database\Eloquent\Collection $records, DeleteBulkAction $action) {
                             foreach ($records as $record) {
-                                if ($record->users()->count() > 0) {
+                                if ($record->hasAssignedUsers()) {
                                     \Filament\Notifications\Notification::make()
                                         ->danger()
                                         ->title(__('filament.shift.notifications.delete_failed.title'))
@@ -123,7 +125,19 @@ class ShiftsTable
                         ->requiresConfirmation()
                         ->modalHeading(__('common.modal.force_delete_title'))
                         ->modalDescription(__('common.modal.force_delete_confirm'))
-                        ->modalSubmitActionLabel(__('common.action.confirm_delete')),
+                        ->modalSubmitActionLabel(__('common.action.confirm_delete'))
+                        ->before(function (\Illuminate\Database\Eloquent\Collection $records, ForceDeleteBulkAction $action) {
+                            foreach ($records as $record) {
+                                if ($record->hasAssignedUsers()) {
+                                    \Filament\Notifications\Notification::make()
+                                        ->danger()
+                                        ->title(__('filament.shift.notifications.delete_failed.title'))
+                                        ->body(__('filament.shift.notifications.delete_failed.bulk_body'))
+                                        ->send();
+                                    $action->cancel();
+                                }
+                            }
+                        }),
                 ]),
             ]);
     }

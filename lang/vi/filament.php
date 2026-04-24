@@ -226,8 +226,8 @@ return [
     'shift' => [
         'label' => 'Ca làm việc',
         'table' => [
-            'start_time' => 'giờ bắt đầu',
-            'end_time' => 'giờ kết thúc',
+            'start_time' => 'Giờ bắt đầu',
+            'end_time' => 'Giờ kết thúc',
         ],
         'sections' => [
             'basic_info' => 'Thông tin cơ bản',

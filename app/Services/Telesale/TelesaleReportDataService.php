@@ -10,6 +10,7 @@ use App\Models\CustomerStatusLog;
 use App\Models\Order;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 use InvalidArgumentException;
 
 class TelesaleReportDataService
@@ -77,8 +78,8 @@ class TelesaleReportDataService
     public function buildOperationFunnelRows(User $user, array $filters): array
     {
         $filters = $this->normalizeDateRangeFilters($filters);
-        $from = $filters['from_date'] . ' 00:00:00';
-        $to = $filters['to_date'] . ' 23:59:59';
+        $from = $filters['from_at'];
+        $to = $filters['to_at'];
         $staffId = !empty($filters['staff_id']) ? (int) $filters['staff_id'] : null;
         $selectedSteps = array_map('intval', (array) ($filters['selected_steps'] ?? []));
         $unlimitedCloseDate = (bool) ($filters['unlimited_close_date'] ?? false);
@@ -166,8 +167,8 @@ class TelesaleReportDataService
     public function buildTopSaleRankingRows(User $user, array $filters): array
     {
         $filters = $this->normalizeDateRangeFilters($filters);
-        $from = $filters['from_date'] . ' 00:00:00';
-        $to = $filters['to_date'] . ' 23:59:59';
+        $from = $filters['from_at'];
+        $to = $filters['to_at'];
         $staffId = !empty($filters['staff_id']) ? (int) $filters['staff_id'] : null;
         $ruleSetId = !empty($filters['pushsale_rule_set_id']) ? (int) $filters['pushsale_rule_set_id'] : null;
 
@@ -231,11 +232,25 @@ class TelesaleReportDataService
 
     protected function normalizeDateRangeFilters(array $filters): array
     {
+        $fromDate = (string) ($filters['from_date'] ?? now()->startOfMonth()->toDateString());
+        $toDate = (string) ($filters['to_date'] ?? now()->toDateString());
+
         return [
             ...$filters,
-            'from_date' => (string) ($filters['from_date'] ?? now()->startOfMonth()->toDateString()),
-            'to_date' => (string) ($filters['to_date'] ?? now()->toDateString()),
+            'from_date' => Carbon::parse($fromDate)->toDateString(),
+            'to_date' => Carbon::parse($toDate)->toDateString(),
+            'from_at' => $this->normalizeBoundary($fromDate, true),
+            'to_at' => $this->normalizeBoundary($toDate, false),
         ];
+    }
+
+    protected function normalizeBoundary(string $value, bool $isStart): string
+    {
+        $date = Carbon::parse($value);
+
+        return $isStart
+            ? $date->startOfDay()->toDateTimeString()
+            : $date->endOfDay()->toDateTimeString();
     }
 
     protected function applyAssignedStaffScope(Builder $query, array $staffIds): void
