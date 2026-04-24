@@ -34,25 +34,34 @@ class CreateInventoryTicket extends CreateRecord
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('success')
                 ->action(function (InventoryTicketExcelService $service) {
-                    $state = $this->form->getRawState();
-                    $details = collect($state['details'] ?? [])
-                        ->filter(fn(array $detail): bool => filled($detail['product_id'] ?? null))
-                        ->values()
-                        ->all();
+                    try {
+                        $rawState = $this->form->getRawState();
+                        $details = $service->resolveExportDetails(
+                            $this->data['details'] ?? ($rawState['details'] ?? []),
+                        );
 
-                    if ($details === []) {
+                        if ($details === []) {
+                            Notification::make()
+                                ->warning()
+                                ->title(__('warehouse.ticket.excel.errors.no_details_to_export'))
+                                ->send();
+
+                            return null;
+                        }
+
+                        return Excel::download(
+                            new SimpleArrayExport($service->exportHeadings(), $service->buildExportRows($details)),
+                            'inventory-ticket-lines-' . now()->format('YmdHis') . '.xlsx'
+                        );
+                    } catch (\Throwable $exception) {
                         Notification::make()
-                            ->warning()
-                            ->title(__('warehouse.ticket.excel.errors.no_details_to_export'))
+                            ->danger()
+                            ->title(__('warehouse.ticket.excel.export_failed'))
+                            ->body($service->formatImportException($exception))
                             ->send();
 
                         return null;
                     }
-
-                    return Excel::download(
-                        new SimpleArrayExport($service->exportHeadings(), $service->buildExportRows($details)),
-                        'inventory-ticket-lines-' . now()->format('YmdHis') . '.xlsx'
-                    );
                 }),
             Action::make('import_detail_lines')
                 ->label(__('warehouse.ticket.excel.import'))

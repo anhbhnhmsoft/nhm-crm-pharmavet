@@ -3,6 +3,7 @@
 namespace Tests\Unit\Warehouse;
 
 use App\Common\Constants\Warehouse\TypeTicket;
+use App\Models\InventoryTicketDetail;
 use App\Services\Warehouse\InventoryTicketExcelService;
 use Illuminate\Validation\ValidationException;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -92,6 +93,56 @@ class InventoryTicketExcelServiceTest extends TestCase
         } finally {
             @unlink($path);
         }
+    }
+
+    public function test_resolve_export_details_handles_form_state_rows(): void
+    {
+        $service = new InventoryTicketExcelService();
+
+        $details = $service->resolveExportDetails([
+            [
+                'product_id' => '12',
+                'quantity' => '3',
+                'unit_price' => '15000',
+                'batch_no' => 'LO-01',
+                'expired_at' => '2026-12-31',
+                'current_quantity' => '40',
+            ],
+        ]);
+
+        $this->assertSame([
+            [
+                'product_id' => 12,
+                'quantity' => 3.0,
+                'unit_price' => 15000.0,
+                'batch_no' => 'LO-01',
+                'expired_at' => '2026-12-31',
+                'current_quantity' => 40.0,
+            ],
+        ], $details);
+    }
+
+    public function test_resolve_export_details_falls_back_to_persisted_details_when_form_state_is_empty(): void
+    {
+        $service = new InventoryTicketExcelService();
+
+        $detail = new InventoryTicketDetail([
+            'product_id' => 5,
+            'quantity' => 2,
+            'unit_price' => 5000,
+            'batch_no' => 'B-01',
+            'expired_at' => '2026-11-30',
+            'current_quantity' => 9,
+        ]);
+
+        $details = $service->resolveExportDetails([], collect([$detail]));
+
+        $this->assertSame(5, $details[0]['product_id']);
+        $this->assertSame(2.0, $details[0]['quantity']);
+        $this->assertSame(5000.0, $details[0]['unit_price']);
+        $this->assertSame('B-01', $details[0]['batch_no']);
+        $this->assertSame('2026-11-30', $details[0]['expired_at']);
+        $this->assertSame(9.0, $details[0]['current_quantity']);
     }
 
     private function createTemporaryExcelFile(array $rows): string

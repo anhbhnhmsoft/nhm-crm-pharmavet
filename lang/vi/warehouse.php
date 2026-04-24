@@ -130,6 +130,7 @@ return [
             'file' => 'File Excel',
             'import_success' => 'Import dòng sản phẩm thành công.',
             'import_failed' => 'Import dòng sản phẩm thất bại.',
+            'export_failed' => 'Xuất Excel dòng sản phẩm thất bại.',
             'errors' => [
                 'missing_column' => 'Thiếu cột bắt buộc ":column" trong file import.',
                 'missing_columns' => 'File import đang thiếu các cột bắt buộc: :columns.',

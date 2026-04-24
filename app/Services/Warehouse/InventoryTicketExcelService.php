@@ -3,10 +3,12 @@
 namespace App\Services\Warehouse;
 
 use App\Common\Constants\Warehouse\TypeTicket;
+use App\Models\InventoryTicketDetail;
 use App\Models\Product;
 use App\Models\ProductWarehouse;
 use Carbon\Carbon;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Enumerable;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 use Maatwebsite\Excel\Facades\Excel;
@@ -90,6 +92,52 @@ class InventoryTicketExcelService
         $headings[] = 'available_stock';
 
         return $headings;
+    }
+
+    public function resolveExportDetails(mixed $details, mixed $fallbackDetails = []): array
+    {
+        $normalizedDetails = $this->normalizeExportDetailSource($details);
+
+        if ($normalizedDetails === []) {
+            $normalizedDetails = $this->normalizeExportDetailSource($fallbackDetails);
+        }
+
+        return collect($normalizedDetails)
+            ->map(function (array $detail): array {
+                $expiredAt = $detail['expired_at'] ?? null;
+
+                if ($expiredAt instanceof Carbon) {
+                    $expiredAt = $expiredAt->toDateString();
+                } elseif ($expiredAt instanceof \DateTimeInterface) {
+                    $expiredAt = $expiredAt->format('Y-m-d');
+                } elseif (filled($expiredAt)) {
+                    try {
+                        $expiredAt = Carbon::parse((string) $expiredAt)->toDateString();
+                    } catch (\Throwable) {
+                        $expiredAt = (string) $expiredAt;
+                    }
+                } else {
+                    $expiredAt = null;
+                }
+
+                return [
+                    'product_id' => (int) data_get($detail, 'product_id', 0),
+                    'quantity' => (float) (data_get($detail, 'quantity', 0) ?: 0),
+                    'unit_price' => (float) (data_get($detail, 'unit_price', 0) ?: 0),
+                    'batch_no' => filled(data_get($detail, 'batch_no'))
+                        ? trim((string) data_get($detail, 'batch_no'))
+                        : null,
+                    'expired_at' => $expiredAt,
+                    'current_quantity' => (float) (
+                        data_get($detail, 'current_quantity')
+                        ?? data_get($detail, 'stock_quantity_display')
+                        ?? 0
+                    ),
+                ];
+            })
+            ->filter(fn(array $detail): bool => $detail['product_id'] > 0)
+            ->values()
+            ->all();
     }
 
     public function importRows(mixed $file, array $ticketState, int $organizationId): array
@@ -244,6 +292,52 @@ class InventoryTicketExcelService
         }
 
         return $map;
+    }
+
+    protected function normalizeExportDetailSource(mixed $details): array
+    {
+        if ($details instanceof Enumerable) {
+            $details = $details->all();
+        }
+
+        if (! is_array($details)) {
+            return [];
+        }
+
+        return collect($details)
+            ->map(function (mixed $detail): array {
+                if ($detail instanceof InventoryTicketDetail) {
+                    return [
+                        'product_id' => $detail->product_id,
+                        'quantity' => $detail->quantity,
+                        'unit_price' => $detail->unit_price,
+                        'batch_no' => $detail->batch_no,
+                        'expired_at' => $detail->getRawOriginal('expired_at')
+                            ?: $detail->expired_at?->toDateString(),
+                        'current_quantity' => $detail->current_quantity,
+                    ];
+                }
+
+                if ($detail instanceof Collection) {
+                    return $detail->toArray();
+                }
+
+                if (is_array($detail)) {
+                    return $detail;
+                }
+
+                if (is_object($detail) && method_exists($detail, 'toArray')) {
+                    return (array) $detail->toArray();
+                }
+
+                if (is_object($detail)) {
+                    return (array) $detail;
+                }
+
+                return [];
+            })
+            ->values()
+            ->all();
     }
 
     protected function validateAndBuildHeaderMap(array $headerRow): array
