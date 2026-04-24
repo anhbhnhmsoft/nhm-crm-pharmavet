@@ -278,7 +278,40 @@
 # bảng customers
 
     # note
-    - xem là bảng data đầu vào ~ số được chia là số của khách hàng
+    - Bảng lead/khách hàng trung tâm của khối Marketing -> Telesale -> Đơn hàng.
+    - Mỗi bản ghi tương ứng một đầu mối khách hàng được đổ từ nguồn ngoài hoặc tạo thủ công.
+    - Đây là bản ghi "current state":
+      - ai đang phụ trách chính,
+      - khách đang ở bước chăm sóc nào,
+      - có lịch hẹn gọi/chăm sóc tiếp theo hay không.
+    - Lịch sử thao tác không lưu tại đây mà tách sang:
+      - `customer_interactions`: log hành vi tương tác,
+      - `customer_status_logs`: log chuyển trạng thái nghiệp vụ.
+
+    # ghi chú nghiệp vụ
+    - `assigned_staff_id` là người phụ trách chính hiện tại của lead.
+    - `user_assigned_staff` là danh sách nhân sự đã/đang từng được gán với khách hàng để phục vụ phân quyền xem dữ liệu và truy vết lịch sử phân công.
+    - `interaction_status` là trạng thái tác nghiệp hiện tại của khách hàng, đang dùng enum `InteractionStatus`:
+      - `1=FIRST_CALL`
+      - `2=SECOND_CALL`
+      - `3=THIRD_CALL`
+      - `4=FOURTH_CALL`
+      - `5=FIFTH_CALL`
+      - `6=SIXTH_CALL`
+      - `7=USER_MANUAL`
+      - `8=SECOND_CARE`
+      - `9=THIRD_CARE`
+      - `10=PASS`
+      - `11=UN_CARE`
+      - `12=INEFFICIENT`
+      - `13=RECEIVED`
+      - `14=COMPLETED`
+      - `15=MISSED`
+      - `16=FAILED`
+    - `next_action_at` là mốc hẹn chăm sóc/gọi lại tiếp theo; dùng để nhắc việc và lọc các lead đến hạn follow-up.
+    - `duplicate_hash` là khóa gom lead trùng trong cùng tổ chức, được build từ `sha1(normalized_phone|normalized_email)`.
+    - `source`, `source_detail`, `source_id` dùng để giữ truy vết nguồn marketing ban đầu, không nên bị ghi đè tùy tiện ở bước telesale.
+
     # cấu trúc
     - id: (int, primary key, auto-increment)
     - organization_id : (int, foreign key  -> organizations.id, not null) -- tổ chức sở hữu khách hàng
@@ -290,6 +323,7 @@
     - customer_type : (tiny integer, not null) -- phân loại khách hàng đầu vào ~ số mới, số mới trùng, số cũ
     - interaction_status : (tiny integer, default 1, not null) -- trạng thái tương tác (1=FIRST_CALL, 2=SECOND_CALL, etc.)
     - assigned_staff_id : (int, foreign key -> users.id, nullable) -- nhân viên sở hữu số này ~ nhân viên nhận số đầu vào này
+    - product_field_id : (unsignedBigInteger, nullable) -- ngành hàng/lĩnh vực sản phẩm của lead, hỗ trợ phân tuyến/phân tích theo domain kinh doanh
     - next_action_at : (timestamp, nullable) -- hẹn lịch gọi lại
     - product_id : (int, foreign key -> products.id, nullable) -- sản phẩm quan tâm
     - province_id : (unsigned int, nullable) -- tỉnh/thành phố
@@ -300,6 +334,7 @@
     - source : (varchar(100), nullable) -- tên nguồn (Facebook Ads, Landing Page, Website, Manual, etc.)
     - source_detail : (varchar(255), nullable) -- tên nguồn chi tiết VD: campaign, form v.v
     - source_id : (varchar(255), nullable) -- id từ source bên ngoài
+    - duplicate_hash : (varchar(191), nullable, indexed) -- hash phone/email chuẩn hóa để gom lead trùng trong cùng tổ chức
     - note : (text, nullable) -- ghi chú của khách hàng
     - note_temp : (text, nullable) -- ghi chú tạm thời
     - softDeletes
@@ -487,14 +522,49 @@
 # bảng customer_interactions
 
     # note
-    - Lịch sử tương tác với khách hàng (cuộc gọi, tin nhắn, email, ghi chú)
+    - Log hành vi tương tác thực tế với khách hàng.
+    - Đây là bảng trả lời câu hỏi: "nhân viên đã làm gì với khách hàng ở thời điểm nào".
+    - Dữ liệu từ bảng này được dùng cho:
+      - timeline chăm sóc,
+      - thống kê số lần contact,
+      - truy vết nội dung tư vấn/cuộc gọi.
+    - Trong flow telesale mới, mỗi lần thao tác chuẩn nên sinh ra 1 dòng `customer_interactions` và 1 dòng `customer_status_logs`.
+
+    # ghi chú nghiệp vụ
+    - `type` là enum số `InteractionType`, không phải chuỗi:
+      - `1=CALL`
+      - `2=SMS`
+      - `3=EMAIL`
+      - `4=NOTE`
+      - `5=MEETING`
+    - `direction` là enum số `InteractionDirectionType`:
+      - `1=INBOUND`
+      - `2=OUTBOUND`
+    - `channel` mô tả kênh phát sinh tương tác nếu cần chi tiết hơn `type` (vd: facebook, phone, zalo, website...).
+    - `attempt_no` là số thứ tự lần gọi trong chuỗi gọi telesale:
+      - `FIRST_CALL -> 1`
+      - `SECOND_CALL -> 2`
+      - `THIRD_CALL -> 3`
+      - `FOURTH_CALL -> 4`
+      - `FIFTH_CALL -> 5`
+      - `SIXTH_CALL -> 6`
+    - `care_no` là số thứ tự bước chăm sóc sau giai đoạn gọi:
+      - hiện tại workflow đang ghi `SECOND_CARE -> 2`
+      - `THIRD_CARE -> 3`
+      - các bước gọi thông thường để `null`
+    - `status` trong flow telesale hiện đang được dùng như "trạng thái đích sau lần tương tác" hơn là chỉ trạng thái kỹ thuật của cuộc gọi.
+    - `metadata` thường chứa `context`, `reason`, `reason_label`, `from_status`, `to_status` và các dữ liệu mở rộng khác.
+
     # cấu trúc
     - id: (int, primary key, auto-increment)
     - customer_id : (int, foreign key -> customers.id, not null) -- khách hàng
     - user_id : (int, foreign key -> users.id, nullable) -- nhân viên thực hiện
-    - type : (varchar(50), not null) -- loại tương tác (call, sms, email, note, meeting)
-    - direction : (varchar(20), nullable) -- chiều (inbound, outbound)
-    - status : (tiny integer, nullable) -- trạng thái (completed, missed, failed)
+    - type : (unsignedTinyInteger, not null) -- enum loại tương tác (`InteractionType`)
+    - channel : (varchar(20), nullable, indexed) -- kênh phát sinh tương tác
+    - attempt_no : (unsignedSmallInteger, default 1) -- số lần gọi trong chuỗi FIRST_CALL -> SIXTH_CALL
+    - care_no : (unsignedSmallInteger, default 1) -- số bước chăm sóc sau giai đoạn gọi; hiện workflow chủ yếu ghi 2/3 cho SECOND_CARE/THIRD_CARE
+    - direction : (unsignedTinyInteger, nullable) -- enum chiều tương tác (`InteractionDirectionType`)
+    - status : (tiny integer, nullable) -- trạng thái/kết quả đích gắn với lần tương tác
     - duration : (integer, nullable) -- thời lượng cuộc gọi (giây)
     - content : (text, nullable) -- nội dung tin nhắn/ghi chú
     - metadata : (json, nullable) -- dữ liệu bổ sung (recording_url, attachments, etc.)
@@ -511,8 +581,8 @@
     - id: (int, primary key, auto-increment)
     - order_id : (int, foreign key -> orders.id, not null) -- đơn hàng
     - user_id : (int, foreign key -> users.id, nullable) -- người thay đổi
-    - from_status : (varchar(50), nullable) -- trạng thái cũ
-    - to_status : (varchar(50), not null) -- trạng thái mới
+    - from_status : (unsignedTinyInteger, nullable) -- trạng thái cũ
+    - to_status : (unsignedTinyInteger, not null) -- trạng thái mới
     - note : (text, nullable) -- ghi chú
     - timestamps
     - index [order_id, created_at]
@@ -882,7 +952,12 @@
 
     # note
     - Bảng pivot gán Sale/CSKH phụ trách cho từng khách hàng.
-    - Dùng cho phân quyền dữ liệu tác nghiệp và lịch sử phân công.
+    - Khác với `customers.assigned_staff_id`:
+      - `assigned_staff_id` = người phụ trách chính hiện tại,
+      - `user_assigned_staff` = tập nhân sự liên quan/đã từng được gán để dùng cho phân quyền xem dữ liệu, scope báo cáo và truy vết lịch sử phân công.
+    - Khi hệ thống chia lead cho sale, thường cần:
+      - thêm dòng vào bảng này,
+      - đồng thời cập nhật `customers.assigned_staff_id` nếu đó là vai trò sale chính.
 
     # cấu trúc
     - id: (int, primary key, auto-increment)
@@ -895,6 +970,27 @@
     # note
     - Lưu nhật ký chuyển trạng thái chăm sóc khách hàng theo từng lần tác nghiệp.
     - Là nguồn dữ liệu chính cho báo cáo phễu chốt theo bước gọi/chăm sóc.
+    - Đây là bảng trả lời câu hỏi: "sau thao tác này, khách đã được chuyển từ bước nào sang bước nào và vì sao".
+    - Nếu cần audit nghiệp vụ chuẩn thì báo cáo phễu, báo cáo hiệu suất theo bước, timeline nghiệp vụ nên ưu tiên đọc từ bảng này.
+
+    # ghi chú nghiệp vụ
+    - `from_status` / `to_status` dùng cùng enum `InteractionStatus` với bảng `customers`.
+    - `reason` dùng enum `ReasonInteraction`:
+      - `1=CLOSING_ORDER`
+      - `2=NO_ANSWER`
+      - `3=BUSY`
+      - `4=CALL_BACK`
+      - `5=SUBSCRIBERS`
+      - `6=THINK_MORE`
+      - `7=NO_NEED`
+      - `8=GOOD_PERFORMANCE`
+      - `9=POOR_PERFORMANCE`
+    - Trong workflow hiện tại:
+      - `CALL_BACK` và `THINK_MORE` sẽ yêu cầu `customers.next_action_at`,
+      - `NO_ANSWER` / `BUSY` sẽ đẩy khách sang bước gọi/chăm sóc kế tiếp,
+      - `CLOSING_ORDER` / `GOOD_PERFORMANCE` đẩy về `RECEIVED`,
+      - `NO_NEED` đẩy về `UN_CARE`,
+      - `SUBSCRIBERS` / `POOR_PERFORMANCE` đẩy về `INEFFICIENT`.
 
     # cấu trúc
     - id: (int, primary key, auto-increment)
@@ -1074,6 +1170,9 @@
     # note
     - Bảng gom nhóm thông báo lead trùng theo tổ chức để tránh spam realtime.
     - Dùng cho badge thông báo và thống kê số lead trùng đã nhận.
+    - Dữ liệu bảng này không thay thế `customers`; nó chỉ là bảng aggregate để gom theo `duplicate_hash`.
+    - `duplicate_hash` được build từ phone/email chuẩn hóa của lead.
+    - Một tổ chức có thể có nhiều lead cùng `duplicate_hash`; bảng này giữ tổng số lead trùng và lead mới nhất trong nhóm.
 
     # cấu trúc
     - id: (int, primary key, auto-increment)

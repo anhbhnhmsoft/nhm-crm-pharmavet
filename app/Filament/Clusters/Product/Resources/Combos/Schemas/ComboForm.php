@@ -305,6 +305,8 @@ class ComboForm
     {
         return Product::query()
             ->where('organization_id', Auth::user()->organization_id)
+            ->Where('is_business_product', true)
+            ->where('quantity', '>', 0)
             ->orderBy('name')
             ->pluck('name', 'id')
             ->all();
