@@ -16,13 +16,13 @@
                     <h3 class="text-xl font-bold text-center text-zinc-900 dark:text-white mb-2">{{ __('auth.registration.success_title') }}</h3>
                     <p class="text-zinc-600 dark:text-zinc-400 text-center mb-8">{{ __('auth.registration.success_body') }}</p>
                     <button @click="show = false; $wire.set('success', false)" class="w-full py-3 bg-zinc-900 dark:bg-white dark:text-zinc-900 text-white rounded-xl font-semibold hover:opacity-90 transition-opacity">
-                        Đóng
+                        {{ __('auth.registration.close') }}
                     </button>
                 </div>
             </div>
         @endif
 
-        <form wire:submit.prevent="submit" x-data="{ industryId: @entangle('industry_id') }" class="space-y-5">
+        <form wire:submit.prevent="submit" x-data="{ industryId: @entangle('industry_id') }" class="space-y-5" novalidate>
             {{-- Họ tên --}}
             <div>
                 <label for="name" class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-2">{{ __('auth.registration.fields.name') }} <span class="text-red-500">*</span></label>
@@ -42,7 +42,7 @@
             {{-- Email --}}
             <div>
                 <label for="email" class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-2">{{ __('auth.registration.fields.email') }} <span class="text-red-500">*</span></label>
-                <input wire:model.blur="email" type="email" id="email" placeholder="{{ __('auth.registration.placeholder.email') }}" 
+                <input wire:model.blur="email" type="text" inputmode="email" autocapitalize="off" autocomplete="email" spellcheck="false" id="email" placeholder="{{ __('auth.registration.placeholder.email') }}" 
                     class="w-full px-4 py-3 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white transition-all outline-none @error('email') border-red-500 @enderror">
                 @error('email') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
             </div>
@@ -60,7 +60,7 @@
                 @error('industry_id') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
                 
                 <div x-show="industryId == {{ App\Common\Constants\Organization\ProductField::OTHER->value }}" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
-                    <input wire:model="custom_industry" type="text" placeholder="{{ __('auth.registration.fields.custom_industry_placeholder') }}" 
+                    <input wire:model.blur="custom_industry" type="text" placeholder="{{ __('auth.registration.fields.custom_industry_placeholder') }}" 
                         class="w-full mt-2 px-4 py-3 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white transition-all outline-none @error('custom_industry') border-red-500 @enderror">
                     @error('custom_industry') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                 </div>
@@ -73,12 +73,9 @@
                     <select wire:model="employee_count" id="employee_count" 
                         class="w-full px-4 py-3 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white transition-all outline-none @error('employee_count') border-red-500 @enderror">
                         <option value="">{{ __('auth.registration.fields.employee_count_placeholder') }}</option>
-                        <option value="1-50">{{ __('auth.registration.fields.number_employee.select_1') }}</option>
-                        <option value="51-100">{{ __('auth.registration.fields.number_employee.select_2') }}</option>
-                        <option value="101-200">{{ __('auth.registration.fields.number_employee.select_3') }}</option>
-                        <option value="201-500">{{ __('auth.registration.fields.number_employee.select_4') }}</option>
-                        <option value="501-1000">{{ __('auth.registration.fields.number_employee.select_5') }}</option>
-                        <option value="1000+">{{ __('auth.registration.fields.number_employee.select_6') }}</option>
+                        @foreach ($employeeCountOptions as $value => $label)
+                            <option value="{{ $value }}">{{ $label }}</option>
+                        @endforeach
                     </select>
                     @error('employee_count') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                 </div>
@@ -89,16 +86,15 @@
                     <select wire:model="preferred_time" id="preferred_time" 
                         class="w-full px-4 py-3 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white transition-all outline-none @error('preferred_time') border-red-500 @enderror">
                         <option value="">{{ __('auth.registration.fields.preferred_time_placeholder') }}</option>
-                        <option value="anytime">{{ __('auth.registration.options.preferred_time.anytime') }}</option>
-                        <option value="morning">{{ __('auth.registration.options.preferred_time.morning') }}</option>
-                        <option value="afternoon">{{ __('auth.registration.options.preferred_time.afternoon') }}</option>
-                        <option value="evening">{{ __('auth.registration.options.preferred_time.evening') }}</option>
+                        @foreach ($preferredTimeOptions as $value => $label)
+                            <option value="{{ $value }}">{{ $label }}</option>
+                        @endforeach
                     </select>
                     @error('preferred_time') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                 </div>
             </div>
 
-            <button type="submit" wire:loading.attr="disabled" wire:target="submit"
+            <button type="submit" formnovalidate wire:loading.attr="disabled" wire:target="submit"
                 class="w-full mt-4 flex items-center justify-center gap-2 py-4 bg-zinc-900 dark:bg-white dark:text-zinc-900 text-white rounded-xl font-bold text-lg hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50">
                 <span wire:loading.remove wire:target="submit">{{ __('auth.registration.submit') }}</span>
                 <span wire:loading wire:target="submit">{{ __('auth.registration.submitting') }}</span>

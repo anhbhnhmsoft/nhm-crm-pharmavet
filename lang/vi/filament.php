@@ -13,6 +13,11 @@ return [
         'username' => 'Tên đăng nhập',
         'password' => 'Mật khẩu',
         'remember_me' => 'Ghi nhớ đăng nhập',
+        'validation' => [
+            'organization_code_required' => 'Vui lòng chọn mã tổ chức.',
+            'username_required' => 'Vui lòng nhập tên đăng nhập.',
+            'password_required' => 'Vui lòng nhập mật khẩu.',
+        ],
         "error" => [
             'invalid_credentials' => 'Tên đăng nhập, mã tổ chức hoặc mật khẩu không đúng.',
             'activity_timeout' => 'Bạn đã không hoạt động quá 15 phút và đã bị đăng xuất tự động.'

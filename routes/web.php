@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\ActivityController;
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\FacebookWebhookController;
 use App\Http\Controllers\FacebookAuthController;
 use App\Http\Controllers\FundTransactionAttachmentController;
@@ -9,6 +8,9 @@ use App\Http\Controllers\GHNWebhookController;
 use App\Http\Controllers\MarketingSpendAttachmentController;
 use App\Http\Controllers\OrderExportTicketPrintController;
 use App\Http\Controllers\OrderShippingController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth:web'])->group(function () {
     Route::post('/heartbeat', [ActivityController::class, 'heartbeat']);
@@ -73,6 +75,21 @@ Route::post('/webhooks/ghn', [GHNWebhookController::class, 'handle'])
 
 // Route::get('/')->name('login');
 
-Route::get('/register', function () {
+Route::get('/register', function (Request $request) {
+    $supportedLocales = ['vi', 'en'];
+    $requestedLocale = $request->query('lang');
+
+    if (in_array($requestedLocale, $supportedLocales, true)) {
+        session(['locale' => $requestedLocale]);
+    }
+
+    $locale = session('locale', config('app.locale'));
+
+    if (! in_array($locale, $supportedLocales, true)) {
+        $locale = config('app.locale');
+    }
+
+    App::setLocale($locale);
+
     return view('auth.partner-registration');
 })->name('partner.register');

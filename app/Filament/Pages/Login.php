@@ -39,18 +39,25 @@ class Login extends BaseLogin
                 ->label(__('filament.login.organization_code'))
                 ->options(fn() => Organization::get()->pluck('name', 'code')->toArray())
                 ->required()
-                ->extraInputAttributes(['tabindex' => 1])
+                ->native(false)
+                ->extraInputAttributes([
+                    'tabindex' => 1,
+                    'required' => false,
+                ])
                 ->validationMessages([
-                    'required' => __('common.error.required'),
+                    'required' => __('filament.login.validation.organization_code_required'),
                 ]),
             TextInput::make('username')
                 ->label(__('filament.login.username'))
                 ->string()
                 ->required()
                 ->autocomplete('username')
-                ->extraInputAttributes(['tabindex' => 2])
+                ->extraInputAttributes([
+                    'tabindex' => 2,
+                    'required' => false,
+                ])
                 ->validationMessages([
-                    'required' => __('common.error.required'),
+                    'required' => __('filament.login.validation.username_required'),
                 ]),
             TextInput::make('password')
                 ->label(__('filament.login.password'))
@@ -58,9 +65,12 @@ class Login extends BaseLogin
                 ->revealable(filament()->arePasswordsRevealable())
                 ->autocomplete('current-password')
                 ->required()
-                ->extraInputAttributes(['tabindex' => 3])
+                ->extraInputAttributes([
+                    'tabindex' => 3,
+                    'required' => false,
+                ])
                 ->validationMessages([
-                    'required' => __('common.error.required'),
+                    'required' => __('filament.login.validation.password_required'),
                 ]),
         ]);
     }

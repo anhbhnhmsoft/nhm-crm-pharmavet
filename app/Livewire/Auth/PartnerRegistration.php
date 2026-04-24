@@ -4,6 +4,8 @@ namespace App\Livewire\Auth;
 
 use App\Common\Constants\Organization\ProductField;
 use App\Services\LeadService;
+use Illuminate\Support\Facades\App;
+use Illuminate\Validation\Rule;
 use Livewire\Component;
 
 class PartnerRegistration extends Component
@@ -18,61 +20,116 @@ class PartnerRegistration extends Component
 
     public $success = false;
 
+    public function mount(): void
+    {
+        $this->applyLocale();
+    }
+
+    public function hydrate(): void
+    {
+        $this->applyLocale();
+    }
+
     public function getIndustries(): array
     {
         return ProductField::toOptions();
     }
 
-    protected $rules = [
-        'name' => 'required|min:3',
-        'phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:10',
-        'email' => 'required|email',
-        'industry_id' => 'required',
-        'custom_industry' => 'required_if:industry_id,other',
-        'employee_count' => 'required',
-        'preferred_time' => 'required',
-    ];
+    public function getEmployeeCountOptions(): array
+    {
+        return [
+            '1-50' => __('auth.registration.fields.number_employee.select_1'),
+            '51-100' => __('auth.registration.fields.number_employee.select_2'),
+            '101-200' => __('auth.registration.fields.number_employee.select_3'),
+            '201-500' => __('auth.registration.fields.number_employee.select_4'),
+            '501-1000' => __('auth.registration.fields.number_employee.select_5'),
+            '1000+' => __('auth.registration.fields.number_employee.select_6'),
+        ];
+    }
 
-    protected $messages = [
-        'name.required' => 'auth.registration.validation.name_required',
-        'name.min' => 'auth.registration.validation.name_min',
-        'phone.required' => 'auth.registration.validation.phone_required',
-        'phone.regex' => 'auth.registration.validation.phone_regex',
-        'phone.min' => 'auth.registration.validation.phone_min',
-        'email.required' => 'auth.registration.validation.email_required',
-        'email.email' => 'auth.registration.validation.email_email',
-        'industry_id.required' => 'auth.registration.validation.industry_required',
-        'custom_industry.required_if' => 'auth.registration.validation.custom_industry_required',
-        'employee_count.required' => 'auth.registration.validation.employee_count_required',
-        'preferred_time.required' => 'auth.registration.validation.preferred_time_required',
-    ];
+    public function getPreferredTimeOptions(): array
+    {
+        return [
+            'anytime' => __('auth.registration.options.preferred_time.anytime'),
+            'morning' => __('auth.registration.options.preferred_time.morning'),
+            'afternoon' => __('auth.registration.options.preferred_time.afternoon'),
+            'evening' => __('auth.registration.options.preferred_time.evening'),
+        ];
+    }
+
+    protected function rules(): array
+    {
+        return [
+            'name' => ['required', 'min:3', 'max:255'],
+            'phone' => ['required', 'regex:/^([0-9\\s\\-\\+\\(\\)]*)$/', 'min:10', 'max:20'],
+            'email' => ['required', 'email', 'max:255'],
+            'industry_id' => ['required', Rule::in(array_map('strval', array_keys($this->getIndustries())))],
+            'custom_industry' => ['nullable', 'required_if:industry_id,' . ProductField::OTHER->value, 'min:2', 'max:255'],
+            'employee_count' => ['required', Rule::in(array_keys($this->getEmployeeCountOptions()))],
+            'preferred_time' => ['required', Rule::in(array_keys($this->getPreferredTimeOptions()))],
+        ];
+    }
+
+    protected function messages(): array
+    {
+        return [
+            'name.required' => __('auth.registration.validation.name_required'),
+            'name.min' => __('auth.registration.validation.name_min'),
+            'name.max' => __('auth.registration.validation.name_max'),
+            'phone.required' => __('auth.registration.validation.phone_required'),
+            'phone.regex' => __('auth.registration.validation.phone_regex'),
+            'phone.min' => __('auth.registration.validation.phone_min'),
+            'phone.max' => __('auth.registration.validation.phone_max'),
+            'email.required' => __('auth.registration.validation.email_required'),
+            'email.email' => __('auth.registration.validation.email_email'),
+            'email.max' => __('auth.registration.validation.email_max'),
+            'industry_id.required' => __('auth.registration.validation.industry_required'),
+            'industry_id.in' => __('auth.registration.validation.industry_invalid'),
+            'custom_industry.required_if' => __('auth.registration.validation.custom_industry_required'),
+            'custom_industry.min' => __('auth.registration.validation.custom_industry_min'),
+            'custom_industry.max' => __('auth.registration.validation.custom_industry_max'),
+            'employee_count.required' => __('auth.registration.validation.employee_count_required'),
+            'employee_count.in' => __('auth.registration.validation.employee_count_invalid'),
+            'preferred_time.required' => __('auth.registration.validation.preferred_time_required'),
+            'preferred_time.in' => __('auth.registration.validation.preferred_time_invalid'),
+        ];
+    }
+
+    public function updated(string $property): void
+    {
+        if ($property === 'industry_id' && (int) $this->industry_id !== ProductField::OTHER->value) {
+            $this->custom_industry = '';
+            $this->resetValidation('custom_industry');
+        }
+
+        if ($property === 'custom_industry' && (int) $this->industry_id !== ProductField::OTHER->value) {
+            return;
+        }
+
+        $this->validateOnly($property, $this->rules(), $this->messages());
+    }
 
     public function submit(LeadService $leadService)
     {
-        $translatedMessages = [];
-        foreach ($this->messages as $key => $value) {
-            $translatedMessages[$key] = __($value);
-        }
-
-        $this->validate($this->rules, $translatedMessages);
+        $validated = $this->validate($this->rules(), $this->messages());
 
         $industries = $this->getIndustries();
         $industryName = '';
         
-        if ((int)$this->industry_id === ProductField::OTHER->value) {
-            $industryName = $this->custom_industry;
+        if ((int) $validated['industry_id'] === ProductField::OTHER->value) {
+            $industryName = $validated['custom_industry'];
         } else {
-            $industryName = $industries[$this->industry_id] ?? '';
+            $industryName = $industries[$validated['industry_id']] ?? '';
         }
 
         $data = [
-            'name' => $this->name,
-            'phone' => $this->phone,
-            'email' => $this->email,
+            'name' => $validated['name'],
+            'phone' => $validated['phone'],
+            'email' => $validated['email'],
             'industry' => $industryName,
-            'product_id' => $this->industry_id,
-            'employee_count' => $this->employee_count,
-            'preferred_time' => $this->preferred_time,
+            'product_id' => $validated['industry_id'],
+            'employee_count' => $validated['employee_count'],
+            'preferred_time' => $validated['preferred_time'],
         ];
 
         $result = $leadService->submitRegistration($data);
@@ -88,7 +145,14 @@ class PartnerRegistration extends Component
     public function render()
     {
         return view('livewire.auth.partner-registration', [
-            'industriesList' => $this->getIndustries()
+            'industriesList' => $this->getIndustries(),
+            'employeeCountOptions' => $this->getEmployeeCountOptions(),
+            'preferredTimeOptions' => $this->getPreferredTimeOptions(),
         ]);
+    }
+
+    protected function applyLocale(): void
+    {
+        App::setLocale(session('locale', config('app.locale')));
     }
 }

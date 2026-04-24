@@ -13,6 +13,24 @@
         @livewireStyles
     </head>
     <body class="bg-zinc-50 dark:bg-black text-zinc-900 antialiased min-h-screen flex flex-col items-center justify-center p-6">
+        <div class="w-full max-w-5xl flex justify-end gap-2 mb-6">
+            <a href="{{ route('partner.register', ['lang' => 'vi']) }}" @class([
+                'inline-flex items-center rounded-xl border px-3 py-2 text-sm font-semibold transition-colors',
+                app()->getLocale() === 'vi'
+                    ? 'border-zinc-900 bg-zinc-900 text-white'
+                    : 'border-zinc-300 bg-white text-zinc-700 hover:border-zinc-500 hover:text-zinc-900',
+            ])>
+                {{ __('auth.registration.languages.vi') }}
+            </a>
+            <a href="{{ route('partner.register', ['lang' => 'en']) }}" @class([
+                'inline-flex items-center rounded-xl border px-3 py-2 text-sm font-semibold transition-colors',
+                app()->getLocale() === 'en'
+                    ? 'border-zinc-900 bg-zinc-900 text-white'
+                    : 'border-zinc-300 bg-white text-zinc-700 hover:border-zinc-500 hover:text-zinc-900',
+            ])>
+                {{ __('auth.registration.languages.en') }}
+            </a>
+        </div>
         
         <div class="mb-8">
             <a href="/" class="flex items-center gap-2 group">
