@@ -3,6 +3,7 @@
 namespace App\Filament\Clusters\Warehouse\Resources\Warehouses\Schemas;
 
 use App\Common\Constants\User\UserRole;
+use App\Models\Product;
 use App\Models\Warehouse;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -42,16 +43,11 @@ class WarehouseForm
                                     ->label(__('warehouse.navigation.product_name'))
                                     ->required()
                                     ->extraInputAttributes(['required' => false])
-                                    ->relationship(
-                                        name: 'product',
-                                        titleAttribute: 'name',
-                                        modifyQueryUsing: fn ($query) => $query
-                                            ->where('organization_id', Auth::user()->organization_id)
-                                            ->where('is_business_product', true)
-                                            ->orderBy('name'),
-                                    )
+                                    ->options(fn (): array => self::getWarehouseProductOptions())
+                                    ->getSearchResultsUsing(fn (string $search): array => self::getWarehouseProductOptions($search))
+                                    ->getOptionLabelUsing(fn ($value): ?string => self::getWarehouseProductOptionLabel($value))
                                     ->native(false)
-                                    ->searchable(['name', 'sku'])
+                                    ->searchable()
                                     ->preload()
                                     ->distinct()
                                     ->disableOptionsWhenSelectedInSiblingRepeaterItems()
@@ -325,5 +321,35 @@ class WarehouseForm
                     ->columnSpanFull(),
             ])
             ->columns(1);
+    }
+
+    protected static function getWarehouseProductOptions(?string $search = null): array
+    {
+        return Product::query()
+            ->where('organization_id', Auth::user()->organization_id)
+            ->where('is_business_product', true)
+            ->when(
+                filled($search),
+                fn (Builder $query) => $query->where(function (Builder $productQuery) use ($search): void {
+                    $productQuery
+                        ->where('name', 'like', "%{$search}%")
+                        ->orWhere('sku', 'like', "%{$search}%");
+                })
+            )
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->all();
+    }
+
+    protected static function getWarehouseProductOptionLabel(mixed $value): ?string
+    {
+        if (blank($value)) {
+            return null;
+        }
+
+        return Product::query()
+            ->withTrashed()
+            ->whereKey($value)
+            ->value('name');
     }
 }
