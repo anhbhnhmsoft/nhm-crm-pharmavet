@@ -6,8 +6,8 @@ use App\Common\Constants\User\UserRole;
 use App\Models\User;
 use App\Services\Telesale\TelesaleKpiService;
 use BackedEnum;
-use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Pages\Page;
@@ -34,7 +34,7 @@ class SaleKpiReportPage extends Page implements HasForms
     public function mount(): void
     {
         $this->form->fill([
-            'month' => now()->startOfMonth()->toDateString(),
+            'month' => now()->format('Y-m'),
             'staff_id' => null,
         ]);
 
@@ -66,9 +66,9 @@ class SaleKpiReportPage extends Page implements HasForms
             ->schema([
                 Section::make(__('marketing.report.filter_section'))
                     ->schema([
-                        DatePicker::make('month')
+                        TextInput::make('month')
                             ->label(__('telesale.reports.month'))
-                            ->native(false)
+                            ->type('month')
                             ->required()
                             ->extraInputAttributes(['required' => false])
                             ->validationMessages([
@@ -98,7 +98,7 @@ class SaleKpiReportPage extends Page implements HasForms
             $staffId = $user->id;
         }
 
-        $month = Carbon::parse($state['month']);
+        $month = Carbon::createFromFormat('Y-m-d', $state['month'] . '-01')->startOfMonth();
 
         $this->summary = $kpiService->buildMonthlyKpiSummary(
             organizationId: (int) $user->organization_id,
@@ -112,12 +112,16 @@ class SaleKpiReportPage extends Page implements HasForms
         $validated = validator(
             $this->data,
             [
-                'month' => ['bail', 'required', 'date'],
+                'month' => ['bail', 'required', 'date_format:Y-m'],
                 'staff_id' => ['nullable'],
             ],
             [
                 'month.required' => __('validation.required', [
                     'attribute' => __('telesale.reports.month'),
+                ]),
+                'month.date_format' => __('validation.date_format', [
+                    'attribute' => __('telesale.reports.month'),
+                    'format' => 'YYYY-MM',
                 ]),
             ],
             [
