@@ -144,7 +144,7 @@ class CallMetricsReportPage extends Page implements HasForms
         return $validated['data'];
     }
 
-    protected function resolveDateBoundary(string $value, bool $isStart): string
+    protected function resolveDateBoundary(mixed $value, bool $isStart): string
     {
         $date = Carbon::parse($value);
 
