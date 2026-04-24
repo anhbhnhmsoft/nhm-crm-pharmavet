@@ -164,30 +164,32 @@ class StockCoverageReportPage extends Page implements HasForms
 
     protected function validateAndBuildFilters(): array
     {
-        $validated = validator(
-            $this->data,
+        $validated = $this->validate(
             [
-                'from_date' => ['bail', 'required', 'date'],
-                'to_date' => ['bail', 'required', 'date', 'after_or_equal:from_date'],
-                'window_days' => ['bail', 'required', 'in:7,30'],
+                'data.from_date' => ['bail', 'required', 'date'],
+                'data.to_date' => ['bail', 'required', 'date', 'after_or_equal:data.from_date'],
+                'data.window_days' => ['bail', 'required', 'in:7,30'],
             ],
             [
-                'from_date.required' => __('common.error.required'),
-                'to_date.required' => __('common.error.required'),
-                'to_date.after_or_equal' => __('common.error.date_after', ['date' => __('warehouse.order.form.from_date')]),
-                'window_days.required' => __('common.error.required'),
+                'data.from_date.required' => __('common.error.required'),
+                'data.to_date.required' => __('common.error.required'),
+                'data.to_date.after_or_equal' => __('validation.after_or_equal', [
+                    'attribute' => __('warehouse.order.form.to_date'),
+                    'date' => __('warehouse.order.form.from_date'),
+                ]),
+                'data.window_days.required' => __('common.error.required'),
             ],
             [
-                'from_date' => __('warehouse.order.form.from_date'),
-                'to_date' => __('warehouse.order.form.to_date'),
-                'window_days' => __('warehouse.reports.window_days'),
+                'data.from_date' => __('warehouse.order.form.from_date'),
+                'data.to_date' => __('warehouse.order.form.to_date'),
+                'data.window_days' => __('warehouse.reports.window_days'),
             ]
-        )->validate();
+        );
 
         return [
-            'from_date' => (string) $validated['from_date'],
-            'to_date' => (string) $validated['to_date'],
-            'window_days' => (int) $validated['window_days'],
+            'from_date' => (string) $validated['data']['from_date'],
+            'to_date' => (string) $validated['data']['to_date'],
+            'window_days' => (int) $validated['data']['window_days'],
         ];
     }
 }
