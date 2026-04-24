@@ -19,6 +19,10 @@ class DebtService
 
     public function provisionDebt(Order $order, float $amount, string $note = ''): ServiceReturn
     {
+        if ($amount <= 0) {
+            return ServiceReturn::error(__('common.error.min_value', ['min' => 1]));
+        }
+
         if ($order->remaining_debt < $amount) {
             return ServiceReturn::error(__('accounting.bad_debt.provision_exceeds_debt'));
         }

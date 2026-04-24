@@ -16,6 +16,7 @@ use App\Repositories\ReconciliationRepository;
 use App\Repositories\ShippingConfigRepository;
 use App\Repositories\TeamRepository;
 use App\Repositories\UserRepository;
+use App\Utils\AccountingPeriodGuard;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -447,7 +448,7 @@ class ReconciliationService
                         ->first();
 
                     if ($order && empty($order->ghn_order_code)) {
-                        $order->update(['ghn_order_code' => $ghnOrderCode]);
+                        $this->orderRepository->updateById((int) $order->id, ['ghn_order_code' => $ghnOrderCode]);
                     }
 
                     /** @var \App\Models\Reconciliation $reconciliation */
@@ -521,8 +522,9 @@ class ReconciliationService
                                 $reconciliationData['status'] = $reconciliation->status ?? ReconciliationStatus::PENDING->value;
                             }
 
-                            $reconciliation->update($reconciliationData);
-                            $updated++;
+                            if ($this->reconciliationRepository->updateById((int) $reconciliation->id, $reconciliationData)) {
+                                $updated++;
+                            }
                         } else {
                             $reconciliationData['status'] = ReconciliationStatus::PENDING->value;
                             $reconciliationData['created_by'] = Auth::id();
@@ -561,8 +563,9 @@ class ReconciliationService
                                 $reconciliation->status !== ReconciliationStatus::CONFIRMED->value
                                 && $reconciliation->status !== ReconciliationStatus::CANCELLED->value
                             ) {
-                                $reconciliation->update($fallbackData);
-                                $updated++;
+                                if ($this->reconciliationRepository->updateById((int) $reconciliation->id, $fallbackData)) {
+                                    $updated++;
+                                }
                             }
                         } else {
                             $this->reconciliationRepository->create($fallbackData);
@@ -645,6 +648,16 @@ class ReconciliationService
                 return ServiceReturn::error(__('accounting.reconciliation.no_ghn_order_code'));
             }
 
+            if (filled($reconciliation->order_id)) {
+                $linkedOrder = $this->orderRepository->query()
+                    ->select(['id', 'organization_id', 'created_at'])
+                    ->find((int) $reconciliation->order_id);
+
+                if ($linkedOrder && AccountingPeriodGuard::isClosedForRecord($linkedOrder, 'created_at')) {
+                    return ServiceReturn::error(__('accounting.reconciliation.order_in_closed_period'));
+                }
+            }
+
             $credentials = $this->resolveGhnCredentials($reconciliation->organization_id);
 
             if ($credentials instanceof ServiceReturn) {
@@ -699,10 +712,14 @@ class ReconciliationService
                 $this->isForeignOrganization((int) $reconciliation->organization_id)
             );
 
-            $reconciliation->update($updateData);
+            $updatedReconciliation = $this->reconciliationRepository->updateById((int) $reconciliation->id, $updateData);
+
+            if (! $updatedReconciliation) {
+                return ServiceReturn::error(__('accounting.reconciliation.detail_sync_failed'));
+            }
 
             return ServiceReturn::success(
-                data: $reconciliation->fresh(),
+                data: $updatedReconciliation->fresh(),
                 message: __('accounting.reconciliation.detail_synced')
             );
         } catch (Throwable $e) {
@@ -726,6 +743,16 @@ class ReconciliationService
 
             if (empty($reconciliation->ghn_order_code)) {
                 return ServiceReturn::error(__('accounting.reconciliation.no_ghn_order_code'));
+            }
+
+            if (filled($reconciliation->order_id)) {
+                $linkedOrder = $this->orderRepository->query()
+                    ->select(['id', 'organization_id', 'created_at'])
+                    ->find((int) $reconciliation->order_id);
+
+                if ($linkedOrder && AccountingPeriodGuard::isClosedForRecord($linkedOrder, 'created_at')) {
+                    return ServiceReturn::error(__('accounting.reconciliation.order_in_closed_period'));
+                }
             }
 
             $credentials = $this->resolveGhnCredentials($reconciliation->organization_id);
@@ -798,18 +825,25 @@ class ReconciliationService
                 $this->isForeignOrganization((int) $reconciliation->organization_id)
             );
 
-            $reconciliation->update($reconciliationUpdateData);
+            $updatedReconciliation = $this->reconciliationRepository->updateById((int) $reconciliation->id, $reconciliationUpdateData);
 
-            if ($reconciliation->order) {
+            if (! $updatedReconciliation) {
+                return ServiceReturn::error(__('accounting.reconciliation.order_update_failed'));
+            }
+
+            $localSyncWarnings = [];
+            $linkedOrder = $reconciliation->order;
+
+            if ($linkedOrder) {
                 $orderUpdateData = [
-                    'shipping_address' => $orderDetail['to_address'] ?? $reconciliation->order->shipping_address,
-                    'weight' => $orderDetail['weight'] ?? $reconciliation->order->weight,
-                    'length' => $orderDetail['length'] ?? $reconciliation->order->length,
-                    'width' => $orderDetail['width'] ?? $reconciliation->order->width,
-                    'height' => $orderDetail['height'] ?? $reconciliation->order->height,
-                    'required_note' => $orderDetail['required_note'] ?? $reconciliation->order->required_note,
-                    'ghn_payment_type_id' => $orderDetail['payment_type_id'] ?? $reconciliation->order->ghn_payment_type_id,
-                    'ghn_content' => $orderDetail['content'] ?? $reconciliation->order->ghn_content,
+                    'shipping_address' => $orderDetail['to_address'] ?? $linkedOrder->shipping_address,
+                    'weight' => $orderDetail['weight'] ?? $linkedOrder->weight,
+                    'length' => $orderDetail['length'] ?? $linkedOrder->length,
+                    'width' => $orderDetail['width'] ?? $linkedOrder->width,
+                    'height' => $orderDetail['height'] ?? $linkedOrder->height,
+                    'required_note' => $orderDetail['required_note'] ?? $linkedOrder->required_note,
+                    'ghn_payment_type_id' => $orderDetail['payment_type_id'] ?? $linkedOrder->ghn_payment_type_id,
+                    'ghn_content' => $orderDetail['content'] ?? $linkedOrder->ghn_content,
                     'updated_by' => Auth::id(),
                 ];
 
@@ -821,20 +855,40 @@ class ReconciliationService
                     $orderUpdateData['note'] = $orderDetail['note'] ?? $updateData['note'];
                 }
 
-                $reconciliation->order->update($orderUpdateData);
+                try {
+                    $updatedOrder = $this->orderRepository->updateById((int) $linkedOrder->id, $orderUpdateData);
 
-                $customer = $reconciliation->order->customer;
-                if ($customer) {
-                    $customer->update([
-                        'username' => $orderDetail['to_name'] ?? $customer->username,
-                        'phone' => $orderDetail['to_phone'] ?? $customer->phone,
+                    if (! $updatedOrder) {
+                        $warningMessage = __('accounting.reconciliation.order_update_failed');
+                        $localSyncWarnings[] = $warningMessage;
+
+                        logger()->warning('Skipped linked order sync after GHN reconciliation update', [
+                            'reconciliation_id' => $reconciliationId,
+                            'order_id' => $linkedOrder->id,
+                            'error' => $warningMessage,
+                        ]);
+                    }
+                } catch (Throwable $localOrderException) {
+                    $localSyncWarnings[] = $localOrderException->getMessage();
+
+                    logger()->warning('Skipped linked order sync after GHN reconciliation update', [
+                        'reconciliation_id' => $reconciliationId,
+                        'order_id' => $linkedOrder->id,
+                        'error' => $localOrderException->getMessage(),
                     ]);
                 }
+
             }
 
             return ServiceReturn::success(
-                data: ['reconciliation' => $reconciliation->fresh(), 'updated_fields' => $updatedFields],
-                message: __('accounting.reconciliation.order_updated')
+                data: [
+                    'reconciliation' => $reconciliation->fresh(),
+                    'updated_fields' => $updatedFields,
+                    'local_sync_warnings' => $localSyncWarnings,
+                ],
+                message: $localSyncWarnings === []
+                    ? __('accounting.reconciliation.order_updated')
+                    : __('accounting.reconciliation.order_updated_with_local_sync_warning')
             );
         } catch (Throwable $e) {
             Logging::error('Update order on GHN error', [
@@ -845,7 +899,7 @@ class ReconciliationService
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
             ], $e);
-            return ServiceReturn::error(__('accounting.reconciliation.order_update_failed'));
+            return ServiceReturn::error(__('accounting.reconciliation.order_update_failed') . ': ' . $e->getMessage());
         }
     }
 
@@ -963,8 +1017,9 @@ class ReconciliationService
                         $updateData['confirmed_at'] = now();
                     }
 
-                    $reconciliation->update($updateData);
-                    $updated++;
+                    if ($this->reconciliationRepository->updateById((int) $reconciliation->id, $updateData)) {
+                        $updated++;
+                    }
                 } else {
                     $notFound[] = $code;
                 }
@@ -1038,8 +1093,9 @@ class ReconciliationService
                     }
 
                     if (!empty($changes)) {
-                        $reconciliation->update($changes);
-                        $updatedCount++;
+                        if ($this->reconciliationRepository->updateById((int) $reconciliation->id, $changes)) {
+                            $updatedCount++;
+                        }
                     }
                 }
             });
