@@ -54,14 +54,14 @@
 
             @if($entry['status_label'])
             <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                {{ __('telesale.form.result') }}:
+                {{ __('telesale.form.status_label') }}:
                 <span class="font-medium text-gray-700 dark:text-gray-200">{{ $entry['status_label'] }}</span>
             </p>
             @endif
 
             @if($entry['reason_label'])
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                {{ __('common.table.note') }}:
+                {{ __('telesale.form.result') }}:
                 <span class="font-medium text-gray-700 dark:text-gray-200">{{ $entry['reason_label'] }}</span>
             </p>
             @endif

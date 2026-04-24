@@ -18,6 +18,7 @@ class CustomerStatusLog extends Model
         'from_status',
         'to_status',
         'reason',
+        'note',
         'metadata',
     ];
 
