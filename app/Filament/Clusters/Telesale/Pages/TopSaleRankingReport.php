@@ -148,6 +148,7 @@ class TopSaleRankingReport extends Page implements HasForms
     {
         /** @var TelesaleReportDataService $reportDataService */
         $reportDataService = app(TelesaleReportDataService::class);
+        $filters = $this->validateFilters();
 
         $filters = $this->validateFilters();
 

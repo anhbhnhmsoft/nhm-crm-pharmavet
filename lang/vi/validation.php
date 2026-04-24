@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'before_or_equal' => ':attribute phải là một ngày trước hoặc bằng :date.',
     'accepted'        => ':attribute phải được chấp nhận.',
     'active_url'      => ':attribute không phải là một URL hợp lệ.',
     'after'           => ':attribute phải là một ngày sau ngày :date.',
