@@ -184,24 +184,33 @@ class GHNService
         }
 
         $cacheKey = "ghn_provinces";
+        $cached = Cache::get($cacheKey);
+        if (is_array($cached) && $cached !== []) {
+            return $cached;
+        }
 
-        return Cache::remember($cacheKey, 86400, function () {
-            $response = Http::withHeaders([
-                'Token' => $this->token,
-                'Content-Type' => 'application/json',
-            ])->get(APIGHN::GET_PROVINCE->url());
+        $response = Http::withHeaders([
+            'Token' => $this->token,
+            'Content-Type' => 'application/json',
+        ])->get(APIGHN::GET_PROVINCE->url());
 
-            if (!$response->successful()) {
-                Logging::error('GHN Get Provinces Error', [
-                    'status' => $response->status(),
-                    'body' => $response->body(),
-                ]);
-                return [];
-            }
+        if (!$response->successful()) {
+            Logging::error('GHN Get Provinces Error', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
 
-            $data = $response->json();
-            return $data['data'] ?? [];
-        });
+            return is_array($cached) ? $cached : [];
+        }
+
+        $data = $response->json();
+        $provinces = $data['data'] ?? [];
+
+        if ($provinces !== []) {
+            Cache::put($cacheKey, $provinces, 86400);
+        }
+
+        return $provinces;
     }
 
     /**
@@ -217,27 +226,36 @@ class GHNService
         }
 
         $cacheKey = "ghn_districts_{$provinceId}";
+        $cached = Cache::get($cacheKey);
+        if (is_array($cached) && $cached !== []) {
+            return $cached;
+        }
 
-        return Cache::remember($cacheKey, 86400, function () use ($provinceId) {
-            $response = Http::withHeaders([
-                'Token' => $this->token,
-                'Content-Type' => 'application/json',
-            ])->get(APIGHN::GET_DISTRICT->url(), [
-                        'province_id' => $provinceId
-                    ]);
+        $response = Http::withHeaders([
+            'Token' => $this->token,
+            'Content-Type' => 'application/json',
+        ])->get(APIGHN::GET_DISTRICT->url(), [
+            'province_id' => $provinceId
+        ]);
 
-            if (!$response->successful()) {
-                Logging::error('GHN Get Districts Error', [
-                    'province_id' => $provinceId,
-                    'status' => $response->status(),
-                    'body' => $response->body(),
-                ]);
-                return [];
-            }
+        if (!$response->successful()) {
+            Logging::error('GHN Get Districts Error', [
+                'province_id' => $provinceId,
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
 
-            $data = $response->json();
-            return $data['data'] ?? [];
-        });
+            return is_array($cached) ? $cached : [];
+        }
+
+        $data = $response->json();
+        $districts = $data['data'] ?? [];
+
+        if ($districts !== []) {
+            Cache::put($cacheKey, $districts, 86400);
+        }
+
+        return $districts;
     }
 
     /**
@@ -253,27 +271,36 @@ class GHNService
         }
 
         $cacheKey = "ghn_wards_{$districtId}";
+        $cached = Cache::get($cacheKey);
+        if (is_array($cached) && $cached !== []) {
+            return $cached;
+        }
 
-        return Cache::remember($cacheKey, 86400, function () use ($districtId) {
-            $response = Http::withHeaders([
-                'Token' => $this->token,
-                'Content-Type' => 'application/json',
-            ])->get(APIGHN::GET_WARD->url(), [
-                'district_id' => $districtId
+        $response = Http::withHeaders([
+            'Token' => $this->token,
+            'Content-Type' => 'application/json',
+        ])->get(APIGHN::GET_WARD->url(), [
+            'district_id' => $districtId
+        ]);
+
+        if (!$response->successful()) {
+            Logging::error('GHN Get Wards Error', [
+                'district_id' => $districtId,
+                'status' => $response->status(),
+                'body' => $response->body(),
             ]);
 
-            if (!$response->successful()) {
-                Logging::error('GHN Get Wards Error', [
-                    'district_id' => $districtId,
-                    'status' => $response->status(),
-                    'body' => $response->body(),
-                ]);
-                return [];
-            }
+            return is_array($cached) ? $cached : [];
+        }
 
-            $data = $response->json();
-            return $data['data'] ?? [];
-        });
+        $data = $response->json();
+        $wards = $data['data'] ?? [];
+
+        if ($wards !== []) {
+            Cache::put($cacheKey, $wards, 86400);
+        }
+
+        return $wards;
     }
 
     public function calculateFee(array $params): array

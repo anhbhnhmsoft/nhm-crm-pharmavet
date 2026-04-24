@@ -61,6 +61,14 @@ class FinalizeOrderActionForm
                                     ->label(__('warehouse.order.form.phone'))
                                     ->formatStateUsing(fn() => $record->phone)
                                     ->disabled(),
+                                Select::make('shipping_method')
+                                    ->label(__('warehouse.order.form.shipping_method'))
+                                    ->options(ProviderShipping::getOptions())
+                                    ->live()
+                                    ->required()
+                                    ->validationMessages([
+                                        'required' => __('common.error.required'),
+                                    ]),
                                 Select::make('province_id')
                                     ->label(__('warehouse.order.form.province'))
                                     ->options(Province::query()->pluck('name', 'id'))
@@ -87,6 +95,8 @@ class FinalizeOrderActionForm
                                     ->label(__('warehouse.order.form.province') . ' (GHN)')
                                     ->options(fn(Get $get) => $service->getGhnProvinceOptions((int) $get('organization_id')))
                                     ->searchable()
+                                    ->preload()
+                                    ->native(false)
                                     ->live()
                                     ->visible(fn(Get $get) => $get('shipping_method') === ProviderShipping::GHN->value)
                                     ->afterStateUpdated(function (Set $set) {
@@ -101,6 +111,8 @@ class FinalizeOrderActionForm
                                         (int) $get('ghn_province_id')
                                     ))
                                     ->searchable()
+                                    ->preload()
+                                    ->native(false)
                                     ->live()
                                     ->visible(fn(Get $get) => $get('shipping_method') === ProviderShipping::GHN->value)
                                     ->afterStateUpdated(fn(Set $set) => $set('ghn_ward_code', null))
@@ -112,6 +124,8 @@ class FinalizeOrderActionForm
                                         (int) $get('ghn_district_id')
                                     ))
                                     ->searchable()
+                                    ->preload()
+                                    ->native(false)
                                     ->visible(fn(Get $get) => $get('shipping_method') === ProviderShipping::GHN->value)
                                     ->required(fn(Get $get) => $get('shipping_method') === ProviderShipping::GHN->value),
                                 TextInput::make('address')
@@ -172,14 +186,6 @@ class FinalizeOrderActionForm
                                             },
                                         ];
                                     }),
-                                Select::make('shipping_method')
-                                    ->label(__('warehouse.order.form.shipping_method'))
-                                    ->options(ProviderShipping::getOptions())
-                                    ->live()
-                                    ->required()
-                                    ->validationMessages([
-                                        'required' => __('common.error.required'),
-                                    ]),
                                 Select::make('required_note')
                                     ->label(__('warehouse.order.form.required_note'))
                                     ->options(RequiredNote::getOptions())

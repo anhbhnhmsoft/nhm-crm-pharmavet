@@ -267,7 +267,7 @@ class TelesaleFinalizeOrderService
             $messages['warehouse_id'] = __('telesale.messages.warehouse_required');
         }
 
-        $items = array_values($data['items'] ?? []);
+        $items = $this->normalizeFinalizeItems($data['items'] ?? []);
         if ($items === []) {
             $messages['items'] = __('common.error.min.array', ['min' => 1]);
         }
@@ -405,6 +405,7 @@ class TelesaleFinalizeOrderService
             'data_keys' => array_keys($data),
         ]);
 
+        $data['items'] = $this->normalizeFinalizeItems($data['items'] ?? []);
         $data['customer_id'] = $record->id;
         $data['organization_id'] = $data['organization_id'] ?? $record->organization_id;
         $data['code'] = $data['client_order_code'];
@@ -442,6 +443,20 @@ class TelesaleFinalizeOrderService
         }
 
         Notification::make()->title($result->getMessage())->danger()->send();
+    }
+
+    protected function normalizeFinalizeItems(array $items): array
+    {
+        return collect($items)
+            ->filter(function ($item): bool {
+                if (! is_array($item)) {
+                    return false;
+                }
+
+                return (int) ($item['product_id'] ?? 0) > 0;
+            })
+            ->values()
+            ->all();
     }
 
     public function canCancelFinalize($record): bool
