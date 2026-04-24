@@ -3,7 +3,6 @@
 namespace App\Filament\Clusters\Product\Resources\Combos;
 
 use App\Common\Constants\User\UserRole;
-use App\Filament\Clusters\Organization\OrganizationCluster;
 use App\Filament\Clusters\Product\Resources\Combos\Pages\CreateCombo;
 use App\Filament\Clusters\Product\Resources\Combos\Pages\EditCombo;
 use App\Filament\Clusters\Product\Resources\Combos\Pages\ListCombos;
@@ -23,11 +22,16 @@ use Illuminate\Support\Facades\Auth;
 class ComboResource extends Resource
 {
     protected static ?string $model = Combo::class;
-    protected static ?string $cluster = OrganizationCluster::class;
 
     protected static string|BackedEnum|null $navigationIcon = '';
+    protected static ?int $navigationSort = 8;
 
     protected static ?string $recordTitleAttribute = 'Combo';
+
+    public static function getNavigationGroup(): \UnitEnum|string|null
+    {
+        return __('filament.navigation.unit_administration');
+    }
 
     public static function getModelLabel(): string
     {
@@ -72,10 +76,16 @@ class ComboResource extends Resource
 
     public static function canAccess(): bool
     {
+        $user = Auth::user();
+
+        if (! $user) {
+            return false;
+        }
+
         return Helper::checkPermission([
             UserRole::SUPER_ADMIN->value,
             UserRole::ADMIN->value,
-        ], Auth::user()->role);
+        ], $user->role);
     }
 
     public static function getEloquentQuery(): Builder

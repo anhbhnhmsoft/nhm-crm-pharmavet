@@ -30,23 +30,27 @@ class ComboForm
                     Grid::make(2)->schema([
                         TextInput::make('name')
                             ->label(__('filament.combo.name'))
+                            ->validationAttribute(__('filament.combo.name'))
                             ->required()
                             ->minLength(3)
                             ->maxLength(255)
+                            ->extraInputAttributes(['required' => false, 'minlength' => null, 'maxlength' => null])
                             ->live(debounce: 1000, onBlur: true)
                             ->afterStateUpdated(fn ($state, callable $set) => $set('code', Helper::generateComboCode($state)))
                             ->validationMessages([
-                                'required' => __('common.error.required'),
-                                'min' => __('common.error.min_length', ['min' => 3]),
-                                'max' => __('common.error.max_length', ['max' => 255]),
+                                'required' => self::requiredMessage(__('filament.combo.name')),
+                                'min' => self::stringMinMessage(__('filament.combo.name'), 3),
+                                'max' => self::stringMaxMessage(__('filament.combo.name'), 255),
                             ]),
 
                         TextInput::make('code')
                             ->label(__('filament.combo.code'))
+                            ->validationAttribute(__('filament.combo.code'))
                             ->required()
                             ->minLength(3)
                             ->maxLength(50)
                             ->unique(ignoreRecord: true)
+                            ->extraInputAttributes(['required' => false, 'minlength' => null, 'maxlength' => null])
                             ->suffixAction(
                                 Action::make('generateCode')
                                     ->icon('heroicon-o-arrow-path')
@@ -54,10 +58,10 @@ class ComboForm
                                     ->action(fn (callable $set, $get) => $set('code', Helper::generateComboCode($get('name'))))
                             )
                             ->validationMessages([
-                                'required' => __('common.error.required'),
-                                'min' => __('common.error.min_length', ['min' => 3]),
-                                'max' => __('common.error.max_length', ['max' => 50]),
-                                'unique' => __('common.error.unique'),
+                                'required' => self::requiredMessage(__('filament.combo.code')),
+                                'min' => self::stringMinMessage(__('filament.combo.code'), 3),
+                                'max' => self::stringMaxMessage(__('filament.combo.code'), 50),
+                                'unique' => self::uniqueMessage(__('filament.combo.code')),
                             ]),
 
                         Select::make('status')
@@ -76,26 +80,29 @@ class ComboForm
                     Grid::make(2)->schema([
                         DateTimePicker::make('start_date')
                             ->label(__('filament.combo.start_date'))
+                            ->validationAttribute(__('filament.combo.start_date'))
                             ->native(false)
                             ->displayFormat('d/m/Y H:i')
                             ->required()
                             ->default(now())
                             ->live()
                             ->validationMessages([
-                                'required' => __('common.error.required'),
-                                'date' => __('common.error.invalid_date'),
+                                'required' => self::requiredMessage(__('filament.combo.start_date')),
+                                'date' => self::dateMessage(__('filament.combo.start_date')),
                             ]),
 
                         DateTimePicker::make('end_date')
                             ->label(__('filament.combo.end_date'))
+                            ->validationAttribute(__('filament.combo.end_date'))
                             ->native(false)
                             ->displayFormat('d/m/Y H:i')
                             ->required()
                             ->afterOrEqual('start_date')
                             ->live()
                             ->validationMessages([
-                                'required' => __('common.error.required'),
-                                'after_or_equal' => __('common.error.after_or_equal', ['field' => __('filament.combo.start_date')]),
+                                'required' => self::requiredMessage(__('filament.combo.end_date')),
+                                'date' => self::dateMessage(__('filament.combo.end_date')),
+                                'after_or_equal' => self::afterOrEqualMessage(__('filament.combo.end_date'), __('filament.combo.start_date')),
                             ]),
                     ]),
 
@@ -109,10 +116,12 @@ class ComboForm
                 ->schema([
                     Repeater::make('productsPivot')
                         ->label(__('filament.combo.product_list'))
+                        ->validationAttribute(__('filament.combo.product_list'))
                         ->relationship('productsPivot')
                         ->schema([
                             Select::make('product_id')
                                 ->label(__('filament.combo.product'))
+                                ->validationAttribute(__('filament.combo.product'))
                                 ->options(fn (): array => self::getProductOptions())
                                 ->required()
                                 ->searchable()
@@ -161,16 +170,25 @@ class ComboForm
                                         ->contains(fn ($selected) => (string) $selected === (string) $value && (string) $state !== (string) $value)
                                 )
                                 ->validationMessages([
-                                    'required' => __('common.error.required'),
-                                    'exists' => __('common.error.not_exist'),
+                                    'required' => self::requiredMessage(__('filament.combo.product')),
+                                    'exists' => self::existsMessage(__('filament.combo.product')),
                                 ]),
 
                             TextInput::make('quantity')
                                 ->label(__('filament.combo.quantity'))
+                                ->validationAttribute(__('filament.combo.quantity'))
                                 ->numeric()
                                 ->minValue(1)
                                 ->default(1)
                                 ->required()
+                                ->extraInputAttributes([
+                                    'type' => 'text',
+                                    'inputmode' => 'numeric',
+                                    'required' => false,
+                                    'min' => null,
+                                    'max' => null,
+                                    'step' => null,
+                                ])
                                 ->live()
                                 ->rule(function (Get $get) {
                                     return function (string $attribute, $value, \Closure $fail) use ($get) {
@@ -183,14 +201,14 @@ class ComboForm
                                         $product = Product::query()->find($productId);
 
                                         if ($product && (int) $value > (int) $product->quantity) {
-                                            $fail(__('common.error.max.numeric', ['max' => $product->quantity]));
+                                            $fail(self::numericMaxMessage(__('filament.combo.quantity'), (float) $product->quantity));
                                         }
                                     };
                                 })
                                 ->validationMessages([
-                                    'required' => __('common.error.required'),
-                                    'numeric' => __('common.error.numeric'),
-                                    'min' => __('common.error.min.numeric', ['min' => 1]),
+                                    'required' => self::requiredMessage(__('filament.combo.quantity')),
+                                    'numeric' => self::numericMessage(__('filament.combo.quantity')),
+                                    'min' => self::numericMinMessage(__('filament.combo.quantity'), 1),
                                 ]),
 
                             TextInput::make('price_origin')
@@ -202,10 +220,19 @@ class ComboForm
 
                             TextInput::make('price')
                                 ->label(__('filament.combo.price_in_combo'))
+                                ->validationAttribute(__('filament.combo.price_in_combo'))
                                 ->numeric()
                                 ->prefix('₫')
                                 ->minValue(0)
                                 ->required()
+                                ->extraInputAttributes([
+                                    'type' => 'text',
+                                    'inputmode' => 'decimal',
+                                    'required' => false,
+                                    'min' => null,
+                                    'max' => null,
+                                    'step' => null,
+                                ])
                                 ->live()
                                 ->rule(function (Get $get) {
                                     return function (string $attribute, $value, \Closure $fail) use ($get) {
@@ -216,16 +243,17 @@ class ComboForm
                                         }
 
                                         if ((float) $value > (float) $priceOrigin) {
-                                            $fail(__('common.error.max.numeric', [
-                                                'max' => number_format((float) $priceOrigin, 0, ',', '.') . ' ₫',
-                                            ]));
+                                            $fail(self::numericMaxMessage(
+                                                __('filament.combo.price_in_combo'),
+                                                number_format((float) $priceOrigin, 0, ',', '.') . ' ₫',
+                                            ));
                                         }
                                     };
                                 })
                                 ->validationMessages([
-                                    'required' => __('common.error.required'),
-                                    'numeric' => __('common.error.numeric'),
-                                    'min' => __('common.error.min_value', ['min' => 0]),
+                                    'required' => self::requiredMessage(__('filament.combo.price_in_combo')),
+                                    'numeric' => self::numericMessage(__('filament.combo.price_in_combo')),
+                                    'min' => self::numericMinMessage(__('filament.combo.price_in_combo'), 0),
                                 ]),
                         ])
                         ->columns(3)
@@ -234,9 +262,9 @@ class ComboForm
                         ->addActionLabel(__('filament.combo.add_product'))
                         ->collapsible()
                         ->validationMessages([
-                            'required' => __('common.error.required'),
-                            'min' => __('common.error.min.array', ['min' => 2]),
-                            'max' => __('common.error.max.array', ['max' => 20]),
+                            'required' => self::requiredMessage(__('filament.combo.product_list')),
+                            'min' => self::arrayMinMessage(__('filament.combo.product_list'), 2),
+                            'max' => self::arrayMaxMessage(__('filament.combo.product_list'), 20),
                         ]),
                 ]),
 
@@ -390,5 +418,65 @@ class ComboForm
     protected static function formatPercentage(float|int $value): string
     {
         return number_format((float) $value, 1) . '%';
+    }
+
+    protected static function requiredMessage(string $attribute): string
+    {
+        return __('validation.required', ['attribute' => $attribute]);
+    }
+
+    protected static function uniqueMessage(string $attribute): string
+    {
+        return __('validation.unique', ['attribute' => $attribute]);
+    }
+
+    protected static function existsMessage(string $attribute): string
+    {
+        return __('validation.exists', ['attribute' => $attribute]);
+    }
+
+    protected static function dateMessage(string $attribute): string
+    {
+        return __('validation.date', ['attribute' => $attribute]);
+    }
+
+    protected static function numericMessage(string $attribute): string
+    {
+        return __('validation.numeric', ['attribute' => $attribute]);
+    }
+
+    protected static function stringMinMessage(string $attribute, int $min): string
+    {
+        return __('validation.min.string', ['attribute' => $attribute, 'min' => $min]);
+    }
+
+    protected static function stringMaxMessage(string $attribute, int $max): string
+    {
+        return __('validation.max.string', ['attribute' => $attribute, 'max' => $max]);
+    }
+
+    protected static function numericMinMessage(string $attribute, int|float $min): string
+    {
+        return __('validation.min.numeric', ['attribute' => $attribute, 'min' => $min]);
+    }
+
+    protected static function numericMaxMessage(string $attribute, int|float|string $max): string
+    {
+        return __('validation.max.numeric', ['attribute' => $attribute, 'max' => $max]);
+    }
+
+    protected static function arrayMinMessage(string $attribute, int $min): string
+    {
+        return __('validation.min.array', ['attribute' => $attribute, 'min' => $min]);
+    }
+
+    protected static function arrayMaxMessage(string $attribute, int $max): string
+    {
+        return __('validation.max.array', ['attribute' => $attribute, 'max' => $max]);
+    }
+
+    protected static function afterOrEqualMessage(string $attribute, string $date): string
+    {
+        return __('validation.after_or_equal', ['attribute' => $attribute, 'date' => $date]);
     }
 }
