@@ -268,7 +268,7 @@ return [
         'code_helper' => 'Mã định danh duy nhất cho combo',
         'generate_code' => 'Tạo mã tự động',
         'status' => 'Trạng thái',
-        'status_helper' => 'Bật để kích hoạt combo này',
+        'status_helper' => 'Trạng thái được tự động tính theo thời gian áp dụng của combo.',
         'active' => 'Đang hoạt động',
         'inactive' => 'Không hoạt động',
 
@@ -289,7 +289,9 @@ return [
         'summary_description' => 'Thông tin tổng hợp về combo',
         'total_product' => 'Số sản phẩm',
         'total_cost' => 'Tổng giá vốn',
+        'total_original_price' => 'Tổng giá gốc',
         'total_combo_price' => 'Tổng giá bán',
+        'savings' => 'Tiết kiệm',
         'discount' => 'Giảm giá',
         'items' => 'sản phẩm',
         'product_types' => 'Loại sản phẩm',
@@ -299,6 +301,10 @@ return [
         'valid' => 'Đang hiệu lực',
         'expired' => 'Đã hết hạn',
         'upcoming' => 'Sắp diễn ra',
+        'validity_unknown' => 'Chưa đủ thời gian áp dụng để xác định trạng thái combo.',
+        'validity_upcoming_message' => 'Combo chưa được áp dụng.',
+        'validity_expired_message' => 'Combo không được áp dụng (đã hết hạn).',
+        'validity_active_message' => 'Combo được mua trong khoảng thời gian hợp lệ.',
         'all' => 'Tất cả',
 
         'date_range' => 'Khoảng thời gian',
@@ -314,6 +320,11 @@ return [
         'created_successfully' => 'Tạo combo thành công',
         'updated_successfully' => 'Cập nhật combo thành công',
         'deleted_successfully' => 'Xóa combo thành công',
+        'validation' => [
+            'combo_price_must_be_positive' => 'Tổng giá combo phải lớn hơn 0.',
+            'original_price_must_be_positive' => 'Tổng giá gốc của các sản phẩm phải lớn hơn 0.',
+            'combo_price_must_be_less_than_original' => 'Tổng giá combo phải nhỏ hơn tổng giá gốc của các sản phẩm.',
+        ],
     ],
     'shipping' => [
         // Navigation & Title

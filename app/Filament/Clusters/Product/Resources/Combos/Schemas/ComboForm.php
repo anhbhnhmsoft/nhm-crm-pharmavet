@@ -2,21 +2,21 @@
 
 namespace App\Filament\Clusters\Product\Resources\Combos\Schemas;
 
+use App\Common\Constants\Product\StatusCombo;
+use App\Models\Combo;
 use App\Models\Product;
 use App\Utils\Helper;
-use App\Common\Constants\Product\StatusCombo;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Placeholder;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
-use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\Auth;
 
 class ComboForm
@@ -24,18 +24,17 @@ class ComboForm
     public static function configure(Schema $schema): Schema
     {
         return $schema->schema([
-
             Section::make(__('filament.combo.basic_info'))
+                ->description(__('filament.combo.basic_info_description'))
                 ->schema([
                     Grid::make(2)->schema([
-
                         TextInput::make('name')
                             ->label(__('filament.combo.name'))
                             ->required()
                             ->minLength(3)
                             ->maxLength(255)
                             ->live(debounce: 1000, onBlur: true)
-                            ->afterStateUpdated(fn($state, callable $set) => $set('code', Helper::generateComboCode($state)))
+                            ->afterStateUpdated(fn ($state, callable $set) => $set('code', Helper::generateComboCode($state)))
                             ->validationMessages([
                                 'required' => __('common.error.required'),
                                 'min' => __('common.error.min_length', ['min' => 3]),
@@ -52,7 +51,7 @@ class ComboForm
                                 Action::make('generateCode')
                                     ->icon('heroicon-o-arrow-path')
                                     ->tooltip(__('filament.combo.generate_code'))
-                                    ->action(fn(callable $set, $get) => $set('code', Helper::generateComboCode($get('name'))))
+                                    ->action(fn (callable $set, $get) => $set('code', Helper::generateComboCode($get('name'))))
                             )
                             ->validationMessages([
                                 'required' => __('common.error.required'),
@@ -64,21 +63,24 @@ class ComboForm
                         Select::make('status')
                             ->label(__('filament.combo.status'))
                             ->options(StatusCombo::getOptions())
-                            ->default(StatusCombo::UPCOMING)
-                            ->disabled(fn($livewire) => ($livewire instanceof CreateRecord)),
+                            ->default(StatusCombo::UPCOMING->value)
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->helperText(__('filament.combo.status_helper')),
                     ]),
                 ]),
 
             Section::make(__('filament.combo.time_period'))
+                ->description(__('filament.combo.time_period_description'))
                 ->schema([
                     Grid::make(2)->schema([
-
                         DateTimePicker::make('start_date')
                             ->label(__('filament.combo.start_date'))
                             ->native(false)
-                            ->displayFormat('d/m/Y')
+                            ->displayFormat('d/m/Y H:i')
                             ->required()
                             ->default(now())
+                            ->live()
                             ->validationMessages([
                                 'required' => __('common.error.required'),
                                 'date' => __('common.error.invalid_date'),
@@ -87,63 +89,76 @@ class ComboForm
                         DateTimePicker::make('end_date')
                             ->label(__('filament.combo.end_date'))
                             ->native(false)
-                            ->displayFormat('d/m/Y')
+                            ->displayFormat('d/m/Y H:i')
                             ->required()
-                            ->minDate(fn(Get $get) => $get('start_date'))
+                            ->afterOrEqual('start_date')
+                            ->live()
                             ->validationMessages([
                                 'required' => __('common.error.required'),
                                 'after_or_equal' => __('common.error.after_or_equal', ['field' => __('filament.combo.start_date')]),
                             ]),
                     ]),
+
+                    Placeholder::make('applicability_status')
+                        ->label(__('filament.combo.validity_status'))
+                        ->content(fn (Get $get) => self::resolveValidityMessage($get('start_date'), $get('end_date'))),
                 ]),
 
             Section::make(__('filament.combo.products'))
-                ->collapsible()
-                ->collapsed()
+                ->description(__('filament.combo.products_description'))
                 ->schema([
                     Repeater::make('productsPivot')
                         ->label(__('filament.combo.product_list'))
-                        ->relationship('productsPivot',)
+                        ->relationship('productsPivot')
                         ->schema([
                             Select::make('product_id')
                                 ->label(__('filament.combo.product'))
-                                ->relationship(
-                                    name: 'product',
-                                    titleAttribute: 'name',
-                                    modifyQueryUsing: fn($query) =>
-                                    $query->where('organization_id', Auth::user()->organization_id)
-                                )
+                                ->options(fn (): array => self::getProductOptions())
                                 ->required()
                                 ->searchable()
                                 ->preload()
-                                ->live(debounce: 500)
+                                ->live()
                                 ->columnSpan(2)
+                                ->afterStateHydrated(function ($state, Set $set) {
+                                    $productId = (int) ($state ?? 0);
 
-                                ->afterStateUpdated(function ($state, Set $set) {
-                                    if (!$state) {
-                                        // Reset các giá trị khi sản phẩm bị xóa chọn
-                                        $set('price_origin', null);
-                                        $set('price', null);
-                                        $set('quantity', 1);
+                                    if ($productId <= 0) {
                                         return;
                                     }
 
-                                    $product = Product::find($state);
+                                    $product = Product::query()->find($productId);
 
                                     if ($product) {
-                                        $set('price_origin', $product->sale_price);
-                                        $set('price', $product->sale_price);
-                                    } else {
-                                        $set('price_origin', null);
-                                        $set('price', null);
+                                        $set('price_origin', (float) $product->sale_price);
                                     }
                                 })
+                                ->afterStateUpdated(function ($state, Set $set) {
+                                    if (! $state) {
+                                        $set('price_origin', null);
+                                        $set('price', null);
+                                        $set('quantity', 1);
 
+                                        return;
+                                    }
+
+                                    $product = Product::query()->find($state);
+
+                                    if (! $product) {
+                                        $set('price_origin', null);
+                                        $set('price', null);
+
+                                        return;
+                                    }
+
+                                    $set('price_origin', (float) $product->sale_price);
+                                    $set('price', (float) $product->sale_price);
+                                    $set('quantity', (int) ($product->pivot?->quantity ?? 1));
+                                })
                                 ->disableOptionWhen(
-                                    fn($value, $state, $get) =>
-                                    collect($get('../../productsPivot'))
+                                    fn ($value, $state, $get) => collect($get('../../productsPivot') ?? [])
                                         ->pluck('product_id')
-                                        ->contains($value) && $value != $state
+                                        ->filter()
+                                        ->contains(fn ($selected) => (string) $selected === (string) $value && (string) $state !== (string) $value)
                                 )
                                 ->validationMessages([
                                     'required' => __('common.error.required'),
@@ -156,15 +171,18 @@ class ComboForm
                                 ->minValue(1)
                                 ->default(1)
                                 ->required()
-                                ->reactive()
+                                ->live()
                                 ->rule(function (Get $get) {
                                     return function (string $attribute, $value, \Closure $fail) use ($get) {
-                                        $productId = $get('product_id');
-                                        if (! $productId || empty($value)) return;
+                                        $productId = (int) ($get('product_id') ?? 0);
 
-                                        $product = Product::find($productId);
+                                        if ($productId <= 0 || blank($value)) {
+                                            return;
+                                        }
 
-                                        if ($product && $value > $product->quantity) {
+                                        $product = Product::query()->find($productId);
+
+                                        if ($product && (int) $value > (int) $product->quantity) {
                                             $fail(__('common.error.max.numeric', ['max' => $product->quantity]));
                                         }
                                     };
@@ -188,14 +206,18 @@ class ComboForm
                                 ->prefix('₫')
                                 ->minValue(0)
                                 ->required()
-                                ->reactive()
+                                ->live()
                                 ->rule(function (Get $get) {
                                     return function (string $attribute, $value, \Closure $fail) use ($get) {
                                         $priceOrigin = $get('price_origin');
-                                        if ($priceOrigin == null || $value == null) return;
-                                        if ($value > $priceOrigin) {
+
+                                        if ($priceOrigin === null || $value === null) {
+                                            return;
+                                        }
+
+                                        if ((float) $value > (float) $priceOrigin) {
                                             $fail(__('common.error.max.numeric', [
-                                                'max' => number_format($priceOrigin, 0, ',', '.') . ' ₫'
+                                                'max' => number_format((float) $priceOrigin, 0, ',', '.') . ' ₫',
                                             ]));
                                         }
                                     };
@@ -203,9 +225,8 @@ class ComboForm
                                 ->validationMessages([
                                     'required' => __('common.error.required'),
                                     'numeric' => __('common.error.numeric'),
-                                    'min' => __('common.error.min.numeric', ['min' => 0]),
+                                    'min' => __('common.error.min_value', ['min' => 0]),
                                 ]),
-
                         ])
                         ->columns(3)
                         ->minItems(2)
@@ -220,35 +241,154 @@ class ComboForm
                 ]),
 
             Section::make(__('filament.combo.summary'))
+                ->description(__('filament.combo.summary_description'))
                 ->schema([
-                    Grid::make(4)->schema([
+                    Grid::make(3)->schema([
                         Placeholder::make('total_product')
                             ->label(__('filament.combo.total_product'))
-                            ->content(fn($record) => $record?->total_product ?? '—'),
+                            ->content(fn (Get $get, ?Combo $record) => self::resolveSummaryValue($get('productsPivot'), $record, 'total_product')),
 
                         Placeholder::make('total_cost')
                             ->label(__('filament.combo.total_cost'))
-                            ->content(
-                                fn($record) =>
-                                $record ? number_format($record->total_cost, 0, ',', '.') . ' ₫' : '—'
-                            ),
+                            ->content(fn (Get $get, ?Combo $record) => self::formatCurrency(self::resolveSummaryValue($get('productsPivot'), $record, 'total_cost'))),
+
+                        Placeholder::make('total_original_price')
+                            ->label(__('filament.combo.total_original_price'))
+                            ->content(fn (Get $get, ?Combo $record) => self::formatCurrency(self::resolveSummaryValue($get('productsPivot'), $record, 'total_original_price'))),
 
                         Placeholder::make('total_combo_price')
                             ->label(__('filament.combo.total_combo_price'))
-                            ->content(
-                                fn($record) =>
-                                $record ? number_format($record->total_combo_price, 0, ',', '.') . ' ₫' : '—'
-                            ),
+                            ->content(fn (Get $get, ?Combo $record) => self::formatCurrency(self::resolveSummaryValue($get('productsPivot'), $record, 'total_combo_price'))),
+
+                        Placeholder::make('savings_amount')
+                            ->label(__('filament.combo.savings'))
+                            ->content(fn (Get $get, ?Combo $record) => self::formatCurrency(self::resolveSummaryValue($get('productsPivot'), $record, 'savings_amount'))),
 
                         Placeholder::make('discount_percentage')
                             ->label(__('filament.combo.discount'))
-                            ->content(
-                                fn($record) =>
-                                $record ? number_format($record->discount_percentage, 1) . '%' : '—'
-                            ),
+                            ->content(fn (Get $get, ?Combo $record) => self::formatPercentage(self::resolveSummaryValue($get('productsPivot'), $record, 'savings_percentage'))),
                     ]),
                 ])
                 ->collapsible(),
         ]);
+    }
+
+    protected static function getProductOptions(): array
+    {
+        return Product::query()
+            ->where('organization_id', Auth::user()->organization_id)
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->all();
+    }
+
+    protected static function resolveSummaryValue(mixed $state, ?Combo $record, string $key): float|int
+    {
+        $summary = self::calculateSummaryFromState($state);
+
+        if ($summary !== []) {
+            return $summary[$key] ?? 0;
+        }
+
+        if (! $record) {
+            return 0;
+        }
+
+        $record->loadMissing('productsPivot.product');
+
+        return match ($key) {
+            'total_product' => (int) $record->total_product,
+            'total_cost' => (float) $record->total_cost,
+            'total_original_price' => (float) $record->original_sale_total,
+            'total_combo_price' => (float) $record->total_combo_price,
+            'savings_amount' => max((float) $record->original_sale_total - (float) $record->total_combo_price, 0),
+            'savings_percentage' => (float) $record->discount_percentage,
+            default => 0,
+        };
+    }
+
+    protected static function calculateSummaryFromState(mixed $state): array
+    {
+        $items = is_array($state) ? $state : [];
+
+        if ($items === []) {
+            return [];
+        }
+
+        $totalProduct = 0;
+        $totalCost = 0;
+        $totalOriginalPrice = 0;
+        $totalComboPrice = 0;
+
+        foreach ($items as $item) {
+            $productId = (int) ($item['product_id'] ?? 0);
+
+            if ($productId <= 0) {
+                continue;
+            }
+
+            $product = Product::query()->find($productId);
+
+            if (! $product) {
+                continue;
+            }
+
+            $quantity = (int) ($item['quantity'] ?? 0);
+            $comboPrice = (float) ($item['price'] ?? 0);
+
+            $totalProduct += $quantity;
+            $totalCost += ((float) ($product->cost_price ?? 0)) * $quantity;
+            $totalOriginalPrice += ((float) ($product->sale_price ?? 0)) * $quantity;
+            $totalComboPrice += $comboPrice * $quantity;
+        }
+
+        $savingsAmount = max($totalOriginalPrice - $totalComboPrice, 0);
+        $savingsPercentage = $totalOriginalPrice > 0
+            ? round(($savingsAmount / $totalOriginalPrice) * 100, 2)
+            : 0;
+
+        return [
+            'total_product' => $totalProduct,
+            'total_cost' => $totalCost,
+            'total_original_price' => $totalOriginalPrice,
+            'total_combo_price' => $totalComboPrice,
+            'savings_amount' => $savingsAmount,
+            'savings_percentage' => $savingsPercentage,
+        ];
+    }
+
+    protected static function resolveValidityMessage(mixed $startDate, mixed $endDate): string
+    {
+        if (blank($startDate) || blank($endDate)) {
+            return __('filament.combo.validity_unknown');
+        }
+
+        try {
+            $now = now();
+            $start = \Illuminate\Support\Carbon::parse($startDate);
+            $end = \Illuminate\Support\Carbon::parse($endDate);
+        } catch (\Throwable) {
+            return __('filament.combo.validity_unknown');
+        }
+
+        if ($now->lt($start)) {
+            return __('filament.combo.validity_upcoming_message');
+        }
+
+        if ($now->gt($end)) {
+            return __('filament.combo.validity_expired_message');
+        }
+
+        return __('filament.combo.validity_active_message');
+    }
+
+    protected static function formatCurrency(float|int $amount): string
+    {
+        return number_format((float) $amount, 0, ',', '.') . ' ₫';
+    }
+
+    protected static function formatPercentage(float|int $value): string
+    {
+        return number_format((float) $value, 1) . '%';
     }
 }

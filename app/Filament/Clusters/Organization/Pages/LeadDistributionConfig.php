@@ -85,7 +85,7 @@ class LeadDistributionConfig extends Page
                 'organization_id' => $this->organizationId,
                 'name' => '',
                 'product_id' => null,
-                'rules' => [],
+                'rules' => $this->defaultRules(),
                 'staffSale' => [],
                 'staffCSKH' => [],
             ]);
@@ -137,12 +137,7 @@ class LeadDistributionConfig extends Page
 
                                 Select::make('product_id')
                                     ->label(__('filament.lead.table.product'))
-                                    ->options(
-                                        fn() => Product::query()
-                                            ->where('organization_id', $this->organizationId)
-                                            ->where('is_business_product', true)
-                                            ->pluck('name', 'id')
-                                    )
+                                    ->options(fn() => $this->getProductOptions())
                                     ->searchable()
                                     ->preload()
                                     ->native(false),
@@ -221,7 +216,7 @@ class LeadDistributionConfig extends Page
                                             ->live()
                                             ->required()
                                             ->native(false)
-                                            ->afterStateUpdated(fn($state, Set $set) => $set('id', null))
+                                            ->afterStateUpdated(fn($state, Set $set) => $set('staff_id', null))
                                             ->validationMessages([
                                                 'required' => __('common.error.required')
                                             ]),
@@ -298,7 +293,7 @@ class LeadDistributionConfig extends Page
                                             ->live()
                                             ->required()
                                             ->native(false)
-                                            ->afterStateUpdated(fn($state, Set $set) => $set('id', null))
+                                            ->afterStateUpdated(fn($state, Set $set) => $set('staff_id', null))
                                             ->validationMessages([
                                                 'required' => __('common.error.required')
                                             ]),
@@ -408,5 +403,25 @@ class LeadDistributionConfig extends Page
             ->success()
             ->title(__('common.success.update_success'))
             ->send();
+    }
+
+    protected function getProductOptions(): array
+    {
+        return Product::query()
+            ->where('organization_id', $this->organizationId)
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->all();
+    }
+
+    protected function defaultRules(): array
+    {
+        return collect(CustomerType::cases())
+            ->map(fn (CustomerType $customerType): array => [
+                'customer_type' => $customerType->value,
+                'staff_type' => TeamType::SALE->value,
+                'distribution_method' => DistributionMethod::MOST_RECENT_RECIPIENT->value,
+            ])
+            ->all();
     }
 }

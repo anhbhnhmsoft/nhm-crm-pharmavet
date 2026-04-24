@@ -14,6 +14,7 @@ use Filament\Pages\Page;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use App\Common\Constants\Customer\DistributionMethod;
+use App\Models\Product;
 use App\Models\Team;
 use App\Models\User;
 use App\Services\LeadDistributionConfigService;
@@ -83,7 +84,7 @@ class LeadDistributionConfig extends Page
                 'organization_id' => $this->organizationId,
                 'name' => '',
                 'product_id' => null,
-                'rules' => [],
+                'rules' => $this->defaultRules(),
                 'staffSale' => [],
                 'staffCSKH' => [],
             ]);
@@ -96,18 +97,18 @@ class LeadDistributionConfig extends Page
             'organization_id' => $this->config->organization_id,
             'rules' => $this->config->rules->map(fn($rule) => [
                 'id' => $rule->id,
-                'field' => $rule->field,
-                'operator' => $rule->operator,
-                'value' => $rule->value,
+                'customer_type' => $rule->customer_type,
+                'staff_type' => $rule->staff_type,
+                'distribution_method' => $rule->distribution_method,
             ])->toArray(),
             'staffSale' => $this->config->staffSale->map(fn($staff) => [
                 'staff_id' => $staff->id,
-                'team_id' => $staff->team_id,
+                'team_id' => $staff->teams->first(fn($team) => $team->type == TeamType::SALE->value)?->id,
                 'weight' => $staff->pivot?->weight,
             ])->toArray(),
             'staffCSKH' => $this->config->staffCSKH->map(fn($staff) => [
                 'staff_id' => $staff->id,
-                'team_id' => $staff->team_id,
+                'team_id' => $staff->teams->first(fn($team) => $team->type == TeamType::CSKH->value)?->id,
                 'weight' => $staff->pivot?->weight,
             ])->toArray(),
         ];
@@ -136,13 +137,7 @@ class LeadDistributionConfig extends Page
 
                                 Select::make('product_id')
                                     ->label(__('filament.lead.table.product'))
-                                    ->relationship(
-                                        name: 'product',
-                                        titleAttribute: 'name',
-                                        modifyQueryUsing: fn($query) => $query
-                                            ->where('organization_id', $this->organizationId)
-                                            ->where('is_business_product', true)
-                                    )
+                                    ->options(fn() => $this->getProductOptions())
                                     ->searchable()
                                     ->preload()
                                     ->native(false),
@@ -222,7 +217,7 @@ class LeadDistributionConfig extends Page
                                             ->live()
                                             ->required()
                                             ->native(false)
-                                            ->afterStateUpdated(fn($state, Set $set) => $set('id', null))
+                                            ->afterStateUpdated(fn($state, Set $set) => $set('staff_id', null))
                                             ->validationMessages([
                                                 'required' => __('common.error.required')
                                             ]),
@@ -243,7 +238,7 @@ class LeadDistributionConfig extends Page
                                                 $selectedIds = array_diff($selectedIds, [$currentId]);
 
                                                 return User::query()
-                                                    ->where('team_id', $teamId)
+                                                    ->whereHas('teams', fn($q) => $q->where('teams.id', $teamId))
                                                     ->where('disable', false)
                                                     ->when(!empty($selectedIds), fn($query) => $query->whereNotIn('id', $selectedIds))
                                                     ->pluck('name', 'id');
@@ -298,7 +293,7 @@ class LeadDistributionConfig extends Page
                                             ->live()
                                             ->required()
                                             ->native(false)
-                                            ->afterStateUpdated(fn($state, Set $set) => $set('id', null))
+                                            ->afterStateUpdated(fn($state, Set $set) => $set('staff_id', null))
                                             ->validationMessages([
                                                 'required' => __('common.error.required')
                                             ]),
@@ -319,7 +314,7 @@ class LeadDistributionConfig extends Page
                                                 $selectedIds = array_diff($selectedIds, [$currentId]);
 
                                                 return User::query()
-                                                    ->where('team_id', $teamId)
+                                                    ->whereHas('teams', fn($q) => $q->where('teams.id', $teamId))
                                                     ->where('disable', false)
                                                     ->when(!empty($selectedIds), fn($query) => $query->whereNotIn('id', $selectedIds))
                                                     ->pluck('name', 'id');
@@ -408,5 +403,25 @@ class LeadDistributionConfig extends Page
             ->success()
             ->title(__('common.success.update_success'))
             ->send();
+    }
+
+    protected function getProductOptions(): array
+    {
+        return Product::query()
+            ->where('organization_id', $this->organizationId)
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->all();
+    }
+
+    protected function defaultRules(): array
+    {
+        return collect(CustomerType::cases())
+            ->map(fn (CustomerType $customerType): array => [
+                'customer_type' => $customerType->value,
+                'staff_type' => TeamType::SALE->value,
+                'distribution_method' => DistributionMethod::MOST_RECENT_RECIPIENT->value,
+            ])
+            ->all();
     }
 }

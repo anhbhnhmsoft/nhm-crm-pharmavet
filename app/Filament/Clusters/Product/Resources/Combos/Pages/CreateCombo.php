@@ -2,14 +2,20 @@
 
 namespace App\Filament\Clusters\Product\Resources\Combos\Pages;
 
-use App\Common\Constants\Product\StatusCombo;
 use App\Filament\Clusters\Product\Resources\Combos\ComboResource;
+use App\Services\ComboService;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 
 class CreateCombo extends CreateRecord
 {
     protected static string $resource = ComboResource::class;
+
+    protected function beforeCreate(): void
+    {
+        $this->validateComboBusinessRules();
+    }
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
@@ -17,7 +23,26 @@ class CreateCombo extends CreateRecord
         $data['updated_by'] = Auth::user()->id;
         $data['organization_id'] = Auth::user()->organization_id;
 
-        $data['status'] = StatusCombo::UPCOMING->value;
         return $data;
+    }
+
+    protected function getCreatedNotificationTitle(): ?string
+    {
+        return __('filament.combo.created_successfully');
+    }
+
+    protected function validateComboBusinessRules(): void
+    {
+        /** @var ComboService $comboService */
+        $comboService = app(ComboService::class);
+        $result = $comboService->validateComboPricing($this->form->getRawState()['productsPivot'] ?? []);
+
+        if ($result->isSuccess()) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'productsPivot' => $result->getMessage(),
+        ]);
     }
 }

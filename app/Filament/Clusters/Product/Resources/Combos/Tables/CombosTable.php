@@ -90,9 +90,7 @@ class CombosTable
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
                     ->label(__('filament.combo.status'))
-                    ->options([
-                        StatusCombo::getOptions()
-                    ]),
+                    ->options(StatusCombo::getOptions()),
                 TrashedFilter::make()
                     ->label(__('common.table.trashed')),
             ])
