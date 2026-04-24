@@ -12,6 +12,11 @@ class CreateCombo extends CreateRecord
 {
     protected static string $resource = ComboResource::class;
 
+    protected function getRedirectUrl(): string
+    {
+        return ComboResource::getUrl('index');
+    }
+
     protected function beforeCreate(): void
     {
         $this->validateComboBusinessRules();

@@ -146,7 +146,6 @@ class LeadDistributionConfig extends Page
 
                 Section::make(__('filament.lead.rule.title'))
                     ->icon('heroicon-o-clipboard-document-list')
-                    ->hidden()
                     ->schema([
                         Repeater::make('rules')
                             ->label(__('filament.lead.rule.label'))
@@ -157,7 +156,6 @@ class LeadDistributionConfig extends Page
                                             ->label(__('filament.lead.customer.label'))
                                             ->options(CustomerType::toOptions())
                                             ->required()
-                                            ->disabled()
                                             ->native(false)
                                             ->live()
                                             ->validationMessages([
@@ -171,7 +169,6 @@ class LeadDistributionConfig extends Page
                                                 TeamType::BILL_OF_LADING->value => TeamType::BILL_OF_LADING->label(),
                                             ])
                                             ->required()
-                                            ->disabled()
                                             ->native(false)
                                             ->live()
                                             ->validationMessages([
@@ -373,15 +370,7 @@ class LeadDistributionConfig extends Page
 
     public function save(): void
     {
-        $data = $this->form->getRawState();
-
-        if (empty($data['name'])) {
-            Notification::make()
-                ->warning()
-                ->title(__('common.error.validation_failed'))
-                ->send();
-            return;
-        }
+        $data = $this->form->getState();
 
         /** @var LeadDistributionConfigService $service */
         $service = app(LeadDistributionConfigService::class);

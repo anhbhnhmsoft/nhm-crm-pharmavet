@@ -177,7 +177,7 @@ class ComboForm
                             TextInput::make('quantity')
                                 ->label(__('filament.combo.quantity'))
                                 ->validationAttribute(__('filament.combo.quantity'))
-                                ->numeric()
+                                ->integer()
                                 ->minValue(1)
                                 ->default(1)
                                 ->required()
@@ -207,6 +207,7 @@ class ComboForm
                                 })
                                 ->validationMessages([
                                     'required' => self::requiredMessage(__('filament.combo.quantity')),
+                                    'integer' => __('validation.integer', ['attribute' => __('filament.combo.quantity')]),
                                     'numeric' => self::numericMessage(__('filament.combo.quantity')),
                                     'min' => self::numericMinMessage(__('filament.combo.quantity'), 1),
                                 ]),
