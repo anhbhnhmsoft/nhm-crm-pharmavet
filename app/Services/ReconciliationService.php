@@ -745,6 +745,14 @@ class ReconciliationService
                 return ServiceReturn::error(__('accounting.reconciliation.no_ghn_order_code'));
             }
 
+            // Không cho phép cập nhật đơn đã ở trạng thái kết thúc (GHN không hỗ trợ)
+            if (GhnOrderStatus::isFinalForReconciliation($reconciliation->ghn_status)) {
+                $statusLabel = GhnOrderStatus::resolveLabel($reconciliation->ghn_status);
+                return ServiceReturn::error(__('accounting.reconciliation.cannot_update_final_order', [
+                    'status' => $statusLabel,
+                ]));
+            }
+
             if (filled($reconciliation->order_id)) {
                 $linkedOrder = $this->orderRepository->query()
                     ->select(['id', 'organization_id', 'created_at'])
