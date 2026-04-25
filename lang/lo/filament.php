@@ -268,6 +268,7 @@ return [
         'product_list' => 'ສິນຄ້າ ລາຍການ',
         'product' => 'ສິນຄ້າ',
         'quantity' => 'ຈຳນວນ',
+        'current_stock_short' => 'Stock',
         'price_in_combo' => 'ລາຄາ in Combo',
         'price_helper' => 'ລາຄາ Helper.',
         'add_product' => 'Add ສິນຄ້າ',
@@ -306,6 +307,10 @@ return [
             'combo_price_must_be_positive' => 'Combo ລາຄາ Must Be Positive',
             'original_price_must_be_positive' => 'Original ລາຄາ Must Be Positive',
             'combo_price_must_be_less_than_original' => 'Combo ລາຄາ Must Be Less Than Original',
+            'quantity_must_be_integer' => 'Quantity must be a valid integer.',
+            'quantity_must_be_positive' => 'Quantity must be greater than 0.',
+            'quantity_stock_helper' => 'Current stock for this product is :max. Quantity in the combo cannot exceed this amount.',
+            'quantity_exceeds_stock' => 'Quantity in the combo cannot exceed the current product stock (:max).',
         ],
     ],
     'shipping' => [

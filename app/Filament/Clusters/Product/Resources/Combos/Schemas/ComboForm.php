@@ -181,6 +181,7 @@ class ComboForm
                             TextInput::make('quantity')
                                 ->label(__('filament.combo.quantity'))
                                 ->validationAttribute(__('filament.combo.quantity'))
+                                ->helperText(fn (Get $get): ?string => self::resolveQuantityHelperText((int) ($get('product_id') ?? 0)))
                                 ->integer()
                                 ->minValue(1)
                                 ->default(1)
@@ -205,7 +206,7 @@ class ComboForm
                                         $product = Product::query()->find($productId);
 
                                         if ($product && (int) $value > (int) $product->quantity) {
-                                            $fail(self::numericMaxMessage(__('filament.combo.quantity'), (float) $product->quantity));
+                                            $fail(self::quantityExceedsStockMessage((int) $product->quantity));
                                         }
                                     };
                                 })
@@ -314,8 +315,33 @@ class ComboForm
             ->Where('is_business_product', true)
             ->where('quantity', '>', 0)
             ->orderBy('name')
-            ->pluck('name', 'id')
+            ->get(['id', 'name', 'quantity'])
+            ->mapWithKeys(fn (Product $product): array => [
+                $product->id => sprintf(
+                    '%s (%s: %s)',
+                    $product->name,
+                    __('filament.combo.current_stock_short'),
+                    number_format((int) $product->quantity, 0, ',', '.'),
+                ),
+            ])
             ->all();
+    }
+
+    protected static function resolveQuantityHelperText(int $productId): ?string
+    {
+        if ($productId <= 0) {
+            return null;
+        }
+
+        $product = Product::query()->find($productId);
+
+        if (! $product) {
+            return null;
+        }
+
+        return __('filament.combo.validation.quantity_stock_helper', [
+            'max' => number_format((int) $product->quantity, 0, ',', '.'),
+        ]);
     }
 
     protected static function resolveSummaryValue(mixed $state, ?Combo $record, string $key): float|int
@@ -471,6 +497,13 @@ class ComboForm
     protected static function numericMaxMessage(string $attribute, int|float|string $max): string
     {
         return __('validation.max.numeric', ['attribute' => $attribute, 'max' => $max]);
+    }
+
+    protected static function quantityExceedsStockMessage(int $max): string
+    {
+        return __('filament.combo.validation.quantity_exceeds_stock', [
+            'max' => number_format($max, 0, ',', '.'),
+        ]);
     }
 
     protected static function arrayMinMessage(string $attribute, int $min): string

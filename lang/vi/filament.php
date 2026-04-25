@@ -289,6 +289,7 @@ return [
         'product_list' => 'Danh sách sản phẩm',
         'product' => 'Sản phẩm',
         'quantity' => 'Số lượng',
+        'current_stock_short' => 'Tồn',
         'price_in_combo' => 'Giá trong combo',
         'price_helper' => 'Giá bán sản phẩm trong combo (có thể giảm giá)',
         'add_product' => 'Thêm sản phẩm',
@@ -334,6 +335,8 @@ return [
             'combo_price_must_be_less_than_original' => 'Tổng giá combo phải nhỏ hơn tổng giá gốc của các sản phẩm.',
             'quantity_must_be_integer' => 'Số lượng phải là số nguyên hợp lệ.',
             'quantity_must_be_positive' => 'Số lượng phải lớn hơn 0.',
+            'quantity_stock_helper' => 'Tồn kho hiện tại của sản phẩm này là :max. Số lượng trong combo không được vượt quá mức này.',
+            'quantity_exceeds_stock' => 'Số lượng trong combo không được vượt quá tồn kho hiện tại của sản phẩm (:max).',
         ],
     ],
     'shipping' => [
