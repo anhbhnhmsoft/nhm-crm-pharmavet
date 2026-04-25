@@ -264,6 +264,7 @@ return [
         'order_updated_with_local_sync_warning' => 'Đã cập nhật GHN và đối soát, nhưng đơn hàng nội bộ chưa đồng bộ do kỳ kế toán đã khóa.',
         'order_in_closed_period' => 'Đơn hàng nằm trong kỳ kế toán đã khóa, không thể thực hiện thay đổi.',
         'order_update_failed' => 'Cập nhật đơn hàng thất bại',
+        'cannot_update_final_order' => 'Không thể cập nhật đơn đã ở trạng thái kết thúc (:status). GHN không hỗ trợ chỉnh sửa đơn đã giao/hoàn/hủy.',
         'no_changes' => 'Không có thay đổi nào',
         'no_update_required' => 'Vui lòng thay đổi ít nhất một thông tin trước khi lưu.',
         'error' => 'Lỗi',
