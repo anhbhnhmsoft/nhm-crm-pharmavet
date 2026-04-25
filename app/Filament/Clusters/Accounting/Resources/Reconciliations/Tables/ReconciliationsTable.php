@@ -1712,11 +1712,8 @@ class ReconciliationsTable
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
                     ->requiresConfirmation()
-                    ->visible(fn($record) => $record->status === ReconciliationStatus::PENDING->value)
-                    ->disabled(fn($record) => ! self::canConfirmRecord($record))
-                    ->tooltip(fn($record) => ! self::canConfirmRecord($record)
-                        ? __('accounting.reconciliation.confirm_requires_final_shipping_status')
-                        : null)
+                    ->visible(fn($record) => $record->status === ReconciliationStatus::PENDING->value
+                        && self::canConfirmRecord($record))
                     ->action(function ($record, ReconciliationService $service, $livewire) {
                         $result = $service->confirmReconciliation($record->id);
 
