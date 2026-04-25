@@ -86,6 +86,7 @@ class ComboForm
                             ->required()
                             ->default(now())
                             ->live()
+                            ->extraInputAttributes(['required' => false])
                             ->validationMessages([
                                 'required' => self::requiredMessage(__('filament.combo.start_date')),
                                 'date' => self::dateMessage(__('filament.combo.start_date')),
@@ -99,6 +100,7 @@ class ComboForm
                             ->required()
                             ->afterOrEqual('start_date')
                             ->live()
+                            ->extraInputAttributes(['required' => false])
                             ->validationMessages([
                                 'required' => self::requiredMessage(__('filament.combo.end_date')),
                                 'date' => self::dateMessage(__('filament.combo.end_date')),
@@ -127,6 +129,8 @@ class ComboForm
                                 ->searchable()
                                 ->preload()
                                 ->live()
+                                ->native(false)
+                                ->extraInputAttributes(['required' => false])
                                 ->columnSpan(2)
                                 ->afterStateHydrated(function ($state, Set $set) {
                                     $productId = (int) ($state ?? 0);
@@ -207,9 +211,9 @@ class ComboForm
                                 })
                                 ->validationMessages([
                                     'required' => self::requiredMessage(__('filament.combo.quantity')),
-                                    'integer' => __('validation.integer', ['attribute' => __('filament.combo.quantity')]),
-                                    'numeric' => self::numericMessage(__('filament.combo.quantity')),
-                                    'min' => self::numericMinMessage(__('filament.combo.quantity'), 1),
+                                    'integer' => __('filament.combo.validation.quantity_must_be_integer'),
+                                    'numeric' => __('filament.combo.validation.quantity_must_be_integer'),
+                                    'min' => __('filament.combo.validation.quantity_must_be_positive'),
                                 ]),
 
                             TextInput::make('price_origin')
@@ -260,6 +264,7 @@ class ComboForm
                         ->columns(3)
                         ->minItems(2)
                         ->maxItems(20)
+                        ->defaultItems(2)
                         ->addActionLabel(__('filament.combo.add_product'))
                         ->collapsible()
                         ->validationMessages([

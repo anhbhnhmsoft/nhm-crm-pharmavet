@@ -54,6 +54,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
@@ -467,9 +468,25 @@ class CustomerOperationsTable
             ->displayFormat('d/m/Y H:i')
             ->seconds(false)
             ->minutesStep(15)
+            ->minDate(now())
             ->required(fn(Get $get) => ReasonInteraction::requiresScheduling((int) $get('reason')))
             ->visible(fn(Get $get) => ReasonInteraction::requiresScheduling((int) $get('reason')))
             ->helperText(__('telesale.helper.schedule_callback'))
+            ->rules([
+                static function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (blank($value)) {
+                        return;
+                    }
+
+                    $nextActionAt = $value instanceof \DateTimeInterface
+                        ? Carbon::instance($value)
+                        : Carbon::parse((string) $value);
+
+                    if ($nextActionAt->lt(now())) {
+                        $fail(__('telesale.messages.next_action_must_be_future'));
+                    }
+                },
+            ])
             ->validationMessages([
                 'required' => __('common.error.required'),
             ]);
@@ -532,6 +549,13 @@ class CustomerOperationsTable
                     ->searchable(['username', 'phone'])
                     ->size('sm')
                     ->weight('medium'),
+                TextColumn::make('assignedStaffPrimary.name')
+                    ->label(__('telesale.table.assigned_staff'))
+                    ->visible(fn() => Auth::user()->role === UserRole::SUPER_ADMIN->value)
+                    ->searchable()
+                    ->sortable()
+                    ->placeholder(__('telesale.messages.unassigned'))
+                    ->size('sm'),
                 TextColumn::make('latest_order_status')
                     ->label(__('telesale.customer360.latest_order_status'))
                     ->state(fn($record) => self::getLatestOrderStatus($record))
@@ -767,6 +791,10 @@ class CustomerOperationsTable
                                                 ->searchable()
                                                 ->live()
                                                 ->required()
+                                                ->extraInputAttributes(['required' => false])
+                                                ->validationMessages([
+                                                    'required' => __('common.error.required'),
+                                                ])
                                                 ->afterStateUpdated(function (Set $set) {
                                                     $set('warehouse_id', null);
                                                     $set('items', []);
@@ -779,6 +807,7 @@ class CustomerOperationsTable
                                                 ->searchable()
                                                 ->live()
                                                 ->required()
+                                                ->extraInputAttributes(['required' => false])
                                                 ->afterStateUpdated(function (Set $set) {
                                                     $set('items', []);
                                                     self::syncOrderLogistics($set, []);
@@ -791,6 +820,10 @@ class CustomerOperationsTable
                                                 ->label(__('warehouse.order.form.client_order_code'))
                                                 ->placeholder('ORD-XXXXXXX')
                                                 ->required()
+                                                ->extraInputAttributes(['required' => false])
+                                                ->validationMessages([
+                                                    'required' => __('common.error.required'),
+                                                ])
                                                 ->rules(function ($record) {
                                     return [
                                         function (string $attribute, $value, $fail) use ($record) {

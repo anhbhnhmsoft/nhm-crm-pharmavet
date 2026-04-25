@@ -332,6 +332,8 @@ return [
             'combo_price_must_be_positive' => 'Tổng giá combo phải lớn hơn 0.',
             'original_price_must_be_positive' => 'Tổng giá gốc của các sản phẩm phải lớn hơn 0.',
             'combo_price_must_be_less_than_original' => 'Tổng giá combo phải nhỏ hơn tổng giá gốc của các sản phẩm.',
+            'quantity_must_be_integer' => 'Số lượng phải là số nguyên hợp lệ.',
+            'quantity_must_be_positive' => 'Số lượng phải lớn hơn 0.',
         ],
     ],
     'shipping' => [
@@ -503,6 +505,8 @@ return [
         'rule' => [
             'title' => 'Quy tắc',
             'label' => 'Danh sách quy tắc',
+            'matrix_label' => 'Ma trận quy tắc cố định',
+            'fixed_description' => 'Mỗi loại data và loại nhân sự chỉ có đúng một quy tắc. Hệ thống khóa sẵn ma trận để tránh trùng khóa nghiệp vụ.',
             'field' => [
                 'customer_type' => 'Loại số',
                 'staff_type' => 'Loại nhân viên',
@@ -517,6 +521,11 @@ return [
                 'untitled' => 'Quy tắc chưa có tiêu đề',
                 'new' => 'Quy tắc mới',
             ],
+            'validation' => [
+                'invalid_staff_type' => 'Loại nhân sự không hợp lệ cho cấu hình chia số.',
+                'duplicate_key' => 'Quy tắc :customer -> :staff đang bị trùng khóa.',
+                'invalid_matrix' => 'Danh sách quy tắc không khớp ma trận loại data và loại nhân sự hiện hành.',
+            ],
         ],
         'staff' => [
             'title' => 'Nhân viên',
@@ -526,7 +535,13 @@ return [
             'sale_label' => 'Danh sách nhân viên sale',
             'weight' => 'Định mức',
             'cskh_title' => 'Nhân viên CSKH',
-            'cskh_label' => 'Danh sách nhân viên CSKH'
+            'cskh_label' => 'Danh sách nhân viên CSKH',
+            'weight_helper' => 'Trọng số chỉ áp dụng khi phương thức chia là Theo định mức.',
+            'validation' => [
+                'duplicate' => 'Nhân viên đã được chọn trong nhóm này.',
+                'invalid_team' => 'Nhóm đã chọn không thuộc đúng loại nhân sự của cấu hình.',
+                'invalid_staff' => 'Nhân viên không thuộc nhóm đã chọn hoặc hiện không còn hoạt động.',
+            ],
         ],
         'customer' => [
             'new' => 'Số mới',

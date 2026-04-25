@@ -49,6 +49,45 @@ class TelesaleOperationForm
         return min(100, self::normalizePositiveNumber($value));
     }
 
+    protected static function resolveOrganizationId(Get $get, string $path = 'organization_id'): ?int
+    {
+        $user = Auth::user();
+
+        if ((int) ($user?->role ?? 0) !== UserRole::SUPER_ADMIN->value) {
+            return (int) ($user?->organization_id ?? 0) ?: null;
+        }
+
+        return (int) ($get($path) ?? 0) ?: null;
+    }
+
+    protected static function getBusinessProductOptions(?int $organizationId, ?int $selectedProductId = null): array
+    {
+        if (($organizationId ?? 0) <= 0 && ($selectedProductId ?? 0) <= 0) {
+            return [];
+        }
+
+        return Product::query()
+            ->where(function ($query) use ($organizationId, $selectedProductId): void {
+                if (($organizationId ?? 0) > 0) {
+                    $query->where('organization_id', $organizationId)
+                        ->where('is_business_product', true);
+                }
+
+                if (($selectedProductId ?? 0) > 0) {
+                    if (($organizationId ?? 0) > 0) {
+                        $query->orWhereKey($selectedProductId);
+
+                        return;
+                    }
+
+                    $query->whereKey($selectedProductId);
+                }
+            })
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->all();
+    }
+
     public static function getComponents(): array
     {
         $today = now()->startOfDay();
@@ -158,20 +197,10 @@ class TelesaleOperationForm
 
                                     Select::make('product_id')
                                         ->label(__('telesale.form.product'))
-                                        ->options(function (Get $get) {
-                                            $user = Auth::user();
-                                            $orgId = $user->role === UserRole::SUPER_ADMIN->value
-                                                ? $get('organization_id')
-                                                : $user->organization_id;
-
-                                            if (!$orgId) {
-                                                return [];
-                                            }
-
-                                            return Product::where('organization_id', $orgId)
-                                                ->where('is_business_product', true)
-                                                ->pluck('name', 'id');
-                                        })
+                                        ->options(fn(Get $get): array => self::getBusinessProductOptions(
+                                            self::resolveOrganizationId($get),
+                                            (int) ($get('product_id') ?? 0),
+                                        ))
                                         ->required()
                                         ->extraInputAttributes(['required' => false])
                                         ->validationMessages([
@@ -224,7 +253,10 @@ class TelesaleOperationForm
                                                             Select::make('product_id')
                                                                 ->label(__('telesale.form.product'))
                                                                 ->searchable()
-                                                                ->options(Product::query()->where('is_business_product', true)->pluck('name', 'id'))
+                                                                ->options(fn(Get $get): array => self::getBusinessProductOptions(
+                                                                    self::resolveOrganizationId($get, '../../organization_id'),
+                                                                    (int) ($get('product_id') ?? 0),
+                                                                ))
                                                                 ->live()
                                                                 ->required()
                                                                 ->afterStateUpdated(function ($state, Set $set) {

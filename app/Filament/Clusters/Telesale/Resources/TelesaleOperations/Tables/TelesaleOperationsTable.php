@@ -94,7 +94,7 @@ class TelesaleOperationsTable
                     ->formatStateUsing(fn($state) => IntegrationType::getLabel((int) $state))
                     ->size('sm'),
 
-                TextColumn::make('assignedStaff.name')
+                TextColumn::make('assignedStaffPrimary.name')
                     ->label(__('telesale.table.assigned_staff'))
                     ->sortable()
                     ->searchable()

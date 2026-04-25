@@ -33,7 +33,7 @@ class TelesaleInteractionWorkflowService
             $currentStatus = (int) $customer->interaction_status;
             $nextActionAt = $command->normalizedNextActionAt();
 
-            $this->validate($reason, $currentStatus, $nextActionAt);
+            $this->validate($reason, $currentStatus, $nextActionAt, $command->context);
 
             $nextStatus = $this->resolveNextStatus($reason, $currentStatus);
 
@@ -118,7 +118,7 @@ class TelesaleInteractionWorkflowService
         ], true);
     }
 
-    protected function validate(ReasonInteraction $reason, int $currentStatus, mixed $nextActionAt): void
+    protected function validate(ReasonInteraction $reason, int $currentStatus, mixed $nextActionAt, string $context): void
     {
         if (! $this->isWorkflowStatus($currentStatus)) {
             throw ValidationException::withMessages([
@@ -126,9 +126,19 @@ class TelesaleInteractionWorkflowService
             ]);
         }
 
+        $nextActionField = $context === 'edit_form'
+            ? 'interaction_next_action_at'
+            : 'next_action_at';
+
         if (ReasonInteraction::requiresScheduling($reason->value) && blank($nextActionAt)) {
             throw ValidationException::withMessages([
-                'next_action_at' => __('common.error.required'),
+                $nextActionField => __('common.error.required'),
+            ]);
+        }
+
+        if (ReasonInteraction::requiresScheduling($reason->value) && filled($nextActionAt) && $nextActionAt->lt(now())) {
+            throw ValidationException::withMessages([
+                $nextActionField => __('telesale.messages.next_action_must_be_future'),
             ]);
         }
     }

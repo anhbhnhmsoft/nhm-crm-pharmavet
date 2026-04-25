@@ -194,6 +194,7 @@ return [
         'warehouse_required' => 'Vui lòng chọn kho xử lý đơn',
         'invalid_interaction_status' => 'Trạng thái hiện tại không hỗ trợ tác nghiệp theo quy trình sale.',
         'invalid_interaction_reason' => 'Kết quả tác nghiệp không hợp lệ.',
+        'next_action_must_be_future' => 'Thời gian tác nghiệp tiếp phải lớn hơn thời điểm hiện tại.',
 
     ],
 

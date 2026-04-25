@@ -16,6 +16,7 @@ use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
@@ -82,9 +83,25 @@ class InteractionStepActions
             ->displayFormat('d/m/Y H:i')
             ->seconds(false)
             ->minutesStep(15)
+            ->minDate(now())
             ->required(fn(Get $get) => ReasonInteraction::requiresScheduling((int) $get($reasonField)))
             ->visible(fn(Get $get) => ReasonInteraction::requiresScheduling((int) $get($reasonField)))
             ->helperText(__('telesale.helper.schedule_callback'))
+            ->rules([
+                static function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (blank($value)) {
+                        return;
+                    }
+
+                    $nextActionAt = $value instanceof \DateTimeInterface
+                        ? Carbon::instance($value)
+                        : Carbon::parse((string) $value);
+
+                    if ($nextActionAt->lt(now())) {
+                        $fail(__('telesale.messages.next_action_must_be_future'));
+                    }
+                },
+            ])
             ->validationMessages([
                 'required' => __('common.error.required'),
             ]);

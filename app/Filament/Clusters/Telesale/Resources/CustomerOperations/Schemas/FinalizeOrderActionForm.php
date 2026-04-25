@@ -66,6 +66,7 @@ class FinalizeOrderActionForm
                                     ->options(ProviderShipping::getOptions())
                                     ->live()
                                     ->required()
+                                    ->extraInputAttributes(['required' => false])
                                     ->validationMessages([
                                         'required' => __('common.error.required'),
                                     ]),
@@ -141,6 +142,10 @@ class FinalizeOrderActionForm
                                     ->searchable()
                                     ->live()
                                     ->required()
+                                    ->extraInputAttributes(['required' => false])
+                                    ->validationMessages([
+                                        'required' => __('common.error.required'),
+                                    ])
                                     ->afterStateUpdated(function (Set $set) use ($service) {
                                         $set('warehouse_id', null);
                                         $set('items', []);
@@ -153,6 +158,7 @@ class FinalizeOrderActionForm
                                     ->searchable()
                                     ->live()
                                     ->required()
+                                    ->extraInputAttributes(['required' => false])
                                     ->afterStateUpdated(function (Set $set) use ($service) {
                                         $set('items', []);
                                         $service->syncOrderLogistics($set, []);
@@ -165,6 +171,10 @@ class FinalizeOrderActionForm
                                     ->label(__('warehouse.order.form.client_order_code'))
                                     ->placeholder('ORD-XXXXXXX')
                                     ->required()
+                                    ->extraInputAttributes(['required' => false])
+                                    ->validationMessages([
+                                        'required' => __('common.error.required'),
+                                    ])
                                     ->rules(function ($record) {
                                         return [
                                             function (string $attribute, $value, $fail) use ($record) {
@@ -190,6 +200,7 @@ class FinalizeOrderActionForm
                                     ->label(__('warehouse.order.form.required_note'))
                                     ->options(RequiredNote::getOptions())
                                     ->required()
+                                    ->extraInputAttributes(['required' => false])
                                     ->validationMessages([
                                         'required' => __('common.error.required'),
                                     ]),

@@ -51,7 +51,7 @@ class EditCombo extends EditRecord
         }
 
         throw ValidationException::withMessages([
-            'productsPivot' => $result->getMessage(),
+            'data.productsPivot' => [$result->getMessage()],
         ]);
     }
 }
