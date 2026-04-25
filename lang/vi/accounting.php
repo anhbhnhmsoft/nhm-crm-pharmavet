@@ -406,7 +406,7 @@ return [
         'filter_follow_order_posting'   => ':index. Quá :duration chưa đăng đơn (từ khi chốt đơn)',
         'filter_order_status'           => 'Trạng thái đơn',
         'filter_qty_status'             => 'Toàn bộ số lượng',
-        'filter_qty_placeholder'        => '--Toàn bộ số lượng--',
+        'filter_qty_placeholder'        => 'Toàn bộ số lượng',
         'filter_qty_from'               => 'Tổng số lượng sản phẩm từ :quantity',
         'filter_qty_all'                => 'Toàn bộ số lượng',
         'filter_qty_partial'            => 'Một phần',
