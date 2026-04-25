@@ -6,7 +6,6 @@ use App\Common\Constants\Customer\CustomerType;
 use App\Common\Constants\Customer\DistributionMethod;
 use App\Common\Constants\Team\TeamType;
 use App\Models\LeadDistributionConfig as LeadDistributionConfigModel;
-use App\Models\Product;
 use App\Models\Team;
 use App\Models\User;
 use App\Services\LeadDistributionConfigService;
@@ -98,19 +97,15 @@ abstract class BaseLeadDistributionConfigPage extends Page
                                         'max' => __('common.error.max_length', ['max' => 255]),
                                     ]),
 
-                                Select::make('product_id')
-                                    ->label(__('filament.lead.table.product'))
-                                    ->options(fn (): array => $this->getProductOptions())
-                                    ->placeholder(__('filament.lead.config.product_placeholder'))
-                                    ->searchable()
-                                    ->preload()
-                                    ->native(false),
+                                Hidden::make('product_id')
+                                    ->default(null),
                             ]),
                     ]),
 
                 Section::make(__('filament.lead.rule.title'))
                     ->description(__('filament.lead.rule.fixed_description'))
                     ->icon('heroicon-o-clipboard-document-list')
+                    ->hidden()
                     ->schema([
                         Repeater::make('rules')
                             ->label(__('filament.lead.rule.matrix_label'))
@@ -173,6 +168,8 @@ abstract class BaseLeadDistributionConfigPage extends Page
     public function save(): void
     {
         $data = $this->form->getState();
+        $data['product_id'] = null;
+        $data['rules'] = LeadDistributionConfigRuleMatrix::normalizeForForm($data['rules'] ?? []);
 
         /** @var LeadDistributionConfigService $service */
         $service = app(LeadDistributionConfigService::class);
@@ -219,7 +216,7 @@ abstract class BaseLeadDistributionConfigPage extends Page
 
         return [
             'name' => $this->config->name,
-            'product_id' => $this->config->product_id,
+            'product_id' => null,
             'organization_id' => $this->config->organization_id,
             'rules' => LeadDistributionConfigRuleMatrix::normalizeForForm(
                 $this->config->rules
@@ -306,15 +303,6 @@ abstract class BaseLeadDistributionConfigPage extends Page
                     ->minItems(1)
                     ->columns(1),
             ]);
-    }
-
-    protected function getProductOptions(): array
-    {
-        return Product::query()
-            ->where('organization_id', $this->organizationId)
-            ->orderBy('name')
-            ->pluck('name', 'id')
-            ->all();
     }
 
     protected function getTeamOptions(TeamType $teamType): array

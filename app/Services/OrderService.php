@@ -4,6 +4,10 @@ namespace App\Services;
 
 use App\Common\Constants\Order\GhnOrderStatus;
 use App\Common\Constants\Order\OrderStatus;
+use App\Common\Constants\Order\PaymentType;
+use App\Common\Constants\Order\ServiceType;
+use App\Common\Constants\Shipping\ProviderShipping;
+use App\Common\Constants\Shipping\RequiredNote;
 use App\Common\Constants\User\UserRole;
 use App\Core\ServiceReturn;
 use App\Jobs\ProcessGHNOrderJob;
@@ -78,7 +82,11 @@ class OrderService
 
             return ServiceReturn::success(message: __('order.notification.post_order_success'));
         } catch (\Exception $e) {
-            return ServiceReturn::error($e->getMessage());
+            return ServiceReturn::error($this->formatShippingProviderMessage(
+                message: $e->getMessage(),
+                order: $order,
+                data: $data,
+            ));
         }
     }
 
@@ -89,7 +97,10 @@ class OrderService
 
             return ServiceReturn::success(message: __('order.notification.cancel_order_success'));
         } catch (\Exception $e) {
-            return ServiceReturn::error($e->getMessage());
+            return ServiceReturn::error($this->formatShippingProviderMessage(
+                message: $e->getMessage(),
+                order: $order,
+            ));
         }
     }
 
@@ -577,6 +588,83 @@ class OrderService
 
         // Add -R suffix
         return $currentCode . '-R';
+    }
+
+    protected function formatShippingProviderMessage(string $message, Order $order, array $data = []): string
+    {
+        $normalizedMessage = trim($message);
+
+        $fieldLabels = [
+            'payment_type_id' => __('order.form.ghn_payment_type'),
+            'service_type_id' => __('order.form.ghn_service_type'),
+            'required_note' => __('order.form.required_note'),
+            'to_district_id' => __('order.form.district') . ' (GHN)',
+            'to_ward_code' => __('order.form.ward') . ' (GHN)',
+            'to_name' => __('warehouse.order.form.username'),
+            'to_phone' => __('warehouse.order.form.phone'),
+            'to_address' => __('order.form.shipping_address'),
+            'client_order_code' => __('warehouse.order.form.client_order_code'),
+        ];
+
+        $normalizedMessage = str_ireplace(
+            array_keys($fieldLabels),
+            array_values($fieldLabels),
+            $normalizedMessage,
+        );
+
+        $valueLabels = [
+            RequiredNote::ALLOW_TO_TRY->value => RequiredNote::ALLOW_TO_TRY->label(),
+            RequiredNote::ALLOW_VIEWING_NOT_TRIAL->value => RequiredNote::ALLOW_VIEWING_NOT_TRIAL->label(),
+            RequiredNote::NO_VIEWING->value => RequiredNote::NO_VIEWING->label(),
+            ProviderShipping::GHN->value => ProviderShipping::GHN->label(),
+            ProviderShipping::VIETTEL->value => ProviderShipping::VIETTEL->label(),
+            ProviderShipping::MANUAL->value => ProviderShipping::MANUAL->label(),
+        ];
+
+        $normalizedMessage = str_replace(
+            array_keys($valueLabels),
+            array_values($valueLabels),
+            $normalizedMessage,
+        );
+
+        $context = [];
+
+        $shippingMethod = (string) ($data['shipping_method'] ?? $order->shipping_method ?? '');
+        if ($shippingMethod !== '') {
+            $context[] = __('order.form.shipping_method') . ': ' . ProviderShipping::getLabel($shippingMethod);
+        }
+
+        $serviceTypeId = (int) ($data['ghn_service_type_id'] ?? $order->ghn_service_type_id ?? 0);
+        if ($serviceTypeId > 0) {
+            $context[] = __('order.form.ghn_service_type') . ': '
+                . (ServiceType::tryFrom($serviceTypeId)?->label() ?? (string) $serviceTypeId);
+        }
+
+        $paymentTypeId = (int) ($data['ghn_payment_type_id'] ?? $order->ghn_payment_type_id ?? 0);
+        if ($paymentTypeId > 0) {
+            $context[] = __('order.form.ghn_payment_type') . ': '
+                . (PaymentType::tryFrom($paymentTypeId)?->label() ?? (string) $paymentTypeId);
+        }
+
+        $requiredNote = (string) ($data['required_note'] ?? $order->required_note ?? '');
+        if ($requiredNote !== '') {
+            $context[] = __('order.form.required_note') . ': '
+                . (RequiredNote::tryFrom($requiredNote)?->label() ?? $requiredNote);
+        }
+
+        if ($context === []) {
+            return $normalizedMessage;
+        }
+
+        $contextMessage = __('order.notification.shipping_context', [
+            'context' => implode(' | ', $context),
+        ]);
+
+        if ($normalizedMessage === '') {
+            return $contextMessage;
+        }
+
+        return $normalizedMessage . ' ' . $contextMessage;
     }
 
     public function requestRedelivery(Order $order, array $data): ServiceReturn
