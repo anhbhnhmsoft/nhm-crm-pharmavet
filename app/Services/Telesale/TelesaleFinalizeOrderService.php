@@ -261,7 +261,26 @@ class TelesaleFinalizeOrderService
     public function validateFinalizeOrderData(array $data, $record): void
     {
         $messages = [];
+        $shippingMethod = trim((string) ($data['shipping_method'] ?? ''));
+        $requiredNote = trim((string) ($data['required_note'] ?? ''));
+        $clientOrderCode = trim((string) ($data['client_order_code'] ?? ''));
         $warehouseId = (int) ($data['warehouse_id'] ?? 0);
+
+        if ($shippingMethod === '') {
+            $messages['shipping_method'] = __('common.error.required');
+        } elseif (! array_key_exists($shippingMethod, ProviderShipping::getOptions())) {
+            $messages['shipping_method'] = __('common.error.in', ['attribute' => __('warehouse.order.form.shipping_method')]);
+        }
+
+        if ($requiredNote === '') {
+            $messages['required_note'] = __('common.error.required');
+        } elseif (! array_key_exists($requiredNote, RequiredNote::getOptions())) {
+            $messages['required_note'] = __('common.error.in', ['attribute' => __('warehouse.order.form.required_note')]);
+        }
+
+        if ($clientOrderCode === '') {
+            $messages['client_order_code'] = __('common.error.required');
+        }
 
         if ($warehouseId <= 0) {
             $messages['warehouse_id'] = __('telesale.messages.warehouse_required');

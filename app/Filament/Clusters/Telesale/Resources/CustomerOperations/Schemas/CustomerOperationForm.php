@@ -39,8 +39,13 @@ class CustomerOperationForm
                     ->options(CustomerType::toOptions()),
                 Select::make('product_id')
                     ->label(__('common.table.product'))
-                    ->relationship('product', 'name')
-                    ->searchable(),
+                    ->relationship(
+                        name: 'product',
+                        titleAttribute: 'name',
+                        modifyQueryUsing: fn ($query) => $query->withTrashed(),
+                    )
+                    ->searchable()
+                    ->preload(),
                 Select::make('source')
                     ->label(__('telesale.table.source'))
                     ->options(IntegrationType::toOptions()),

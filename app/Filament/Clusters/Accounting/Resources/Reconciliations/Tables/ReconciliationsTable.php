@@ -73,6 +73,81 @@ class ReconciliationsTable
         return app(ReconciliationService::class);
     }
 
+    protected static function getCachedOrderDetail(int $reconciliationId): array
+    {
+        $detail = Caching::getCache(CacheKey::GHN_ORDER_DETAIL, (string) $reconciliationId);
+
+        return is_array($detail) ? $detail : [];
+    }
+
+    protected static function buildOrderDetailFormData(object $record, array $orderDetail = [], ?string $error = null): array
+    {
+        $order = $record->order;
+        $fee = is_array($orderDetail['fee'] ?? null) ? $orderDetail['fee'] : [];
+
+        $status = $orderDetail['status'] ?? $record->ghn_status ?? '';
+        $createdDate = $orderDetail['created_date'] ?? null;
+
+        if (blank($createdDate) && filled($record->ghn_created_at)) {
+            $createdDate = $record->ghn_created_at?->format('d/m/Y H:i');
+        }
+
+        return [
+            'order_code' => $orderDetail['order_code'] ?? $record->ghn_order_code ?? '',
+            'status' => GhnOrderStatus::tryFrom((string) $status)?->label() ?? (string) $status,
+            'created_date' => $createdDate ?? '',
+            'to_name' => $record->ghn_to_name
+                ?? $orderDetail['to_name']
+                ?? $order?->customer?->username
+                ?? '',
+            'to_phone' => $record->ghn_to_phone
+                ?? $orderDetail['to_phone']
+                ?? $order?->customer?->phone
+                ?? '',
+            'to_address' => $record->ghn_to_address
+                ?? $orderDetail['to_address']
+                ?? $order?->shipping_address
+                ?? '',
+            'cod_amount' => $orderDetail['cod_amount']
+                ?? $record->cod_amount
+                ?? $order?->collect_amount
+                ?? 0,
+            'payment_type_id' => $record->ghn_payment_type_id
+                ?? $orderDetail['payment_type_id']
+                ?? $order?->ghn_payment_type_id,
+            'weight' => $orderDetail['weight']
+                ?? $record->ghn_weight
+                ?? $order?->weight
+                ?? 0,
+            'length' => $orderDetail['length']
+                ?? $order?->length
+                ?? 0,
+            'width' => $orderDetail['width']
+                ?? $order?->width
+                ?? 0,
+            'height' => $orderDetail['height']
+                ?? $order?->height
+                ?? 0,
+            'note' => $orderDetail['note']
+                ?? $order?->note
+                ?? '',
+            'content' => $record->ghn_content
+                ?? $orderDetail['content']
+                ?? $order?->ghn_content
+                ?? '',
+            'required_note' => $record->ghn_required_note
+                ?? $orderDetail['required_note']
+                ?? $order?->required_note
+                ?? '',
+            'main_service_fee' => $fee['main_service'] ?? 0,
+            'cod_fee' => $fee['cod_fee'] ?? 0,
+            'storage_fee' => $fee['station_do'] ?? $record->storage_fee ?? 0,
+            'total_fee' => $orderDetail['total_fee'] ?? $record->total_fee ?? 0,
+            'ghn_employee_note' => trim((string) strip_tags($record->ghn_employee_note ?? '')),
+            'error' => $error,
+        ];
+    }
+
     protected static function getLikeOperator(Builder $query): string
     {
         return $query->getConnection()->getDriverName() === 'pgsql'
@@ -1353,40 +1428,26 @@ class ReconciliationsTable
                     ->modalWidth('4xl')
                     ->modalSubmitAction(fn (Action $action) => $action->extraAttributes(['formnovalidate' => true]))
                     ->mountUsing(function ($form, $record, ReconciliationService $service) {
+                        $cachedOrderDetail = self::getCachedOrderDetail((int) $record->id);
+
+                        if ($cachedOrderDetail !== []) {
+                            $form->fill(self::buildOrderDetailFormData($record, $cachedOrderDetail));
+
+                            return;
+                        }
+
                         $result = $service->getOrderDetailFromGHN($record->id);
 
                         if ($result->isError()) {
-                            $form->fill(['error' => $result->getMessage()]);
+                            $form->fill(self::buildOrderDetailFormData($record, error: $result->getMessage()));
                             return;
                         }
 
                         $orderDetail = $result->getData();
-                        $fee = $orderDetail['fee'] ?? [];
 
                         Caching::setCache(CacheKey::GHN_ORDER_DETAIL, $orderDetail, (string) $record->id, 15);
 
-                        $form->fill([
-                            'order_code' => $orderDetail['order_code'] ?? '',
-                            'status' => GhnOrderStatus::tryFrom($orderDetail['status'] ?? '')?->label()
-                                ?? ($orderDetail['status'] ?? ''),
-                            'created_date' => $orderDetail['created_date'] ?? '',
-                            'to_name' => $orderDetail['to_name'] ?? '',
-                            'to_phone' => $orderDetail['to_phone'] ?? '',
-                            'to_address' => $orderDetail['to_address'] ?? '',
-                            'cod_amount' => $orderDetail['cod_amount'] ?? 0,
-                            'payment_type_id' => $orderDetail['payment_type_id'] ?? null,
-                            'weight' => $orderDetail['weight'] ?? 0,
-                            'length' => $orderDetail['length'] ?? 0,
-                            'width' => $orderDetail['width'] ?? 0,
-                            'height' => $orderDetail['height'] ?? 0,
-                            'note' => $orderDetail['note'] ?? '',
-                            'content' => $orderDetail['content'] ?? '',
-                            'required_note' => $orderDetail['required_note'] ?? '',
-                            'main_service_fee' => $fee['main_service'] ?? 0,
-                            'cod_fee' => $fee['cod_fee'] ?? 0,
-                            'storage_fee' => $fee['station_do'] ?? 0,
-                            'total_fee' => $orderDetail['total_fee'] ?? 0,
-                        ]);
+                        $form->fill(self::buildOrderDetailFormData($record, $orderDetail));
                     })
                     ->extraModalFooterActions(fn($record) => [
                         Action::make('sync_from_ghn')
@@ -1633,7 +1694,23 @@ class ReconciliationsTable
                             ->visible(fn($get) => !empty($get('error'))),
                     ])
                     ->action(function ($record, array $data, ReconciliationService $service, $livewire) {
-                        $orderDetail = Caching::getCache(CacheKey::GHN_ORDER_DETAIL, (string) $record->id);
+                        $orderDetail = self::getCachedOrderDetail((int) $record->id);
+
+                        if ($orderDetail === []) {
+                            $detailResult = $service->getOrderDetailFromGHN($record->id);
+
+                            if ($detailResult->isError()) {
+                                Notification::make()
+                                    ->title($detailResult->getMessage())
+                                    ->danger()
+                                    ->send();
+
+                                return;
+                            }
+
+                            $orderDetail = $detailResult->getData();
+                            Caching::setCache(CacheKey::GHN_ORDER_DETAIL, $orderDetail, (string) $record->id, 15);
+                        }
 
                         $fields = [
                             'cod_amount',
@@ -1651,6 +1728,9 @@ class ReconciliationsTable
                         ];
 
                         $updateData = [];
+                        $currentAccountingNote = trim((string) strip_tags($record->ghn_employee_note ?? ''));
+                        $nextAccountingNote = trim((string) strip_tags((string) ($data['ghn_employee_note'] ?? '')));
+                        $accountingNoteChanged = $currentAccountingNote !== $nextAccountingNote;
 
                         foreach ($fields as $field) {
                             if ($field === 'to_address' && isset($data['to_address'])) {
@@ -1666,12 +1746,27 @@ class ReconciliationsTable
                             }
                         }
 
-                        if (count($updateData) === 0) {
+                        if (count($updateData) === 0 && ! $accountingNoteChanged) {
                             Notification::make()
                                 ->title(__('accounting.reconciliation.no_changes'))
                                 ->body(__('accounting.reconciliation.no_update_required'))
                                 ->info()
                                 ->send();
+                            return;
+                        }
+
+                        if (count($updateData) === 0 && $accountingNoteChanged) {
+                            $record->update([
+                                'ghn_employee_note' => $nextAccountingNote !== '' ? $nextAccountingNote : null,
+                            ]);
+
+                            Notification::make()
+                                ->title(__('accounting.reconciliation.order_updated'))
+                                ->success()
+                                ->send();
+
+                            self::refreshTableAfterMutation($livewire, $record);
+
                             return;
                         }
 
@@ -1685,10 +1780,22 @@ class ReconciliationsTable
                         } else {
                             $payload = $result->getData();
 
+                            if ($accountingNoteChanged) {
+                                $record->update([
+                                    'ghn_employee_note' => $nextAccountingNote !== '' ? $nextAccountingNote : null,
+                                ]);
+                            }
+
                             if (is_array($payload['order_detail'] ?? null)) {
+                                $updatedOrderDetail = $payload['order_detail'];
+
+                                if ($accountingNoteChanged) {
+                                    $updatedOrderDetail['employee_note'] = $nextAccountingNote;
+                                }
+
                                 Caching::setCache(
                                     CacheKey::GHN_ORDER_DETAIL,
-                                    $payload['order_detail'],
+                                    $updatedOrderDetail,
                                     (string) $record->id,
                                     15
                                 );

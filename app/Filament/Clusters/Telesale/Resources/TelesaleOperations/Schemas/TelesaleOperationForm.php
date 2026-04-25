@@ -68,6 +68,8 @@ class TelesaleOperationForm
 
         return Product::query()
             ->where(function ($query) use ($organizationId, $selectedProductId): void {
+                $qualifiedKeyName = $query->getModel()->getQualifiedKeyName();
+
                 if (($organizationId ?? 0) > 0) {
                     $query->where('organization_id', $organizationId)
                         ->where('is_business_product', true);
@@ -75,12 +77,12 @@ class TelesaleOperationForm
 
                 if (($selectedProductId ?? 0) > 0) {
                     if (($organizationId ?? 0) > 0) {
-                        $query->orWhereKey($selectedProductId);
+                        $query->orWhere($qualifiedKeyName, $selectedProductId);
 
                         return;
                     }
 
-                    $query->whereKey($selectedProductId);
+                    $query->where($qualifiedKeyName, $selectedProductId);
                 }
             })
             ->orderBy('name')
