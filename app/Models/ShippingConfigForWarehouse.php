@@ -9,7 +9,7 @@ class ShippingConfigForWarehouse extends Model
 {
     use HasFactory;
 
-    protected $table = 'shipping_config_for_warehouse';
+    protected $table = 'shipping_config_for_warehouses';
 
     protected $fillable = [
         'warehouse_id',
