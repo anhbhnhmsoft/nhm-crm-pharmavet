@@ -643,6 +643,7 @@ class CustomerOperationsTable
                             : null)
                         ->modalWidth('7xl')
                         ->modalDescription(fn($record) => self::interactionModalDescription($record))
+                        ->modalSubmitAction(fn(Action $action) => $action->extraAttributes(['formnovalidate' => true]))
                         ->mountUsing(function ($form, $record) {
                             $order = Order::where('customer_id', $record->id)
                                 ->whereIn('status', [OrderStatus::PENDING->value, OrderStatus::CONFIRMED->value])
@@ -717,7 +718,8 @@ class CustomerOperationsTable
                                                 ->live()
                                                 ->hidden(fn(Get $get) => $get('shipping_method') === ProviderShipping::GHN->value)
                                                 ->afterStateUpdated(fn(Set $set) => $set('district_id', null))
-                                                ->required(fn(Get $get) => $get('shipping_method') !== ProviderShipping::GHN->value),
+                                                ->required(fn(Get $get) => $get('shipping_method') !== ProviderShipping::GHN->value)
+                                                ->extraInputAttributes(['required' => false]),
                                             Select::make('district_id')
                                                 ->label(__('warehouse.order.form.district'))
                                                 ->options(fn($get) => District::where('province_id', $get('province_id'))->pluck('name', 'id'))
@@ -725,13 +727,15 @@ class CustomerOperationsTable
                                                 ->live()
                                                 ->hidden(fn(Get $get) => $get('shipping_method') === ProviderShipping::GHN->value)
                                                 ->afterStateUpdated(fn(Set $set) => $set('ward_id', null))
-                                                ->required(fn(Get $get) => $get('shipping_method') !== ProviderShipping::GHN->value),
+                                                ->required(fn(Get $get) => $get('shipping_method') !== ProviderShipping::GHN->value)
+                                                ->extraInputAttributes(['required' => false]),
                                             Select::make('ward_id')
                                                 ->label(__('warehouse.order.form.ward'))
                                                 ->options(fn($get) => Ward::where('district_id', $get('district_id'))->pluck('name', 'id'))
                                                 ->searchable()
                                                 ->hidden(fn(Get $get) => $get('shipping_method') === ProviderShipping::GHN->value)
-                                                ->required(fn(Get $get) => $get('shipping_method') !== ProviderShipping::GHN->value),
+                                                ->required(fn(Get $get) => $get('shipping_method') !== ProviderShipping::GHN->value)
+                                                ->extraInputAttributes(['required' => false]),
                                             Select::make('ghn_province_id')
                                                 ->label(__('warehouse.order.form.province') . ' (GHN)')
                                                 ->options(function (Get $get, \App\Repositories\ShippingConfigRepository $repo) {
@@ -755,7 +759,8 @@ class CustomerOperationsTable
                                     $set('ghn_district_id', null);
                                     $set('ghn_ward_code', null);
                                 })
-                                                ->required(fn(Get $get) => $get('shipping_method') === ProviderShipping::GHN->value),
+                                                ->required(fn(Get $get) => $get('shipping_method') === ProviderShipping::GHN->value)
+                                                ->extraInputAttributes(['required' => false]),
                                             Select::make('ghn_district_id')
                                                 ->label(__('warehouse.order.form.district') . ' (GHN)')
                                                 ->options(function (Get $get, \App\Repositories\ShippingConfigRepository $repo) {
@@ -777,7 +782,8 @@ class CustomerOperationsTable
                                                 ->live()
                                                 ->visible(fn(Get $get) => $get('shipping_method') === ProviderShipping::GHN->value)
                                                 ->afterStateUpdated(fn(Set $set) => $set('ghn_ward_code', null))
-                                                ->required(fn(Get $get) => $get('shipping_method') === ProviderShipping::GHN->value),
+                                                ->required(fn(Get $get) => $get('shipping_method') === ProviderShipping::GHN->value)
+                                                ->extraInputAttributes(['required' => false]),
                                             Select::make('ghn_ward_code')
                                                 ->label(__('warehouse.order.form.ward') . ' (GHN)')
                                                 ->options(function (Get $get, \App\Repositories\ShippingConfigRepository $repo) {
@@ -797,7 +803,8 @@ class CustomerOperationsTable
                                                 ->preload()
                                                 ->native(false)
                                                 ->visible(fn(Get $get) => $get('shipping_method') === ProviderShipping::GHN->value)
-                                                ->required(fn(Get $get) => $get('shipping_method') === ProviderShipping::GHN->value),
+                                                ->required(fn(Get $get) => $get('shipping_method') === ProviderShipping::GHN->value)
+                                                ->extraInputAttributes(['required' => false]),
 
                                             TextInput::make('address')->label(__('warehouse.order.form.address'))->formatStateUsing(fn($record) => $record->address),
                                         ]),
@@ -887,10 +894,11 @@ class CustomerOperationsTable
                                                             (int) $get('../../organization_id'),
                                                             (int) $get('../../warehouse_id')
                                                         ))
-                                                        ->searchable()
-                                                        ->disabled(fn(Get $get) => (int) $get('../../warehouse_id') <= 0)
-                                                        ->required()
-                                                        ->live()
+                                                    ->searchable()
+                                                    ->disabled(fn(Get $get) => (int) $get('../../warehouse_id') <= 0)
+                                                    ->required()
+                                                    ->extraInputAttributes(['required' => false])
+                                                    ->live()
                                                         ->helperText(function (Get $get): ?string {
                                                             $warehouseId = (int) $get('../../warehouse_id');
                                                             $productId = (int) $get('product_id');
@@ -1102,12 +1110,20 @@ class CustomerOperationsTable
                                                             ->label(__('warehouse.order.form.ghn_payment_type_id'))
                                                             ->options(PaymentType::toOptions())
                                                             ->default(PaymentType::BUYER_PAYS_COD->value)
-                                                            ->required(),
+                                                            ->required()
+                                                            ->extraInputAttributes(['required' => false])
+                                                            ->validationMessages([
+                                                                'required' => __('common.error.required'),
+                                                            ]),
                                                         Select::make('ghn_service_type_id')
                                                             ->label(__('warehouse.order.form.ghn_service_type_id'))
                                                             ->options(ServiceType::toOptions())
                                                             ->default(ServiceType::LIGHT->value)
-                                                            ->required(),
+                                                            ->required()
+                                                            ->extraInputAttributes(['required' => false])
+                                                            ->validationMessages([
+                                                                'required' => __('common.error.required'),
+                                                            ]),
                                                         TextInput::make('insurance_value')
                                                             ->label(__('warehouse.order.form.insurance_value'))
                                                             ->numeric()
@@ -1147,6 +1163,7 @@ class CustomerOperationsTable
                                                 ->default(OrderStatus::CONFIRMED->value)
                                                 ->inline()
                                                 ->required()
+                                                ->extraInputAttributes(['required' => false])
                                                 ->validationMessages([
                                                     'required' => __('common.error.required'),
                                                     'in' => __('common.error.in', ['attribute' => 'Trạng thái']),
