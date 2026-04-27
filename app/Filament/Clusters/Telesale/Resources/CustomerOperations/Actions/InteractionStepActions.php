@@ -87,6 +87,7 @@ class InteractionStepActions
             ->required(fn(Get $get) => ReasonInteraction::requiresScheduling((int) $get($reasonField)))
             ->visible(fn(Get $get) => ReasonInteraction::requiresScheduling((int) $get($reasonField)))
             ->helperText(__('telesale.helper.schedule_callback'))
+            ->extraInputAttributes(['required' => false])
             ->rules([
                 static function (string $attribute, mixed $value, \Closure $fail): void {
                     if (blank($value)) {

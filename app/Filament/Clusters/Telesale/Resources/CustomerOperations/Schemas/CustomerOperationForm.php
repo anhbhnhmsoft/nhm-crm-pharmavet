@@ -22,7 +22,11 @@ class CustomerOperationForm
             ->components([
                 TextInput::make('username')
                     ->label(__('common.table.name'))
-                    ->required(),
+                    ->required()
+                    ->extraInputAttributes(['required' => false])
+                    ->validationMessages([
+                        'required' => __('common.error.required'),
+                    ]),
                 TextInput::make('phone')
                     ->label(__('common.table.phone'))
                     ->tel()
